@@ -13,8 +13,6 @@ import json
 
 from threading import Thread
 
-from wei_services.srv import WeiDescription 
-from wei_services.srv import WeiActions 
 
 from pf400_driver.errors import ConnectionException, CommandException
 from pf400_driver.pf400_driver import PF400

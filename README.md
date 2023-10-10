@@ -1,4 +1,4 @@
-# pf400_driver
+# pf400_module
 
 Driver for communicating with the PF400.
 

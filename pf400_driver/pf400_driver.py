@@ -89,10 +89,10 @@ class PF400(KINEMATICS):
 		self.plate_width = 123
 		self.plate_source_rotation = 0 # 90 to rotate 90 degrees
 		self.plate_target_rotation = 0 # 90 to rotate 90 degrees
-		self.plate_ratation_deck = [144.5, -26.352, 114.149, 629.002, 82.081, 995.105]
+		self.plate_ratation_deck = [146.139, -33.811, 107.957, 643.401,	82.122,	995.051]
 		self.plate_lid_deck = [144.5, -26.352, 114.149, 629.002, 82.081, 995.105] 
 		self.plate_camera_deck = [90.597,26.416, 66.422, 714.811, 81.916, 995.074] 
-		self.trash_bin = [218.457, -2.408, 38.829, 683.518, 89.109, 995.074]
+		self.trash_bin = [259.847, -36.810,	69.090,	687.466, 81.002, 995.035]
  	 	
 	def connect(self):
 		"""
@@ -454,6 +454,8 @@ class PF400(KINEMATICS):
 				inverse kinematics calculation will be calculated wrong!
 		"""
 		cartesian_coordinates, phi_angle, rail_pos = self.forward_kinematics(joint_states)
+		# print(cartesian_coordinates)
+		
 		# print(cartesian_coordinates)
 		# Fixing the orientation offset here
 		if rotation_degree == -90: # Yaw 90 to 0 degrees:
@@ -939,6 +941,7 @@ if __name__ == "__main__":
 	gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510] 	 	 	 	 	 	 	 
 
 	thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
+	robot.transfer(sciclops, robot.trash_bin, "narrow", "narrow")
 	#robot.transfer( robot.plate_camera_deck,gamma,"narrow",  "wide")
 	# robot.transfer(sciclops,OT2_alpha_deck_cooler,"narrow","wide")
 	# robot.move_all_joints_neutral()

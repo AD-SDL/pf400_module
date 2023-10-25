@@ -1,0 +1,7 @@
+# As well as these dev tools:
+black
+flake8
+pytest
+isort
+pylint
+pydocstyle

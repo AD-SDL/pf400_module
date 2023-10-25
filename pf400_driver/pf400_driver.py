@@ -1047,7 +1047,7 @@ if __name__ == "__main__":
     peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
 
 	thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
-	# robot.transfer(sciclops, robot.trash_bin, "narrow", "narrow")
+	robot.transfer(sciclops, robot.trash_bin, "narrow", "narrow")
 	#robot.transfer( robot.plate_camera_deck,gamma,"narrow",  "wide")
 	# robot.transfer(sciclops,OT2_alpha_deck_cooler,"narrow","wide")
 	# robot.move_all_joints_neutral()

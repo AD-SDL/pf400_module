@@ -107,12 +107,8 @@ class KINEMATICS:
         x_second_joint = xe - self.end_effector_length * math.cos(phi_e)
         y_second_joint = ye - self.end_effector_length * math.sin(phi_e)
 
-<<<<<<< HEAD
-        radius = math.sqrt(x_second_joint**2 + y_second_joint**2) 
-        # print((radius * radius + self.shoulder_length * self.shoulder_length - self.elbow_length * self.elbow_length)/(2 * radius * self.shoulder_length))
-        gamma = math.acos((radius * radius + self.shoulder_length * self.shoulder_length - self.elbow_length * self.elbow_length)/(2 * radius * self.shoulder_length)) 
-=======
         radius = math.sqrt(x_second_joint**2 + y_second_joint**2)
+        # print((radius * radius + self.shoulder_length * self.shoulder_length - self.elbow_length * self.elbow_length)/(2 * radius * self.shoulder_length))
         gamma = math.acos(
             (
                 radius * radius
@@ -121,7 +117,6 @@ class KINEMATICS:
             )
             / (2 * radius * self.shoulder_length)
         )
->>>>>>> 8171791851f1a423fb4f8ef9c63686f93a6d23ee
 
         theta2 = math.pi - math.acos(
             (

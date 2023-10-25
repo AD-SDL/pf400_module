@@ -90,24 +90,15 @@ class PF400(KINEMATICS):
         self.above = [self.sample_above_height, 0, 0, 0, 0, 0]
         self.y_recoil = 300.0
 
-		# Plate variables
-		self.plate_state = 0
-		self.plate_width = 123
-		self.plate_source_rotation = 0 # 90 to rotate 90 degrees
-		self.plate_target_rotation = 0 # 90 to rotate 90 degrees
-		self.plate_ratation_deck = [146.139, -33.811, 107.957, 643.401,	82.122,	995.051]
-		self.plate_lid_deck = [144.5, -26.352, 114.149, 629.002, 82.081, 995.105] 
-		self.plate_camera_deck = [90.597,26.416, 66.422, 714.811, 81.916, 995.074] 
-		self.trash_bin = [259.847, -36.810,	69.090,	687.466, 81.002, 995.035]
- 	 	
-	def connect(self):
-		"""
-		Decription: Create a streaming socket to send string commands to the robot. 
-		"""   
-		try:
-			self.connection = telnetlib.Telnet(self.host, self.port, 5)
-		except TimeoutError:
-			raise ConnectionException(err_message="Timed out error")
+        # Plate variables
+        self.plate_state = 0
+        self.plate_width = 123
+        self.plate_source_rotation = 0  # 90 to rotate 90 degrees
+        self.plate_target_rotation = 0  # 90 to rotate 90 degrees
+        self.plate_rotation_deck = [146.5, -33.811, 107.957, 643.401, 82.122, 995.051]
+        self.plate_lid_deck = [145.0, -26.352, 114.149, 629.002, 82.081, 995.105]
+        self.plate_camera_deck = [90.597, 26.416, 66.422, 714.811, 81.916, 995.074]
+        self.trash_bin = [259.847, -36.810, 69.090, 687.466, 81.002, 995.035]
 
     def connect(self):
         """
@@ -476,26 +467,8 @@ class PF400(KINEMATICS):
 
         return out_msg
 
-	def set_plate_rotation(self, joint_states, rotation_degree = 0):
-		"""
-		Description:
-		Parameters:
-			- joint_states:
-			- rotation_degree: 
-		Note: If the rotation requires changing the "Quadrant" on the coordinate plane, 
-				inverse kinematics calculation will be calculated wrong!
-		"""
-		cartesian_coordinates, phi_angle, rail_pos = self.forward_kinematics(joint_states)
-		# print(cartesian_coordinates)
-		
-		# print(cartesian_coordinates)
-		# Fixing the orientation offset here
-		if rotation_degree == -90: # Yaw 90 to 0 degrees:
-			cartesian_coordinates[1] += 4
-			cartesian_coordinates[0] += 29
-		elif rotation_degree == 90 :
-			cartesian_coordinates[1] -= 4
-			cartesian_coordinates[0] -= 29
+    def set_gripper_open(self):
+        self.send_command("GripOpenPos " + str(self.gripper_open_state))
 
     def set_gripper_close(self):
         self.send_command("GripClosePos " + str(self.gripper_closed_state))
@@ -1042,18 +1015,19 @@ if __name__ == "__main__":
     # from pf400_driver.pf400_driver import PF400
     robot = PF400()
 
-    sciclops = [222.0, -38.068, 335.876, 325.434, 79.923, 995.062]
+    sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
     sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
     peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
 
-	thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
-	robot.transfer(sciclops, robot.trash_bin, "narrow", "narrow")
-	#robot.transfer( robot.plate_camera_deck,gamma,"narrow",  "wide")
-	# robot.transfer(sciclops,OT2_alpha_deck_cooler,"narrow","wide")
-	# robot.move_all_joints_neutral()
-	# robot.move_joint([160.485, 60.452, 234.133, 422.715, 81.916, 995.074])
-	# robot.rotate_plate_on_deck(-90)
-	# robot.transfer(OT2_alpha_deck_cooler,sciclops, "wide","narrow")
+    thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
+    # robot.transfer(sciclops, sealer, "narrow", "wide")
+    # robot.place_plate(robot.trash_bin)
+    # robot.transfer( robot.plate_camera_deck,gamma,"narrow",  "wide")
+    # robot.transfer(sciclops,OT2_alpha_deck_cooler,"narrow","wide")
+    # robot.move_all_joints_neutral()
+    # robot.move_joint([160.485, 60.452, 234.133, 422.715, 81.916, 995.074])
+    # robot.rotate_plate_on_deck(-90)
+    # robot.transfer(OT2_alpha_deck_cooler,sciclops, "wide","narrow")
 
     gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
 

@@ -169,7 +169,8 @@ def do_action(action_handle: str, action_vars):
         return
     action_start = datetime.datetime.now()
     if state == "PF400 CONNECTION ERROR":
-        response["action_response"] = "Connection error, cannot accept a job!"
+        response["action_response"] = "failed"
+        response["action_log"] = "Connection error, cannot accept a job!"
         return response
 
     sleep(
@@ -198,8 +199,8 @@ def do_action(action_handle: str, action_vars):
             msg = "Position 2 should be six joint angles lenght. Canceling the job!"
 
         if err:
-            response["action_response"] = -1
-            response["action_msg"] = msg
+            response["action_response"] = "failed"
+            response["action_log"] = msg
             state = "ERROR"
             return response
 
@@ -214,13 +215,12 @@ def do_action(action_handle: str, action_vars):
 
         try:
             pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
-
         except Exception:
             state = "ERROR"
-
+            response["action_response"] = "failed"
         else:
             state = "IDLE"
-
+            response["action_response"] = "succeeded"
         finally:
             return response
 
@@ -240,6 +240,9 @@ def do_action(action_handle: str, action_vars):
             state = "ERROR"
 
         if err:
+            response["action_response"] = "failed"
+            response["action_log"] = msg
+            state = "ERROR"
             return response
 
         if "target_plate_rotation" not in vars.keys():
@@ -254,10 +257,11 @@ def do_action(action_handle: str, action_vars):
         try:
             pf400.remove_lid(target, lid_height, target_plate_rotation)
         except Exception:
+            response["action_response"] = "failed"
             state = "ERROR"
         else:
             state = "IDLE"
-
+            response["action_response"] = "succeeded"
         finally:
             return response
 
@@ -277,6 +281,9 @@ def do_action(action_handle: str, action_vars):
             state = "ERROR"
 
         if err:
+            response["action_response"] = "failed"
+            response["action_log"] = msg
+            state = "ERROR"
             return response
 
         if "target_plate_rotation" not in vars.keys():
@@ -293,15 +300,19 @@ def do_action(action_handle: str, action_vars):
         try:
             pf400.replace_lid(target, lid_height, target_plate_rotation)
         except Exception:
+            response["action_response"] = "failed"
             state = "ERROR"
         else:
             state = "IDLE"
+            response["action_response"] = "succeeded"
         finally:
             return response
 
     else:
         msg = "UNKNOWN ACTION REQUEST! Available actions: explore_workcell, transfer, remove_lid, replace_lid"
         state = "ERROR"
+        response["action_response"] = "failed"
+        response["action_log"] = msg
         return response
 
 

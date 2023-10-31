@@ -1,6 +1,6 @@
 from setuptools import find_packages, setup
 
-install_requires = ["socket", "fastapi", "uvicorn"]
+install_requires = ["fastapi", "uvicorn"]
 
 setup(
     name="pf400_driver",

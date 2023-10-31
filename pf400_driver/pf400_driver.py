@@ -40,6 +40,8 @@ class PF400(KINEMATICS):
 
         # Default Motion Profile Parameters. Using two profiles for faster and slower movements
         self.motion_profiles = motion_profiles
+        self.slow_motion_profile = 1
+        self.fast_motion_profile = 2 
 
         # Output code list of the PF400
         self.output_codes = output_codes
@@ -765,7 +767,7 @@ class PF400(KINEMATICS):
         gripper_neutral = self.get_joint_states()
         gripper_neutral[3] = self.neutral_joints[3]
 
-        self.move_joint(gripper_neutral, 1)
+        self.move_joint(gripper_neutral, self.slow_motion_profile)
 
     def move_arm_neutral(self):
         """
@@ -776,7 +778,7 @@ class PF400(KINEMATICS):
         arm_neutral[0] = current_location[0]
         arm_neutral[5] = current_location[5]
 
-        self.move_joint(arm_neutral, 1)
+        self.move_joint(arm_neutral, self.slow_motion_profile)
 
     def move_rails_neutral(self, v_rail: float = None, h_rail: float = None):
         # Setting the target location's linear rail position for pf400_neutral
@@ -789,10 +791,10 @@ class PF400(KINEMATICS):
             h_rail = current_location[5]  # Keep the horizontal rail same
 
         self.neutral_joints[0] = v_rail + self.sample_above_height
-        self.move_joint(self.neutral_joints, 1)
+        self.move_joint(self.neutral_joints, self.slow_motion_profile)
 
         self.neutral_joints[5] = h_rail
-        self.move_joint(self.neutral_joints, 2)
+        self.move_joint(self.neutral_joints, self.fast_motion_profile)
 
     def move_all_joints_neutral(self, target_location=None):
         """
@@ -888,8 +890,8 @@ class PF400(KINEMATICS):
         abovePos = list(map(add, target, self.above))
 
         self.move_all_joints_neutral(target)
-        self.move_joint(abovePos, 1)
-        self.move_joint(target, 1)
+        self.move_joint(abovePos, self.slow_motion_profile)
+        self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
@@ -904,8 +906,8 @@ class PF400(KINEMATICS):
         target = self.set_plate_rotation(target, rotation_degree)
         # print(target)
         abovePos = list(map(add, target, self.above))
-        self.move_joint(abovePos, 1)
-        self.move_joint(target, 1, False, True)
+        self.move_joint(target_joint_angles = abovePos, profile = self.slow_motion_profile)
+        self.move_joint(target_joint_angles = target, profile = self.slow_motion_profile, gripper_open = True)
         self.grab_plate(self.plate_width, 100, 10)
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
@@ -919,34 +921,26 @@ class PF400(KINEMATICS):
         """
         Description:
         """
-        fast_profile = 2
 
         abovePos = list(map(add, source_location, self.above))
         self.gripper_open()
         self.move_all_joints_neutral(source_location)
-        self.move_joint(abovePos, fast_profile)
-        self.move_joint(source_location, fast_profile, False, True)
+        self.move_joint(target_joint_angles= abovePos, profile = self.fast_motion_profile)
+        self.move_joint(target_joint_angles = source_location, profile = self.fast_motion_profile, gripper_open = True)
         self.grab_plate(self.plate_width, 100, 10)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
         self.move_all_joints_neutral(source_location)
 
-        # TODO: USE BELOW MOVE_ONE_AXIS FUNCTIONS TO MOVE ABOVE AND FRONT OF THE EACH TARGET LOCATIONS
-        # self.move_in_one_axis_from_target(target_location, profile = 2, axis_x = 60, axis_y = 0, axis_z = 60)
-        # self.move_in_one_axis_from_target(target_location, profile = 1, axis_x = 0, axis_y = 0, axis_z = 60)
-
     def place_plate(self, target_location):
         """
         Description:
         """
-        slow_profile = 1
-
         abovePos = list(map(add, target_location, self.above))
-
         self.move_all_joints_neutral(target_location)
-        self.move_joint(abovePos, slow_profile)
-        self.move_joint(target_location, slow_profile)
+        self.move_joint(abovePos, self.slow_motion_profile)
+        self.move_joint(target_location, self.slow_motion_profile)
         self.release_plate()
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
@@ -1019,53 +1013,5 @@ if __name__ == "__main__":
     sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
     sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
     peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
-
     thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
-    # robot.transfer(sciclops, sealer, "narrow", "wide")
-    # robot.place_plate(robot.trash_bin)
-    # robot.transfer( robot.plate_camera_deck,gamma,"narrow",  "wide")
-    # robot.transfer(sciclops,OT2_alpha_deck_cooler,"narrow","wide")
-    # robot.move_all_joints_neutral()
-    # robot.move_joint([160.485, 60.452, 234.133, 422.715, 81.916, 995.074])
-    # robot.rotate_plate_on_deck(-90)
-    # robot.transfer(OT2_alpha_deck_cooler,sciclops, "wide","narrow")
-
     gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
-
-    thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
-    # robot.transfer( robot.plate_camera_deck,gamma,"narrow",  "wide")
-    # robot.transfer(sciclops,OT2_alpha_deck_cooler,"narrow","wide")
-    # robot.move_all_joints_neutral()
-    # robot.move_joint([160.485, 60.452, 234.133, 422.715, 81.916, 995.074])
-    # robot.rotate_plate_on_deck(-90)
-    # robot.transfer(OT2_alpha_deck_cooler,sciclops, "wide","narrow")
-
-    # robot.transfer(OT2_alpha_deck_cooler,sciclops, "wide","narrow")
-
-    # robot.transfer(OT2_betha_deck_2,sealer,"wide","narrow")
-    # robot.transfer(sealer,thermocycler,"narrow","wide")
-    # robot.transfer(thermocycler,peeler,"wide","narrow")
-    # robot.transfer(sciclops,peeler)
-    # robot.transfer(peeler,sciclops)
-
-    # robot.pick_plate(sciclops)
-    # robot.place_plate(OT2_betha_deck_2)
-    # robot.place_plate(thermocycler)
-    # robot.pick_plate(sciclops)
-    # robot.place_plate(sealer)
-    # robot.pick_plate(peeler)
-    # robot.place_plate(sciclops)
-    # robot.pick_plate(sealer)
-    # robot.place_plate(peeler)
-
-    # robot.transfer(pos1, peeler, "narrow", "narrow")
-    # robot.remove_lid(peeler)
-    # robot.replace_lid(peeler)
-    # print(peeler)
-    # robot.transfer(peeler, pos1, "narrow", "narrow")
-
-    # robot.transfer(thermo2, pos1, "wide", "narrow")
-    # robot.transfer(pos2,pos1,90,0)
-    # robot.transfer(thermo2, pos1 ,"wide","narrow")
-    # robot.transfer(loc2,pos1,0,0)
-    # robot.move_joint([262.55, -23.64349487517494, 347.28258625587307, 658.8289086193018, 123.0, 574.367])

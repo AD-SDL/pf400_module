@@ -789,8 +789,9 @@ class PF400(KINEMATICS):
             h_rail = current_location[5]  # Keep the horizontal rail same
 
         self.neutral_joints[0] = v_rail + self.sample_above_height
-        self.neutral_joints[5] = h_rail
+        self.move_joint(self.neutral_joints, 1)
 
+        self.neutral_joints[5] = h_rail
         self.move_joint(self.neutral_joints, 2)
 
     def move_all_joints_neutral(self, target_location=None):

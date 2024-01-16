@@ -178,7 +178,7 @@ async def about() -> JSONResponse:
         name="Pf400 Module",
         description="A module that controls the pf400",
         # TODO: check if this is the right node
-        interface="wei_pf400_node",
+        interface="wei_rest_node",
         version=extract_version(Path(__file__).parent.parent / "pyproject.toml"),
         actions=[
             ModuleAction(

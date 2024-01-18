@@ -176,36 +176,35 @@ async def about() -> JSONResponse:
     global state
     about = ModuleAbout(
         name="Pf400 Module",
-        description="A module that controls the pf400",
-        # TODO: check if this is the right node
+        description="pf400 is a robot module that moves plates between two robot locations.",
         interface="wei_rest_node",
         version=extract_version(Path(__file__).parent.parent / "pyproject.toml"),
         actions=[
             ModuleAction(
                 name="transfer",
-                description="Move plate from one location to another",
+                description="This action transfers a plate from a source robot location to a target robot location",
                 args=[
                     ModuleActionArg(
                         name="source",
-                        description="Source location to transfer from, as an str",
+                        description="Source location in the workcell for pf400 to grab plate from",
                         type="str",
                         required=True,
                     ), 
                     ModuleActionArg(
                         name="target",
-                        description="Destination location to transfer to, as an str", 
+                        description="Transfer location in the workcell for pf400 to transfer plate to", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="source_plate_rotation", 
-                        description="Plate rotation for source location, as an str", 
+                        description="Plate rotation for source location in the workcell", 
                         type="str", 
                         required=True
                     ),
                     ModuleActionArg(
                         name="target_plate_rotation", 
-                        description="Plate rotation for target location, as an str", 
+                        description="Plate rotation for target location in the workcell", 
                         type="str", 
                         required=True
                     )
@@ -213,24 +212,23 @@ async def about() -> JSONResponse:
             ), 
             ModuleAction(
                 name="remove_lid", 
-                # TODO: does this action actually remove the lid off of something?
-                description="Removes the lid off of a target machine", 
+                description="This action removes the lid off of a plate", 
                 args=[
                     ModuleActionArg(
                         name="target",
-                        description="Location of target equipment to remove lid, as an str", 
+                        description="Target location in the workcell that the plate is currently at", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="lid_height", 
-                        description="Lid height of target equipment, as an str", 
+                        description="Lid height of the target plate", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="target_plate_rotation", 
-                        description="Rotation of plate at target equipment, as an str", 
+                        description="Rotation of plate at target location in the workcell", 
                         type="str", 
                         required=True
                     )
@@ -238,23 +236,23 @@ async def about() -> JSONResponse:
             ), 
             ModuleAction(
                 name="replace_lid", 
-                description="Replaces the lid of a target machine", 
+                description="This action places a lid on a plate with no lid.", 
                 args=[
                     ModuleActionArg(
                         name="target",
-                        description="Location of target equipment to replace lid, as an str", 
+                        description="Target location in workcell that plate is currently at.", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="lid_height", 
-                        description="Lid height of target equipment, as an str", 
+                        description="Lid height of the target plate", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="target_plate_rotation", 
-                        description="Rotation of plate at target equipment, as an str", 
+                        description="Rotation of plate at target location in the workcell", 
                         type="str", 
                         required=True
                     )

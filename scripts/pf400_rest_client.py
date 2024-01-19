@@ -175,36 +175,36 @@ async def about() -> JSONResponse:
     """Returns a description of the actions and resources the module supports"""
     global state
     about = ModuleAbout(
-        name="Pf400 Module",
+        name="Pf400 Robotic Arm",
         description="pf400 is a robot module that moves plates between two robot locations.",
         interface="wei_rest_node",
         version=extract_version(Path(__file__).parent.parent / "pyproject.toml"),
         actions=[
             ModuleAction(
                 name="transfer",
-                description="This action transfers a plate from a source robot location to a target robot location",
+                description="This action transfers a plate from a source robot location to a target robot location.",
                 args=[
                     ModuleActionArg(
                         name="source",
-                        description="Source location in the workcell for pf400 to grab plate from",
+                        description="Source location in the workcell for pf400 to grab plate from.",
                         type="str",
                         required=True,
                     ), 
                     ModuleActionArg(
                         name="target",
-                        description="Transfer location in the workcell for pf400 to transfer plate to", 
+                        description="Transfer location in the workcell for pf400 to transfer plate to.", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="source_plate_rotation", 
-                        description="Plate rotation for source location in the workcell", 
+                        description="Plate rotation for source location in the workcell.", 
                         type="str", 
                         required=True
                     ),
                     ModuleActionArg(
                         name="target_plate_rotation", 
-                        description="Plate rotation for target location in the workcell", 
+                        description="Plate rotation for target location in the workcell.", 
                         type="str", 
                         required=True
                     )
@@ -216,19 +216,19 @@ async def about() -> JSONResponse:
                 args=[
                     ModuleActionArg(
                         name="target",
-                        description="Target location in the workcell that the plate is currently at", 
+                        description="Target location in the workcell that the plate is currently at.", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="lid_height", 
-                        description="Lid height of the target plate", 
+                        description="Lid height of the target plate.", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="target_plate_rotation", 
-                        description="Rotation of plate at target location in the workcell", 
+                        description="Rotation of plate at target location in the workcell.", 
                         type="str", 
                         required=True
                     )
@@ -246,13 +246,13 @@ async def about() -> JSONResponse:
                     ), 
                     ModuleActionArg(
                         name="lid_height", 
-                        description="Lid height of the target plate", 
+                        description="Lid height of the target plate.", 
                         type="str", 
                         required=True
                     ), 
                     ModuleActionArg(
                         name="target_plate_rotation", 
-                        description="Rotation of plate at target location in the workcell", 
+                        description="Rotation of plate at target location in the workcell.", 
                         type="str", 
                         required=True
                     )

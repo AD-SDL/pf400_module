@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-"""The server for the PF400 arm that takes incoming WEI flow requests from the experiment application"""
+"""The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
 import datetime
 import json
@@ -320,7 +320,7 @@ if __name__ == "__main__":
     parser.add_argument("--port", type=int, help="port value")
     args = parser.parse_args()
     uvicorn.run(
-        "pf400_rest_client:app",
+        "pf400_rest_node:app",
         host=args.host,
         port=args.port,
         reload=True,

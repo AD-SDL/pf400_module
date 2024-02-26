@@ -1,7 +1,7 @@
 [project]
-name = "ot2_module"
+name = "pf400_module"
 version = "0.2.0"
-description = "Software for automatting an Opentrons OT2"
+description = "Software for automatting a PF400 robot"
 authors = [
     {name = "Ryan D. Lewis", email="ryan.lewis@anl.gov"},
     {name = "Rafael Vescovi", email="ravescovi@anl.gov"},
@@ -9,7 +9,6 @@ authors = [
     {name = "Abe Stroka", email="astroka@anl.gov"},
     {name = "Kyle Hippe", email = "khippe@anl.gov"},
     {name = "Tobias Ginsburg", email = "tginsburg@anl.gov"},
-    {name = "Dozgulbas", email = "dozgulbas@anl.gov"},
 ]
 dependencies = [
     "ad_sdl.wei>=0.5.3",
@@ -25,7 +24,7 @@ readme = "README.md"
 license = {text = "MIT"}
 
 [project.urls]
-homepage = "https://github.com/AD-SDL/ot2_module"
+homepage = "https://github.com/AD-SDL/pf400_module"
 
 [project.optional-dependencies]
 docs = [
@@ -43,11 +42,11 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*", "ot2_driver*"]
+include = ["scripts*", "pf400_driver*"]
 exclude = ["*tests*", "scripts*"]
 
 [tool.setuptools.package-data]
-ot2_module = ["*.template"]
+pf400_module = ["*.template"]
 
 #####################
 # Development Tools #

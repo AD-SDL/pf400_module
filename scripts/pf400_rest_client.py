@@ -15,10 +15,10 @@ from pf400_driver.pf400_driver import PF400
 
 workcell = None
 global pf400, state, action_start
-serial_port = "/dev/ttyUSB0"
 local_ip = "parker.alcf.anl.gov"
 local_port = "8000"
-
+pf400_ip = "146.137.240.35"
+pf400_port = 10100
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -32,14 +32,11 @@ async def lifespan(app: FastAPI):
         Returns
         -------
         None"""
-    ip = "127.0.0.1"
-    port = 8085
 
-    ip = "146.137.240.35"
-    port = 10100
+
 
     try:
-        pf400 = PF400(ip, port)
+        pf400 = PF400(pf400_ip, pf400_port)
         pf400.initialize_robot()
         state = "IDLE"
 
@@ -94,9 +91,7 @@ def check_state():
         if try_connect:
             state = "ERROR"
             try:
-                ip = "146.137.240.35"
-                port = 10100
-                pf400 = PF400(ip, port)
+                pf400 = PF400(pf400_ip, pf400_port)
                 pf400.initialize_robot()
                 state = "IDLE"
 

@@ -19,6 +19,6 @@ COPY ./tests ot2_module/tests
 RUN --mount=type=cache,target=/root/.cache \
     pip install -e ./ot2_module
 
-CMD ["python", "ot2_module/src/ot2_rest_node.py"]
+CMD ["python", "pf400_module/scripts/pf400_rest_client.py"]
 
 #########################################

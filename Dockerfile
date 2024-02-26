@@ -14,11 +14,11 @@ COPY ./pf400_driver pf400_module/pf400_driver
 COPY ./scripts pf400_module/scripts
 COPY ./README.md pf400_module/README.md
 COPY ./pyproject.toml pf400_module/pyproject.toml
-COPY ./tests pf400_module/tests
+# COPY ./tests pf400_module/tests
 
 RUN --mount=type=cache,target=/root/.cache \
     pip install -e ./pf400_module
 
-CMD ["python", "pf400_module/scripts/pf400_rest_client.py"]
+CMD ["python", "pf400_module/scripts/pf400_rest_node.py"]
 
 #########################################

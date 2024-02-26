@@ -1,7 +1,7 @@
-name: ot2_module
+name: pf400_module
 services:
-  ot2_module:
-    container_name: ot2_module
+  pf400_module:
+    container_name: pf400_module
     image: ${IMAGE}
     build:
       context: .
@@ -10,11 +10,11 @@ services:
         - ${IMAGE}:latest
         - ${IMAGE}:${PROJECT_VERSION}
         - ${IMAGE}:dev
-    command: python ot2_module/src/ot2_rest_node.py --port 2000 --ot2_ip ${OT2_IP}
+    command: python pf400_module/src/pf400_rest_node.py
     privileged: true
     env_file: .env
     volumes:
-      - ./src:/home/app/ot2_module/src
-      - ./tests:/home/app/ot2_module/tests
+      - ./src:/home/app/pf400_module/scripts
+      - ./tests:/home/app/pf400_module/tests
     ports:
       - 2000:2000

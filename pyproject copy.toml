@@ -1,5 +1,5 @@
 [project]
-name = "ot2_module"
+name = "pf400_module"
 version = "0.2.0"
 description = "Software for automatting a PF400 robot"
 authors = [
@@ -9,7 +9,6 @@ authors = [
     {name = "Abe Stroka", email="astroka@anl.gov"},
     {name = "Kyle Hippe", email = "khippe@anl.gov"},
     {name = "Tobias Ginsburg", email = "tginsburg@anl.gov"},
-    {name = "Dozgulbas", email = "dozgulbas@anl.gov"},
 ]
 dependencies = [
     "ad_sdl.wei>=0.5.3",
@@ -43,7 +42,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["src*", "ot2_driver*"]
+include = ["scripts*", "pf400_driver*"]
 exclude = ["*tests*", "scripts*"]
 
 [tool.setuptools.package-data]

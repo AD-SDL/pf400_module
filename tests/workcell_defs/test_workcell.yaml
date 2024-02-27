@@ -1,0 +1,19 @@
+name: Test_Workcell
+
+#Info about data processing and location of the workcell
+config:
+  workcell_origin_coordinates: [0, 0, 0, 0, 0, 0]
+  redis_host: "wei_redis"
+  server_host: "wei_server"
+  server_port: 8000
+
+#List of all components accessible in this workcell
+modules:
+  - name: ot2_module
+    model: Opentrons OT2
+    interface: wei_rest_node
+    config:
+      rest_node_address: "http://ot2_module:2000"
+    workcell_coordinates: [0, 0, 0, 0, 0, 0]
+
+locations: {}

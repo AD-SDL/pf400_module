@@ -15,6 +15,7 @@ from pf400_driver.pf400_driver import PF400
 
 workcell = None
 global pf400, state, action_start
+
 local_ip = "parker.alcf.anl.gov"
 local_port = "8000"
 pf400_ip = "146.137.240.35"

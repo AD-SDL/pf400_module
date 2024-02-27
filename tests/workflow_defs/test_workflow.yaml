@@ -1,0 +1,16 @@
+name: Test ot2_module Module
+metadata:
+  author: Ryan D. Lewis
+  info: Tests the functionality of the ot2_module Module
+  version: 0.1
+
+modules:
+  - name: ot2_module
+
+flowdef:
+  - name: Run protocol
+    module: ot2_module
+    action: run_protocol
+    args:
+      config_path: "ot2_module/ot2_driver/protopiler/test_configs/test_mix.yaml"
+      use_existing_resources: False

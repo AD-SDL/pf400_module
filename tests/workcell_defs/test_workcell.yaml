@@ -9,11 +9,11 @@ config:
 
 #List of all components accessible in this workcell
 modules:
-  - name: ot2_module
-    model: Opentrons OT2
+
+  - name: pf400
+    model: Brooks Automation PF400
     interface: wei_rest_node
     config:
-      rest_node_address: "http://ot2_module:2000"
+      rest_node_address: "http://pf400_module:3000"
     workcell_coordinates: [0, 0, 0, 0, 0, 0]
-
 locations: {}

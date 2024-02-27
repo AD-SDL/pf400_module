@@ -1,5 +1,5 @@
 #! /usr/bin/env python3
-"""The server for the PF400 arm that takes incoming WEI flow requests from the experiment application"""
+"""The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
 import datetime
 import json
@@ -25,14 +25,15 @@ from pf400_driver.pf400_driver import PF400
 
 workcell = None
 global pf400, state, action_start
-serial_port = "/dev/ttyUSB0"
+
 local_ip = "parker.alcf.anl.gov"
 local_port = "8000"
-
+pf400_ip = ""
+pf400_port = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pf400, state
+    global pf400, state, pf400_ip, pf400_port
     """Initial run function for the app, parses the workcell argument
         Parameters
         ----------
@@ -42,14 +43,11 @@ async def lifespan(app: FastAPI):
         Returns
         -------
         None"""
-    ip = "127.0.0.1"
-    port = 8085
 
-    ip = "146.137.240.35"
-    port = 10100
+
 
     try:
-        pf400 = PF400(ip, port)
+        pf400 = PF400(pf400_ip, pf400_port)
         pf400.initialize_robot()
         state = "IDLE"
 
@@ -104,9 +102,7 @@ def check_state():
         if try_connect:
             state = "ERROR"
             try:
-                ip = "146.137.240.35"
-                port = 10100
-                pf400 = PF400(ip, port)
+                pf400 = PF400(pf400_ip, pf400_port)
                 pf400.initialize_robot()
                 state = "IDLE"
 
@@ -424,12 +420,18 @@ if __name__ == "__main__":
     import uvicorn
 
     parser = ArgumentParser()
-    parser.add_argument("--alias", type=str, help="Name of the Node")
-    parser.add_argument("--host", type=str, help="Host for rest")
+    parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
+    parser.add_argument("--host", type=str, help="Host for rest", default= "0.0.0.0")
     parser.add_argument("--port", type=int, help="port value")
+    parser.add_argument("--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35")
+    parser.add_argument("--pf400_port", type=int, help="pf400 port value", default=10100)
+
     args = parser.parse_args()
+    pf400_ip = args.pf400_ip
+    pf400_port = args.pf400_port
+
     uvicorn.run(
-        "pf400_rest_client:app",
+        "pf400_rest_node:app",
         host=args.host,
         port=args.port,
         reload=True,

@@ -1,0 +1,4 @@
+# TODO: Will this need to become a list? Or should driver be one-to-one
+ip: 1.1.1.1 # Replace with real ot2 thing later
+port: 31950
+model: OT2

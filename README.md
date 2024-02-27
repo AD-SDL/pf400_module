@@ -16,7 +16,7 @@ pip install -e .
 In `/scripts`, run the following
 
 ```
-python3 pf400_rest_client.py --host=<hostname> --port 3000 --alias pf400
+python3 pf400_rest_node.py --host=<hostname> --port 3000 --alias pf400
 ```
 
 You can use `0.0.0.0` as the hostname to connect from any device on the local network.

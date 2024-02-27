@@ -319,13 +319,13 @@ if __name__ == "__main__":
     parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
     parser.add_argument("--host", type=str, help="Host for rest", default= "0.0.0.0")
     parser.add_argument("--port", type=int, help="port value")
-    parser.add_argument("--pf400_ip", type=int, help="pf400 ip value", default="146.137.240.35")
+    parser.add_argument("--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35")
     parser.add_argument("--pf400_port", type=int, help="pf400 port value", default=10100)
 
     args = parser.parse_args()
     pf400_ip = args.pf400_ip
     pf400_port = args.pf400_port
-    
+
     uvicorn.run(
         "pf400_rest_node:app",
         host=args.host,

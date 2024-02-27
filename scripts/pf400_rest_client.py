@@ -6,9 +6,19 @@ import json
 from argparse import ArgumentParser
 from contextlib import asynccontextmanager
 from time import sleep
+from pathlib import Path
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from wei.core.data_classes import (
+    ModuleAbout,
+    ModuleAction,
+    ModuleActionArg,
+    ModuleStatus,
+    StepResponse,
+    StepStatus,
+)
+from wei.helpers import extract_version
 
 from pf400_driver.errors import ConnectionException
 from pf400_driver.pf400_driver import PF400
@@ -158,6 +168,100 @@ async def description():
 async def resources():
     global pf400
     return JSONResponse(content={"State": pf400.get_status()})
+
+
+@app.get("/about")
+async def about() -> JSONResponse:
+    """Returns a description of the actions and resources the module supports"""
+    global state
+    about = ModuleAbout(
+        name="Pf400 Robotic Arm",
+        description="pf400 is a robot module that moves plates between two robot locations.",
+        interface="wei_rest_node",
+        version=extract_version(Path(__file__).parent.parent / "pyproject.toml"),
+        actions=[
+            ModuleAction(
+                name="transfer",
+                description="This action transfers a plate from a source robot location to a target robot location.",
+                args=[
+                    ModuleActionArg(
+                        name="source",
+                        description="Source location in the workcell for pf400 to grab plate from.",
+                        type="str",
+                        required=True,
+                    ), 
+                    ModuleActionArg(
+                        name="target",
+                        description="Transfer location in the workcell for pf400 to transfer plate to.", 
+                        type="str", 
+                        required=True
+                    ), 
+                    ModuleActionArg(
+                        name="source_plate_rotation", 
+                        description="Plate rotation for source location in the workcell.", 
+                        type="str", 
+                        required=True
+                    ),
+                    ModuleActionArg(
+                        name="target_plate_rotation", 
+                        description="Plate rotation for target location in the workcell.", 
+                        type="str", 
+                        required=True
+                    )
+                ],
+            ), 
+            ModuleAction(
+                name="remove_lid", 
+                description="This action removes the lid off of a plate", 
+                args=[
+                    ModuleActionArg(
+                        name="target",
+                        description="Target location in the workcell that the plate is currently at.", 
+                        type="str", 
+                        required=True
+                    ), 
+                    ModuleActionArg(
+                        name="lid_height", 
+                        description="Lid height of the target plate.", 
+                        type="str", 
+                        required=True
+                    ), 
+                    ModuleActionArg(
+                        name="target_plate_rotation", 
+                        description="Rotation of plate at target location in the workcell.", 
+                        type="str", 
+                        required=True
+                    )
+                ]
+            ), 
+            ModuleAction(
+                name="replace_lid", 
+                description="This action places a lid on a plate with no lid.", 
+                args=[
+                    ModuleActionArg(
+                        name="target",
+                        description="Target location in workcell that plate is currently at.", 
+                        type="str", 
+                        required=True
+                    ), 
+                    ModuleActionArg(
+                        name="lid_height", 
+                        description="Lid height of the target plate.", 
+                        type="str", 
+                        required=True
+                    ), 
+                    ModuleActionArg(
+                        name="target_plate_rotation", 
+                        description="Rotation of plate at target location in the workcell.", 
+                        type="str", 
+                        required=True
+                    )
+                ]
+            )
+        ],
+        resource_pools=[],
+    )
+    return JSONResponse(content=about.model_dump(mode="json"))
 
 
 @app.post("/action")

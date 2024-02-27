@@ -18,12 +18,12 @@ global pf400, state, action_start
 
 local_ip = "parker.alcf.anl.gov"
 local_port = "8000"
-pf400_ip = "146.137.240.35"
-pf400_port = 10100
+pf400_ip = ""
+pf400_port = None
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pf400, state
+    global pf400, state, pf400_ip, pf400_port
     """Initial run function for the app, parses the workcell argument
         Parameters
         ----------
@@ -316,10 +316,16 @@ if __name__ == "__main__":
     import uvicorn
 
     parser = ArgumentParser()
-    parser.add_argument("--alias", type=str, help="Name of the Node")
-    parser.add_argument("--host", type=str, help="Host for rest")
+    parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
+    parser.add_argument("--host", type=str, help="Host for rest", default= "0.0.0.0")
     parser.add_argument("--port", type=int, help="port value")
+    parser.add_argument("--pf400_ip", type=int, help="pf400 ip value", default="146.137.240.35")
+    parser.add_argument("--pf400_port", type=int, help="pf400 port value", default=10100)
+
     args = parser.parse_args()
+    pf400_ip = args.pf400_ip
+    pf400_port = args.pf400_port
+    
     uvicorn.run(
         "pf400_rest_node:app",
         host=args.host,

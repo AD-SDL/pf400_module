@@ -3,10 +3,11 @@
 
 import datetime
 import json
+import traceback
 from argparse import ArgumentParser
 from contextlib import asynccontextmanager
-from time import sleep
 from pathlib import Path
+from time import sleep
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
@@ -14,50 +15,49 @@ from wei.core.data_classes import (
     ModuleAbout,
     ModuleAction,
     ModuleActionArg,
-    ModuleStatus,
-    StepResponse,
-    StepStatus,
 )
 from wei.helpers import extract_version
 
 from pf400_driver.errors import ConnectionException
 from pf400_driver.pf400_driver import PF400
 
-workcell = None
-global pf400, state, action_start
+parser = ArgumentParser()
+parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
+parser.add_argument("--host", type=str, help="Host for rest", default="0.0.0.0")
+parser.add_argument("--port", type=int, help="port value")
+parser.add_argument(
+    "--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35"
+)
+parser.add_argument("--pf400_port", type=int, help="pf400 port value", default=10100)
 
-local_ip = "parker.alcf.anl.gov"
-local_port = "8000"
-pf400_ip = ""
-pf400_port = None
+args = parser.parse_args()
+
+global pf400_ip, pf400_port, state, action_start
+
+pf400_ip = args.pf400_ip
+pf400_port = args.pf400_port
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    global pf400, state, pf400_ip, pf400_port
     """Initial run function for the app, parses the workcell argument
-        Parameters
-        ----------
-        app : FastApi
-           The REST API app being initialized
+    Parameters
+    ----------
+    app : FastApi
+       The REST API app being initialized
 
-        Returns
-        -------
-        None"""
-
-
+    Returns
+    -------
+    None"""
+    global pf400, state, pf400_ip, pf400_port
 
     try:
         pf400 = PF400(pf400_ip, pf400_port)
         pf400.initialize_robot()
         state = "IDLE"
-
-    except ConnectionException as error_msg:
+    except Exception:
         state = "ERROR"
-        print(error_msg)
-
-    except Exception as err:
-        state = "ERROR"
-        print(err)
+        traceback.print_exc()
     else:
         print("PF400 online")
     yield
@@ -89,13 +89,16 @@ def check_state():
         movement_state = pf400.movement_state
 
     except UnboundLocalError as local_var_err:
+        traceback.print_exc()
         err = local_var_err
 
     except AttributeError as attribute_err:
+        traceback.print_exc()
         err = attribute_err
         try_connect = True
 
     except Exception as general_err:
+        traceback.print_exc()
         err = general_err
 
     finally:
@@ -116,9 +119,9 @@ def check_state():
             else:
                 print("PF400 online")
 
-        if err:
-            state = "ERROR"
-            return
+    if err:
+        state = "ERROR"
+        return
 
     # Check if robot wasn't attached to the software after recovering from Power Off state
     if pf400.attach_state == "-1":
@@ -145,6 +148,7 @@ def check_state():
 
 @app.get("/state")
 def state():
+    """Returns the current state of the Pf400 module"""
     global state, action_start
     if not (state == "BUSY") or (
         action_start
@@ -154,14 +158,9 @@ def state():
     return JSONResponse(content={"State": state})
 
 
-@app.get("/description")
-async def description():
-    global pf400
-    return JSONResponse(content={"State": pf400.get_status()})
-
-
 @app.get("/resources")
 async def resources():
+    """Returns info about the resources the module has access to"""
     global pf400
     return JSONResponse(content={"State": pf400.get_status()})
 
@@ -172,6 +171,7 @@ async def about() -> JSONResponse:
     global state
     about = ModuleAbout(
         name="Pf400 Robotic Arm",
+        model="Precise Automation PF400",
         description="pf400 is a robot module that moves plates between two robot locations.",
         interface="wei_rest_node",
         version=extract_version(Path(__file__).parent.parent / "pyproject.toml"),
@@ -185,75 +185,75 @@ async def about() -> JSONResponse:
                         description="Source location in the workcell for pf400 to grab plate from.",
                         type="str",
                         required=True,
-                    ), 
-                    ModuleActionArg(
-                        name="target",
-                        description="Transfer location in the workcell for pf400 to transfer plate to.", 
-                        type="str", 
-                        required=True
-                    ), 
-                    ModuleActionArg(
-                        name="source_plate_rotation", 
-                        description="Plate rotation for source location in the workcell.", 
-                        type="str", 
-                        required=True
                     ),
                     ModuleActionArg(
-                        name="target_plate_rotation", 
-                        description="Plate rotation for target location in the workcell.", 
-                        type="str", 
-                        required=True
-                    )
+                        name="target",
+                        description="Transfer location in the workcell for pf400 to transfer plate to.",
+                        type="str",
+                        required=True,
+                    ),
+                    ModuleActionArg(
+                        name="source_plate_rotation",
+                        description="Plate rotation for source location in the workcell.",
+                        type="str",
+                        required=True,
+                    ),
+                    ModuleActionArg(
+                        name="target_plate_rotation",
+                        description="Plate rotation for target location in the workcell.",
+                        type="str",
+                        required=True,
+                    ),
                 ],
-            ), 
+            ),
             ModuleAction(
-                name="remove_lid", 
-                description="This action removes the lid off of a plate", 
+                name="remove_lid",
+                description="This action removes the lid off of a plate",
                 args=[
                     ModuleActionArg(
                         name="target",
-                        description="Target location in the workcell that the plate is currently at.", 
-                        type="str", 
-                        required=True
-                    ), 
+                        description="Target location in the workcell that the plate is currently at.",
+                        type="str",
+                        required=True,
+                    ),
                     ModuleActionArg(
-                        name="lid_height", 
-                        description="Lid height of the target plate.", 
-                        type="str", 
-                        required=True
-                    ), 
+                        name="lid_height",
+                        description="Lid height of the target plate.",
+                        type="str",
+                        required=True,
+                    ),
                     ModuleActionArg(
-                        name="target_plate_rotation", 
-                        description="Rotation of plate at target location in the workcell.", 
-                        type="str", 
-                        required=True
-                    )
-                ]
-            ), 
+                        name="target_plate_rotation",
+                        description="Rotation of plate at target location in the workcell.",
+                        type="str",
+                        required=True,
+                    ),
+                ],
+            ),
             ModuleAction(
-                name="replace_lid", 
-                description="This action places a lid on a plate with no lid.", 
+                name="replace_lid",
+                description="This action places a lid on a plate with no lid.",
                 args=[
                     ModuleActionArg(
                         name="target",
-                        description="Target location in workcell that plate is currently at.", 
-                        type="str", 
-                        required=True
-                    ), 
+                        description="Target location in workcell that plate is currently at.",
+                        type="str",
+                        required=True,
+                    ),
                     ModuleActionArg(
-                        name="lid_height", 
-                        description="Lid height of the target plate.", 
-                        type="str", 
-                        required=True
-                    ), 
+                        name="lid_height",
+                        description="Lid height of the target plate.",
+                        type="str",
+                        required=True,
+                    ),
                     ModuleActionArg(
-                        name="target_plate_rotation", 
-                        description="Rotation of plate at target location in the workcell.", 
-                        type="str", 
-                        required=True
-                    )
-                ]
-            )
+                        name="target_plate_rotation",
+                        description="Rotation of plate at target location in the workcell.",
+                        type="str",
+                        required=True,
+                    ),
+                ],
+            ),
         ],
         resource_pools=[],
     )
@@ -261,7 +261,8 @@ async def about() -> JSONResponse:
 
 
 @app.post("/action")
-def do_action(action_handle: str, action_vars):
+def do_action(action_handle: str, action_vars: str):
+    """Executes the action requested by the user"""
     response = {"action_response": "", "action_msg": "", "action_log": ""}
     print(action_vars)
     global pf400, state, action_start
@@ -293,10 +294,10 @@ def do_action(action_handle: str, action_vars):
             msg = "Drop off up location is not provided. Canceling the job!"
         elif len(vars.get("source")) != 6:
             err = True
-            msg = "Position 1 should be six joint angles lenght. Canceling the job!"
+            msg = "Position 1 should be six joint angles length. Canceling the job!"
         elif len(vars.get("target")) != 6:
             err = True
-            msg = "Position 2 should be six joint angles lenght. Canceling the job!"
+            msg = "Position 2 should be six joint angles length. Canceling the job!"
 
         if err:
             response["action_response"] = "failed"
@@ -317,12 +318,12 @@ def do_action(action_handle: str, action_vars):
             pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
         except Exception:
             state = "ERROR"
+            traceback.print_exc()
             response["action_response"] = "failed"
         else:
             state = "IDLE"
             response["action_response"] = "succeeded"
-        finally:
-            return response
+        return response
 
     elif action_handle == "remove_lid":
         target_plate_rotation = ""
@@ -335,7 +336,7 @@ def do_action(action_handle: str, action_vars):
         if len(vars.get("target")) != 6:
             err = 1
             msg = (
-                "Target position should be six joint angles lenght. Canceling the job!"
+                "Target position should be six joint angles length. Canceling the job!"
             )
             state = "ERROR"
 
@@ -362,8 +363,7 @@ def do_action(action_handle: str, action_vars):
         else:
             state = "IDLE"
             response["action_response"] = "succeeded"
-        finally:
-            return response
+        return response
 
     elif action_handle == "replace_lid":
         target_plate_rotation = ""
@@ -376,7 +376,7 @@ def do_action(action_handle: str, action_vars):
         if len(vars.get("target")) != 6:
             err = 1
             msg = (
-                "Target position should be six joint angles lenght. Canceling the job!"
+                "Target position should be six joint angles length. Canceling the job!"
             )
             state = "ERROR"
 
@@ -405,8 +405,7 @@ def do_action(action_handle: str, action_vars):
         else:
             state = "IDLE"
             response["action_response"] = "succeeded"
-        finally:
-            return response
+        return response
 
     else:
         msg = "UNKNOWN ACTION REQUEST! Available actions: explore_workcell, transfer, remove_lid, replace_lid"
@@ -418,17 +417,6 @@ def do_action(action_handle: str, action_vars):
 
 if __name__ == "__main__":
     import uvicorn
-
-    parser = ArgumentParser()
-    parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
-    parser.add_argument("--host", type=str, help="Host for rest", default= "0.0.0.0")
-    parser.add_argument("--port", type=int, help="port value")
-    parser.add_argument("--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35")
-    parser.add_argument("--pf400_port", type=int, help="pf400 port value", default=10100)
-
-    args = parser.parse_args()
-    pf400_ip = args.pf400_ip
-    pf400_port = args.pf400_port
 
     uvicorn.run(
         "pf400_rest_node:app",

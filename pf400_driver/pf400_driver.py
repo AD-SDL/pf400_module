@@ -41,7 +41,7 @@ class PF400(KINEMATICS):
         # Default Motion Profile Parameters. Using two profiles for faster and slower movements
         self.motion_profiles = motion_profiles
         self.slow_motion_profile = 1
-        self.fast_motion_profile = 2 
+        self.fast_motion_profile = 2
 
         # Output code list of the PF400
         self.output_codes = output_codes
@@ -906,8 +906,12 @@ class PF400(KINEMATICS):
         target = self.set_plate_rotation(target, rotation_degree)
         # print(target)
         abovePos = list(map(add, target, self.above))
-        self.move_joint(target_joint_angles = abovePos, profile = self.slow_motion_profile)
-        self.move_joint(target_joint_angles = target, profile = self.slow_motion_profile, gripper_open = True)
+        self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile)
+        self.move_joint(
+            target_joint_angles=target,
+            profile=self.slow_motion_profile,
+            gripper_open=True,
+        )
         self.grab_plate(self.plate_width, 100, 10)
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
@@ -925,8 +929,12 @@ class PF400(KINEMATICS):
         abovePos = list(map(add, source_location, self.above))
         self.gripper_open()
         self.move_all_joints_neutral(source_location)
-        self.move_joint(target_joint_angles= abovePos, profile = self.fast_motion_profile)
-        self.move_joint(target_joint_angles = source_location, profile = self.fast_motion_profile, gripper_open = True)
+        self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
+        self.move_joint(
+            target_joint_angles=source_location,
+            profile=self.fast_motion_profile,
+            gripper_open=True,
+        )
         self.grab_plate(self.plate_width, 100, 10)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height

@@ -14,9 +14,8 @@ class TestImports(TestModule_Base):
 
     def test_driver_import(self):
         """Test the driver and rest node imports"""
-        import pf400_rest_node
-
         import pf400_driver
+        import pf400_rest_node
 
         assert pf400_driver
         assert pf400_rest_node

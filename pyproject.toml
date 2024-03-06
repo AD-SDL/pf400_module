@@ -12,12 +12,9 @@ authors = [
 ]
 dependencies = [
     "ad_sdl.wei>=0.5.3",
-    "pydantic>=2.4",
-    "pyyaml>=6.0.1",
     "fastapi>=0.103.2",
-    "requests>=2.31.0",
-    "pandas>=2.2.0",
     "uvicorn>=0.21.1",
+    "pytest",
 ]
 requires-python = ">=3.8.1"
 readme = "README.md"
@@ -26,27 +23,12 @@ license = {text = "MIT"}
 [project.urls]
 homepage = "https://github.com/AD-SDL/pf400_module"
 
-[project.optional-dependencies]
-docs = [
-    "autodoc-pydantic",
-    "sphinx",
-    "sphinx-rtd-theme",
-]
-
 ######################
 # Build Info + Tools #
 ######################
 [build-system]
 requires = ["setuptools>=61", "wheel"]
 build-backend = "setuptools.build_meta"
-
-[tool.setuptools.packages.find]
-where = ["."]
-include = ["scripts*", "pf400_driver*"]
-exclude = ["*tests*", "scripts*"]
-
-[tool.setuptools.package-data]
-pf400_module = ["*.template"]
 
 #####################
 # Development Tools #

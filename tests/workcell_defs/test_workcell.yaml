@@ -10,7 +10,7 @@ config:
 #List of all components accessible in this workcell
 modules:
 
-  - name: pf400
+  - name: pf400_module
     model: Brooks Automation PF400
     interface: wei_rest_node
     config:

@@ -1,7 +1,7 @@
 name: Test pf400_module Module
 metadata:
   author: Doga Ozgulbas
-  info: Tests the functionality of the pf400 Module
+  info: Tests the functionality of the pf400  Module
   version: 0.1
 
 modules:

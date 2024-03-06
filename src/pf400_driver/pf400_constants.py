@@ -1,4 +1,36 @@
-error_codes = {
+"""Constants for the PF400 driver."""
+
+OUTPUT_CODES = {
+    "0": "Success",
+    "0 7": "Power off - waiting for power request TRUE",
+    "0 20": "Power on - ready to have GPL attach robot",
+    "0 21": "21 GPL project attached to robot",
+}
+
+MOTION_PROFILES = [
+    {
+        "speed": 30,
+        "speed2": 0,
+        "acceleration": 50,
+        "deceleration": 50,
+        "accelramp": 0.1,
+        "decelramp": 0.1,
+        "inrange": 0,
+        "straight": 0,
+    },
+    {
+        "speed": 120,  # Max 150
+        "speed2": 0,
+        "acceleration": 100,
+        "deceleration": 100,
+        "accelramp": 0.1,
+        "decelramp": 0.1,
+        "inrange": 0,
+        "straight": 0,
+    },
+]
+
+ERROR_CODES = {
     "-1009": "*No robot attached*",
     "-1012": "*Joint out-of-range* Set robot joints within their range",
     "-1039": "*Position too close* Robot 1",

@@ -1,8 +1,13 @@
+"""Handles the kinematics of the PF400 robot arm"""
+
 import math
 
 
 class KINEMATICS:
+    """Class for calculating the forward and inverse kinematics of the PF400 robot arm."""
+
     def __init__(self):
+        """Constructor for the KINEMATICS class."""
         # Robot joint lengths
         self.shoulder_length = 302
         self.elbow_length = 289
@@ -108,7 +113,6 @@ class KINEMATICS:
         y_second_joint = ye - self.end_effector_length * math.sin(phi_e)
 
         radius = math.sqrt(x_second_joint**2 + y_second_joint**2)
-        # print((radius * radius + self.shoulder_length * self.shoulder_length - self.elbow_length * self.elbow_length)/(2 * radius * self.shoulder_length))
         gamma = math.acos(
             (
                 radius * radius

@@ -1,15 +1,24 @@
+"""Base module tests."""
+
 import unittest
 
 
-class TestOT2_Base(unittest.TestCase):
+class TestModule_Base(unittest.TestCase):
+    """Base test class for this module."""
+
     pass
 
 
-class TestImports(TestOT2_Base):
-    def test_ot2_driver_import(self):
-        import ot2_driver
+class TestImports(TestModule_Base):
+    """Test the imports of the module are working correctly"""
 
-        assert ot2_driver.__version__
+    def test_driver_import(self):
+        """Test the driver and rest node imports"""
+        import pf400_driver
+        import pf400_rest_node
+
+        assert pf400_driver
+        assert pf400_rest_node
 
 
 if __name__ == "__main__":

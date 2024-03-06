@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+"""Driver code for the PF400 robot arm."""
 
 import copy
 import math
@@ -7,14 +8,18 @@ import threading
 from operator import add
 from time import sleep
 
-from pf400_driver.errors import CommandException, ConnectionException, ErrorResponse
-from pf400_driver.pf400_error_codes import error_codes
+from pf400_driver.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
+from pf400_driver.pf400_errors import (
+    CommandException,
+    ConnectionException,
+    ErrorResponse,
+)
 from pf400_driver.pf400_kinematics import KINEMATICS
-from pf400_driver.pf400_motion_profiles import motion_profiles
-from pf400_driver.pf400_output_codes import output_codes
 
 
 class PF400(KINEMATICS):
+    """Main Driver Class for the PF400 Robot Arm."""
+
     commandLock = threading.Lock()
 
     def __init__(self, host="146.137.240.35", port=10100, mode=0):
@@ -36,15 +41,15 @@ class PF400(KINEMATICS):
         self.connection = None
 
         # Error code list of the PF400
-        self.error_codes = error_codes
+        self.error_codes = ERROR_CODES
 
         # Default Motion Profile Parameters. Using two profiles for faster and slower movements
-        self.motion_profiles = motion_profiles
+        self.motion_profiles = MOTION_PROFILES
         self.slow_motion_profile = 1
         self.fast_motion_profile = 2
 
         # Output code list of the PF400
-        self.output_codes = output_codes
+        self.output_codes = OUTPUT_CODES
 
         # Robot State
         self.power_state = "0"
@@ -108,8 +113,8 @@ class PF400(KINEMATICS):
         """
         try:
             self.connection = telnetlib.Telnet(self.host, self.port, 5)
-        except TimeoutError:
-            raise ConnectionException(err_message="Timed out error")
+        except TimeoutError as e:
+            raise ConnectionException(err_message="Timed out error") from e
 
     def disconnect(self):
         """ """
@@ -154,8 +159,8 @@ class PF400(KINEMATICS):
 
             return response
 
-        except AttributeError:
-            raise CommandException(err_message="Attribute Error")
+        except AttributeError as e:
+            raise CommandException(err_message="Attribute Error") from e
 
         finally:
             self.commandLock.release()
@@ -191,7 +196,7 @@ class PF400(KINEMATICS):
 
         out_msg = self.send_command("sysState")
         if "0 21" in out_msg:
-            out_msg = "Robot intilized and in ready state"
+            out_msg = "Robot initialized and in ready state"
         return out_msg
 
     def enable_power(self, wait: int = 0.1):
@@ -232,8 +237,8 @@ class PF400(KINEMATICS):
 
     def initialize_robot(self):
         """
-        Description: Intilizes the robot by calling enable_power, attach_robot, home_robot, set_profile functions and
-                                checks the robot state to find out if the initilization was successful
+        Description: Initializes the robot by calling enable_power, attach_robot, home_robot, set_profile functions and
+                                checks the robot state to find out if the initialization was successful
         """
 
         self.get_overall_state()
@@ -251,8 +256,6 @@ class PF400(KINEMATICS):
             sleep(6)
 
         profile = self.set_profile()
-        # self.set_gripper_open()
-        # self.set_gripper_close()
 
         if (
             self.power_state[0].find("-") == -1
@@ -265,15 +268,16 @@ class PF400(KINEMATICS):
 
     def force_initialize_robot(self):
         """
-        Description: Repeats the initilzation until there are no errors and the robot is initilzed.
+        Description: Repeats the initialization until there are no errors and the robot is initialized.
         """
-        # Check robot state & initilize
+        # Check robot state & initialize
         if self.get_overall_state() == -1:
-            print("Robot is not intilized! Intilizing now...")
+            print("Robot is not initialized! Initializing now...")
             self.initialize_robot()
             self.force_initialize_robot()
 
     def status_port_initialization(self):
+        """Initializes the robot on the status port"""
         self.send_command("selectRobot 1")
         self.enable_power()
 
@@ -285,8 +289,8 @@ class PF400(KINEMATICS):
         try:
             self.connection.write(("wherej".encode("ascii") + b"\n"))
             joint_array = self.connection.read_until(b"\r\n").rstrip().decode("ascii")
-        except AttributeError:
-            raise CommandException(err_message="Attribute Error")
+        except AttributeError as e:
+            raise CommandException(err_message="Attribute Error") from e
 
         if joint_array != "" and joint_array in self.error_codes:
             self.handle_error_output(joint_array)
@@ -318,23 +322,23 @@ class PF400(KINEMATICS):
         States: 0 = Power off
                         1 = Stopping
                         2 = Acceleration
-                        3 = Decelaration
+                        3 = Deceleration
         """
         try:
             self.connection.write(("state".encode("ascii") + b"\n"))
             movement_state = (
                 self.connection.read_until(b"\r\n").rstrip().decode("ascii")
             )
-        except AttributeError:
-            raise CommandException(err_message="Attribute Error")
+        except AttributeError as e:
+            raise CommandException(err_message="Attribute Error") from e
 
         try:
             if movement_state != "" and movement_state in self.error_codes:
                 self.handle_error_output(movement_state)
             else:
                 self.movement_state = int(float(movement_state.split(" ")[1]))
-        except UnboundLocalError:
-            raise CommandException(err_message="UnboundLocalError")
+        except UnboundLocalError as e:
+            raise CommandException(err_message="UnboundLocalError") from e
 
     def get_overall_state(self):
         """
@@ -389,8 +393,6 @@ class PF400(KINEMATICS):
         else:
             self.initialization_state = state_msg[1]
 
-        # print("Power: " + self.power_state + " Attach: " + self.attach_state + " Home: " + self.home_state + " Robot State: " + self.initialization_state)
-
         if (
             self.power_state == "-1"
             or self.attach_state == "-1"
@@ -413,7 +415,7 @@ class PF400(KINEMATICS):
     def get_cartesian_coordinates(self):
         """
         Description: This function finds the current cartesian coordinates and angles of the robot.
-                Return: A float array with x/y/z yaw/pich/roll
+                Return: A float array with x/y/z yaw/pitch/roll
         """
         coordinates = self.send_command("whereC")
         coordinates_list = coordinates.split(" ")
@@ -421,11 +423,12 @@ class PF400(KINEMATICS):
         return [float(x) for x in coordinates_list]
 
     def get_gripper_length(self):
+        """Returns the current length of the gripper."""
         joint_angles = self.get_joint_states()
         return joint_angles[4]
 
     def get_gripper_state(self):
-        """ """
+        """Returns the current state of the gripper."""
 
         if self.get_gripper_length() > self.gripper_closed_state + 1.0:
             self.gripper_state = "open"
@@ -444,10 +447,10 @@ class PF400(KINEMATICS):
         """
         if len(profile_dict) == 1:
             profile1 = "Profile 1"
-            for key, value in self.motion_profiles[0].items():
+            for value in self.motion_profiles[0].values():
                 profile1 += " " + str(value)
             profile2 = "Profile 2"
-            for key, value in self.motion_profiles[1].items():
+            for value in self.motion_profiles[1].values():
                 profile2 += " " + str(value)
 
             out_msg = self.send_command(profile1)
@@ -455,7 +458,7 @@ class PF400(KINEMATICS):
 
         elif len(profile_dict) == 8:
             profile3 = "Profile 3"
-            for key, value in profile_dict.items():
+            for value in profile_dict.values():
                 profile3 += " " + str(value)
 
             out_msg = self.send_command(profile3)
@@ -470,9 +473,11 @@ class PF400(KINEMATICS):
         return out_msg
 
     def set_gripper_open(self):
+        """Configure the definition of gripper open."""
         self.send_command("GripOpenPos " + str(self.gripper_open_state))
 
     def set_gripper_close(self):
+        """Configure the definition of gripper close."""
         self.send_command("GripClosePos " + str(self.gripper_closed_state))
 
     def set_plate_rotation(self, joint_states, rotation_degree=0):
@@ -487,7 +492,6 @@ class PF400(KINEMATICS):
         cartesian_coordinates, phi_angle, rail_pos = self.forward_kinematics(
             joint_states
         )
-        # print(cartesian_coordinates)
         # Fixing the orientation offset here
         if rotation_degree == -90:  # Yaw 90 to 0 degrees:
             cartesian_coordinates[1] += 4
@@ -496,20 +500,11 @@ class PF400(KINEMATICS):
             cartesian_coordinates[1] -= 4
             cartesian_coordinates[0] -= 29
 
-        # print(cartesian_coordinates[1])
-        # print(joint_states[1])
-
         if cartesian_coordinates[1] < 0:
             # Location is on the right side of the robot
             cartesian_coordinates[3] += rotation_degree
         elif cartesian_coordinates[1] > 0 and joint_states[1]:
             cartesian_coordinates[3] -= rotation_degree
-
-        # if (cartesian_coordinates[1] < 0 and joint_states[1] > 0) or (cartesian_coordinates[1] > 0 and joint_states[1] > 0):
-        # 	#Location is on the right side of the robot
-        # 	cartesian_coordinates[3] += rotation_degree
-        # elif (cartesian_coordinates[1] > 0 and joint_states[1] < 0) or (cartesian_coordinates[1] < 0 and joint_states[1] < 0):
-        # 	cartesian_coordinates[3] -= rotation_degree
 
         new_joint_angles = self.inverse_kinematics(
             cartesian_coordinates, phi_angle, rail_pos
@@ -521,7 +516,7 @@ class PF400(KINEMATICS):
         """
         Description: Fixes plate rotation on the goal location if it was recorded with an incorrect orientation.
         Parameters: - goal_location
-                                - goal_roatation
+                                - goal_rotation
         Return:
                 goal_location: - New goal location if the incorrect orientation was found.
                                            - Same goal location if there orientation was correct.
@@ -572,6 +567,7 @@ class PF400(KINEMATICS):
         return self.send_command(move_command)
 
     def move_cartesian(self, target_cartesian_coordinates, profile: int = 2):
+        """Move the arm to a target location in cartesian coordinates."""
         move_command = (
             "MoveC"
             + " "
@@ -591,9 +587,9 @@ class PF400(KINEMATICS):
         axis_z: int = 0,
     ):
         """
-        TODO: FIX THIS FUNTION
+        TODO: FIX THIS FUNCTION
 
-        Description: Moves the end effector on single axis with a goal movement in milimeters.
+        Description: Moves the end effector on single axis with a goal movement in millimeters.
         Parameters:
                 - target_location : Joint states of the target location
                 - axis_x : Goal movement on x axis in mm
@@ -622,13 +618,11 @@ class PF400(KINEMATICS):
         )
         self.send_command(move_command)
 
-        pass
-
     def move_in_one_axis(
         self, profile: int = 1, axis_x: int = 0, axis_y: int = 0, axis_z: int = 0
     ):
         """
-        Description: Moves the end effector on single axis with a goal movement in milimeters.
+        Description: Moves the end effector on single axis with a goal movement in millimeters.
         Parameters:
                 - axis_x : Goal movement on x axis in mm
                 - axis_y : Goal movement on y axis in mm
@@ -655,7 +649,7 @@ class PF400(KINEMATICS):
     def grab_plate(self, width: int = 123, speed: int = 100, force: int = 10):
         """
         Description:
-                Grabs the plate by appling additional force
+                Grabs the plate by applying additional force
         Parameters:
                 - width: Plate width, in mm. Should be accurate to within about 1 mm.
                 - speed: Percent speed to open fingers.  1 to 100.
@@ -663,8 +657,8 @@ class PF400(KINEMATICS):
                                  A positive value indicates the fingers must close to grasp.
                                  A negative value indicates the fingers must open to grasp.
         Returns:
-                - 1: Plate grabed
-                - 0: Plate is not grabed
+                - 1: Plate grabbed
+                - 0: Plate is not grabbed
         """
         grab_plate_status = self.send_command(
             "GraspPlate " + str(width) + " " + str(speed) + " " + str(force)
@@ -674,13 +668,9 @@ class PF400(KINEMATICS):
             return
 
         elif grab_plate_status[1] == "-1":
-            # print("Plate is grabed")
             self.plate_state = 1
-            # self.gripper_closed_state = width
-            # self.set_gripper_close()
 
         elif grab_plate_status[1] == "0" and width > 80:  # Do not try smaller width
-            # print("No plate")
             width -= 1
             self.grab_plate(width, speed, force)
 
@@ -711,7 +701,6 @@ class PF400(KINEMATICS):
         if release_plate_status[0] == "1":
             print("Plate is not released")
         elif release_plate_status[0] == "0":
-            # print("Plate is released")
             self.plate_state = 0
 
         return release_plate_status
@@ -726,7 +715,7 @@ class PF400(KINEMATICS):
         self.send_command("gripper 2")
         return self.get_gripper_state()
 
-    def move_one_joint(self, joint_num, target, move_pofile):
+    def move_one_joint(self, joint_num, target, move_profile):
         """
         Description: Moves single joint to a target
         Parameters:
@@ -735,7 +724,12 @@ class PF400(KINEMATICS):
 
         """
         return self.send_command(
-            "moveoneaxis " + str(joint_num) + " " + str(target) + " " + str(move_pofile)
+            "moveoneaxis "
+            + str(joint_num)
+            + " "
+            + str(target)
+            + " "
+            + str(move_profile)
         )
 
     def move_multiple_joint(self, target1, target2):
@@ -781,7 +775,7 @@ class PF400(KINEMATICS):
         self.move_joint(arm_neutral, self.slow_motion_profile)
 
     def move_rails_neutral(self, v_rail: float = None, h_rail: float = None):
-        # Setting the target location's linear rail position for pf400_neutral
+        """Setting the target location's linear rail position for pf400_neutral"""
 
         current_location = self.get_joint_states()
 
@@ -813,7 +807,7 @@ class PF400(KINEMATICS):
         self, target_loc, lid_height: float = 7.0, target_plate_rotation: str = ""
     ):
         """Remove the lid from the plate"""
-        # TODO: TAKE PLATE TYPE AS A VARAIBLE TO CALCULATE LID HIGHT
+        # TODO: TAKE PLATE TYPE AS A VARIABLE TO CALCULATE LID HEIGHT
         target = copy.deepcopy(target_loc)
         self.robot_warning = "CLEAR"
 
@@ -846,7 +840,7 @@ class PF400(KINEMATICS):
         self, target_loc, lid_height: float = 7.0, target_plate_rotation: str = ""
     ):
         """Replace the lid on the plate"""
-        # TODO: TAKE PLATE TYPE AS A VARAIBLE TO CALCULATE LID HIGHT
+        # TODO: TAKE PLATE TYPE AS A VARIABLE TO CALCULATE LID HEIGHT
         target = copy.deepcopy(target_loc)
         self.robot_warning = "CLEAR"
 

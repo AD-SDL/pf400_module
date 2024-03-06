@@ -7,16 +7,14 @@ Driver for communicating with the PF400.
 ```
 git clone https://github.com/AD-SDL/pf400_module.git
 cd pf400_module
-pip install -r requirements.txt
+python -m venv .venv && source .venv/bin/activate
 pip install -e .
 ```
 
 ## Running the PF400 Module
 
-In `/scripts`, run the following
-
 ```
-python3 pf400_rest_node.py --host=<hostname> --port 3000 --alias pf400
+python3 -m pf400_rest_node --host=<HOSTNAME> --port <PORT> --alias <ALIAS> --pf400_ip <IP> --pf400_port <PORT>
 ```
 
 You can use `0.0.0.0` as the hostname to connect from any device on the local network.

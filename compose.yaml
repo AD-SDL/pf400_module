@@ -10,11 +10,10 @@ services:
         - ${IMAGE}:latest
         - ${IMAGE}:${PROJECT_VERSION}
         - ${IMAGE}:dev
-    command: python pf400_module/scripts/pf400_rest_node.py --port 3000 --pf400_ip ${PF400_IP} --pf400_port ${PF400_PORT}
-    privileged: true
+    command: python -m pf400_rest_node --port 3000 --pf400_ip ${PF400_IP} --pf400_port ${PF400_PORT}
     env_file: .env
     volumes:
-      - ./scripts:/home/app/pf400_module/scripts
+      - ./src:/home/app/pf400_module/src
       - ./tests:/home/app/pf400_module/tests
     ports:
       - 3000:3000

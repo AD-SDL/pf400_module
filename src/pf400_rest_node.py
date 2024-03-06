@@ -4,13 +4,15 @@
 import datetime
 import json
 import traceback
-from argparse import ArgumentParser
+from argparse import ArgumentParser, Namespace
 from contextlib import asynccontextmanager
 from pathlib import Path
 from time import sleep
 
 from fastapi import FastAPI
 from fastapi.responses import JSONResponse
+from pf400_driver.pf400_driver import PF400
+from pf400_driver.pf400_errors import ConnectionException
 from wei.core.data_classes import (
     ModuleAbout,
     ModuleAction,
@@ -18,24 +20,24 @@ from wei.core.data_classes import (
 )
 from wei.helpers import extract_version
 
-from pf400_driver.errors import ConnectionException
-from pf400_driver.pf400_driver import PF400
 
-parser = ArgumentParser()
-parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
-parser.add_argument("--host", type=str, help="Host for rest", default="0.0.0.0")
-parser.add_argument("--port", type=int, help="port value")
-parser.add_argument(
-    "--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35"
-)
-parser.add_argument("--pf400_port", type=int, help="pf400 port value", default=10100)
+def parse_args() -> Namespace:
+    """Parses the command line arguments for the PF400 REST node"""
+    parser = ArgumentParser()
+    parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
+    parser.add_argument("--host", type=str, help="Host for rest", default="0.0.0.0")
+    parser.add_argument("--port", type=int, help="port value")
+    parser.add_argument(
+        "--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35"
+    )
+    parser.add_argument(
+        "--pf400_port", type=int, help="pf400 port value", default=10100
+    )
 
-args = parser.parse_args()
+    return parser.parse_args()
+
 
 global pf400_ip, pf400_port, state, action_start
-
-pf400_ip = args.pf400_ip
-pf400_port = args.pf400_port
 
 
 @asynccontextmanager
@@ -50,6 +52,10 @@ async def lifespan(app: FastAPI):
     -------
     None"""
     global pf400, state, pf400_ip, pf400_port
+
+    args = parse_args()
+    pf400_ip = args.pf400_ip
+    pf400_port = args.pf400_port
 
     try:
         pf400 = PF400(pf400_ip, pf400_port)
@@ -72,7 +78,7 @@ app = FastAPI(
 
 
 def check_state():
-    """updates the Pf400 state
+    """Updates the PF400 state
 
     Parameters:
     -----------
@@ -81,7 +87,8 @@ def check_state():
     -------
         None
     """
-    global state, pf400
+    # TODO: Simplify this function
+    global state, pf400, pf400_ip, pf400_port
     try_connect = False
     err = None
 
@@ -417,6 +424,8 @@ def do_action(action_handle: str, action_vars: str):
 
 if __name__ == "__main__":
     import uvicorn
+
+    args = parse_args()
 
     uvicorn.run(
         "pf400_rest_node:app",

@@ -10,8 +10,7 @@ LABEL org.opencontainers.image.licenses=MIT
 
 RUN mkdir -p pf400_module
 
-COPY ./pf400_driver pf400_module/pf400_driver
-COPY ./scripts pf400_module/scripts
+COPY ./src pf400_module/src
 COPY ./README.md pf400_module/README.md
 COPY ./pyproject.toml pf400_module/pyproject.toml
 COPY ./tests pf400_module/tests

@@ -34,10 +34,6 @@ rest_module.arg_parser.add_argument( "--pf400_port", type=int, help="pf400 port 
 @rest_module.startup()
 def pf400_startup(state: State):
     """Example startup handler."""
-    args = rest_module.arg_parser_parse_args()
-    state.pf400_ip = args.pf400_ip
-    state.pf400_port = args.pf400_port
-
     try:
         state.pf400 = PF400(state.pf400_ip, state.pf400_port)
         state.pf400.initialize_robot()
@@ -130,11 +126,11 @@ def check_state(state: State):
         state.status = ModuleStatus.BUSY
 
 
-@rest_module.public_state()
+@rest_module.state_handler()
 def state(state: State):
     """Returns the current state of the Pf400 module"""
     
-    if not (state == "BUSY") or (
+    if not (state.status == "BUSY") or (
         state.action_start
         and (datetime.datetime.now() - state.action_start > datetime.timedelta(0, 2))
     ):

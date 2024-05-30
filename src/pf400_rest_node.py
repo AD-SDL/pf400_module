@@ -28,7 +28,7 @@ rest_module = RESTModule(
         description="A node to control the pf400 plate moving robot",
         model="pf400",
     )
-rest_module.arg_parser.add_argument( type=str, help="pf400 ip value", default="146.137.240.35")
+rest_module.arg_parser.add_argument( "--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35")
 rest_module.arg_parser.add_argument( "--pf400_port", type=int, help="pf400 port value", default=10100)
 
 @rest_module.startup()
@@ -130,7 +130,7 @@ def check_state(state: State):
         state.status = ModuleStatus.BUSY
 
 
-@rest_module.state_handler()
+@rest_module.public_state()
 def state(state: State):
     """Returns the current state of the Pf400 module"""
     

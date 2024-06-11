@@ -13,12 +13,12 @@ from fastapi import FastAPI
 from fastapi.responses import JSONResponse
 from pf400_driver.pf400_driver import PF400
 from pf400_driver.pf400_errors import ConnectionException
-from wei.core.data_classes import (
+from wei.types import (
     ModuleAbout,
     ModuleAction,
     ModuleActionArg,
 )
-from wei.helpers import extract_version
+from wei.utils import extract_version
 
 
 def parse_args() -> Namespace:

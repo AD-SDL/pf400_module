@@ -15,7 +15,7 @@ from fastapi.responses import JSONResponse
 from pf400_driver.pf400_driver import PF400
 from pf400_driver.pf400_errors import ConnectionException
 
-from wei.helpers import extract_version
+from wei.utils import extract_version
 from wei.modules.rest_module import RESTModule
 from wei.types.module_types import ModuleStatus
 from wei.types.step_types import ActionRequest, StepResponse, StepStatus
@@ -38,16 +38,17 @@ def pf400_startup(state: State):
         state.pf400 = PF400(state.pf400_ip, state.pf400_port)
         state.pf400.initialize_robot()
         state.status = ModuleStatus.IDLE
-    except Exception:
+        state.action_start = None
+    except Exception as e:
         state.status = ModuleStatus.ERROR
         traceback.print_exc()
+       
     else:
         print("PF400 online")
-    yield
+    
 
     # Do any cleanup here
-    pass
-
+    
 
 
 
@@ -135,12 +136,12 @@ def state(state: State):
         and (datetime.datetime.now() - state.action_start > datetime.timedelta(0, 2))
     ):
         check_state(state)
-    return JSONResponse(content={"State": state})
+    return JSONResponse(content={"status": state.status, "error": state.error})
 
 
 
 @rest_module.action(name="transfer", description="Transfer a plate from one location to another")
-def transfer_lid(state: State, action: ActionRequest,
+def transfer(state: State, action: ActionRequest,
                    source: Annotated[List[float], "Location to pick a plate from"],
                    target: Annotated[List[float], "Location to place a plate to"],
                    source_plate_rotation: Annotated[str, "Orientation of the plate at the source, wide or narrow"],
@@ -148,6 +149,7 @@ def transfer_lid(state: State, action: ActionRequest,
                    
                    ) -> StepResponse:
         sleep(0.3)
+        err = None
         if len(source) != 6:
             err = True
             msg = "Position 1 should be six joint angles length. Canceling the job!"
@@ -156,10 +158,12 @@ def transfer_lid(state: State, action: ActionRequest,
             msg = "Position 2 should be six joint angles length. Canceling the job!"
         if err:
            
-            return StepResponse(StepStatus.FAILED, "", msg)
+            return StepResponse.step_failed(msg)
         sleep(0.3)
+        state.action_start = datetime.datetime.now()
         state.pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
-        return StepResponse(StepStatus.SUCCEEDED, "plate moved", None)
+        state.action_start = None
+        return StepResponse.step_succeeded("transfer complete")
 
 
 @rest_module.action(name="remove_lid", description="Remove a lid from a plate")
@@ -171,10 +175,11 @@ def remove_lid(state: State, action: ActionRequest,
                    ) -> StepResponse:
     
         sleep(0.3)
+        state.action_start = datetime.datetime.now()
         state.pf400.remove_lid(target, lid_height, target_plate_rotation)
-        return StepResponse(StepStatus.SUCCEEDED, "lid removed", None)
-
-@rest_module.action(name="remove_lid", description="Remove a lid from a plate")
+        state.action_start = None
+        return StepResponse.step_succeeded("lid removed")
+@rest_module.action(name="replace_lid", description="Remove a lid from a plate")
 def replace_lid(state: State, action: ActionRequest,
                    target: Annotated[List[float], "Location to place a plate to"],
                    target_plate_rotation: Annotated[str, "Orientation of the plate at the target, wide or narrow"],
@@ -182,8 +187,10 @@ def replace_lid(state: State, action: ActionRequest,
                    
                    ) -> StepResponse:
         sleep(0.3)
+        state.action_start = datetime.datetime.now()
         state.pf400.replace_lid(target, lid_height, target_plate_rotation)
-        return StepResponse(StepStatus.SUCCEEDED, "lid replaced", None)
+        state.action_start = None
+        return StepResponse.step_succeeded("lid replaced")
 
 
 rest_module.start()

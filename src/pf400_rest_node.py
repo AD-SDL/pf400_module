@@ -158,12 +158,12 @@ def transfer(state: State, action: ActionRequest,
             msg = "Position 2 should be six joint angles length. Canceling the job!"
         if err:
            
-            return StepResponse.step_failed(msg)
+            return StepResponse.step_failed(error=msg)
         sleep(0.3)
         state.action_start = datetime.datetime.now()
         state.pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
         state.action_start = None
-        return StepResponse.step_succeeded("transfer complete")
+        return StepResponse.step_succeeded()
 
 
 @rest_module.action(name="remove_lid", description="Remove a lid from a plate")
@@ -178,7 +178,7 @@ def remove_lid(state: State, action: ActionRequest,
         state.action_start = datetime.datetime.now()
         state.pf400.remove_lid(target, lid_height, target_plate_rotation)
         state.action_start = None
-        return StepResponse.step_succeeded("lid removed")
+        return StepResponse.step_succeeded()
 @rest_module.action(name="replace_lid", description="Remove a lid from a plate")
 def replace_lid(state: State, action: ActionRequest,
                    target: Annotated[List[float], "Location to place a plate to"],
@@ -190,7 +190,7 @@ def replace_lid(state: State, action: ActionRequest,
         state.action_start = datetime.datetime.now()
         state.pf400.replace_lid(target, lid_height, target_plate_rotation)
         state.action_start = None
-        return StepResponse.step_succeeded("lid replaced")
+        return StepResponse.step_succeeded()
 
 
 rest_module.start()

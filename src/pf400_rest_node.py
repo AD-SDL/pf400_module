@@ -2,82 +2,52 @@
 """The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
 import datetime
-import json
 import traceback
-from argparse import ArgumentParser, Namespace
-from contextlib import asynccontextmanager
-from pathlib import Path
 from time import sleep
+from typing import List
 
-from fastapi import FastAPI
+from fastapi.datastructures import State
 from fastapi.responses import JSONResponse
 from pf400_driver.pf400_driver import PF400
 from pf400_driver.pf400_errors import ConnectionException
-from wei.types import (
-    ModuleAbout,
-    ModuleAction,
-    ModuleActionArg,
+from typing_extensions import Annotated
+from wei.modules.rest_module import RESTModule
+from wei.types.module_types import ModuleStatus
+from wei.types.step_types import ActionRequest, StepResponse
+
+rest_module = RESTModule(
+    name="pf400_node",
+    version="0.0.1",
+    description="A node to control the pf400 plate moving robot",
+    model="pf400",
 )
-from wei.utils import extract_version
+rest_module.arg_parser.add_argument(
+    "--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35"
+)
+rest_module.arg_parser.add_argument(
+    "--pf400_port", type=int, help="pf400 port value", default=10100
+)
 
 
-def parse_args() -> Namespace:
-    """Parses the command line arguments for the PF400 REST node"""
-    parser = ArgumentParser()
-    parser.add_argument("--alias", type=str, help="Name of the Node", default="pf400")
-    parser.add_argument("--host", type=str, help="Host for rest", default="0.0.0.0")
-    parser.add_argument("--port", type=int, help="port value")
-    parser.add_argument(
-        "--pf400_ip", type=str, help="pf400 ip value", default="146.137.240.35"
-    )
-    parser.add_argument(
-        "--pf400_port", type=int, help="pf400 port value", default=10100
-    )
-
-    return parser.parse_args()
-
-
-global pf400_ip, pf400_port, state, action_start
-
-
-@asynccontextmanager
-async def lifespan(app: FastAPI):
-    """Initial run function for the app, parses the workcell argument
-    Parameters
-    ----------
-    app : FastApi
-       The REST API app being initialized
-
-    Returns
-    -------
-    None"""
-    global pf400, state, pf400_ip, pf400_port
-
-    args = parse_args()
-    pf400_ip = args.pf400_ip
-    pf400_port = args.pf400_port
-
+@rest_module.startup()
+def pf400_startup(state: State):
+    """Example startup handler."""
     try:
-        pf400 = PF400(pf400_ip, pf400_port)
-        pf400.initialize_robot()
-        state = "IDLE"
+        state.pf400 = PF400(state.pf400_ip, state.pf400_port)
+        state.pf400.initialize_robot()
+        state.status = ModuleStatus.IDLE
+        state.action_start = None
     except Exception:
-        state = "ERROR"
+        state.status = ModuleStatus.ERROR
         traceback.print_exc()
+
     else:
         print("PF400 online")
-    yield
 
     # Do any cleanup here
-    pass
 
 
-app = FastAPI(
-    lifespan=lifespan,
-)
-
-
-def check_state():
+def check_state(state: State):
     """Updates the PF400 state
 
     Parameters:
@@ -88,12 +58,12 @@ def check_state():
         None
     """
     # TODO: Simplify this function
-    global state, pf400, pf400_ip, pf400_port
+
     try_connect = False
     err = None
 
     try:
-        movement_state = pf400.movement_state
+        movement_state = state.pf400.movement_state
 
     except UnboundLocalError as local_var_err:
         traceback.print_exc()
@@ -110,327 +80,132 @@ def check_state():
 
     finally:
         if try_connect:
-            state = "ERROR"
+            state.status = ModuleStatus.ERROR
             try:
-                pf400 = PF400(pf400_ip, pf400_port)
-                pf400.initialize_robot()
-                state = "IDLE"
+                state.pf400 = PF400(state.pf400_ip, state.pf400_port)
+                state.pf400.initialize_robot()
+                state.status = ModuleStatus.IDLE
 
             except ConnectionException as error_msg:
-                state = "ERROR"
+                state.status = ModuleStatus.ERROR
                 print(error_msg)
 
             except Exception as err:
-                state = "ERROR"
+                state.status = ModuleStatus.ERROR
                 print(err)
             else:
                 print("PF400 online")
 
     if err:
-        state = "ERROR"
+        state.status = ModuleStatus.ERROR
         return
 
     # Check if robot wasn't attached to the software after recovering from Power Off state
-    if pf400.attach_state == "-1":
-        state = "ERROR"
-        pf400.force_initialize_robot()
+    if state.pf400.attach_state == "-1":
+        state.status = ModuleStatus.ERROR
+        state.pf400.force_initialize_robot()
 
     # Publishing robot warning messages if the job wasn't completed successfully
-    if pf400.robot_warning.upper() != "CLEAR" and len(pf400.robot_warning) > 0:
-        state = "ERROR"
-        pf400.robot_warning = "CLEAR"
+    if (
+        state.pf400.robot_warning.upper() != "CLEAR"
+        and len(state.pf400.robot_warning) > 0
+    ):
+        state.status = ModuleStatus.ERROR
+        state.pf400.robot_warning = "CLEAR"
 
     # Checking real robot state parameters and publishing the current state
     if movement_state == 0:
-        state = "ERROR"
-        pf400.force_initialize_robot()
+        state.status = ModuleStatus.ERROR
+        state.pf400.force_initialize_robot()
 
-    elif pf400.robot_state == "ERROR" or state == "ERROR":
-        state = "ERROR"
-        state = "UNKNOWN"
+    elif state.pf400.robot_state == "ERROR" or state.status == ModuleStatus.ERROR:
+        state.status = ModuleStatus.ERROR
 
-    elif (movement_state >= 1 and state == "BUSY") or movement_state >= 2:
-        state = "BUSY"
+    elif (
+        movement_state >= 1 and state.status == ModuleStatus.BUSY
+    ) or movement_state >= 2:
+        state.status = ModuleStatus.BUSY
 
 
-@app.get("/state")
-def state():
+@rest_module.state_handler()
+def state(state: State):
     """Returns the current state of the Pf400 module"""
-    global state, action_start
-    if not (state == "BUSY") or (
-        action_start
-        and (datetime.datetime.now() - action_start > datetime.timedelta(0, 2))
+
+    if not (state.status == "BUSY") or (
+        state.action_start
+        and (datetime.datetime.now() - state.action_start > datetime.timedelta(0, 2))
     ):
-        check_state()
-    return JSONResponse(content={"State": state})
+        check_state(state)
+    return JSONResponse(content={"status": state.status, "error": state.error})
 
 
-@app.get("/resources")
-async def resources():
-    """Returns info about the resources the module has access to"""
-    global pf400
-    return JSONResponse(content={"State": pf400.get_status()})
+@rest_module.action(
+    name="transfer", description="Transfer a plate from one location to another"
+)
+def transfer(
+    state: State,
+    action: ActionRequest,
+    source: Annotated[List[float], "Location to pick a plate from"],
+    target: Annotated[List[float], "Location to place a plate to"],
+    source_plate_rotation: Annotated[
+        str, "Orientation of the plate at the source, wide or narrow"
+    ],
+    target_plate_rotation: Annotated[
+        str, "Final orientation of the plate at the target, wide or narrow"
+    ],
+) -> StepResponse:
+    """Transfer a plate from one location to another"""
+    sleep(0.3)
+    err = None
+    if len(source) != 6:
+        err = True
+        msg = "Position 1 should be six joint angles length. Canceling the job!"
+    elif len(target) != 6:
+        err = True
+        msg = "Position 2 should be six joint angles length. Canceling the job!"
+    if err:
+        return StepResponse.step_failed(error=msg)
+    sleep(0.3)
+    state.action_start = datetime.datetime.now()
+    state.pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
+    state.action_start = None
+    return StepResponse.step_succeeded()
 
 
-@app.get("/about")
-async def about() -> JSONResponse:
-    """Returns a description of the actions and resources the module supports"""
-    global state
-    about = ModuleAbout(
-        name="Pf400 Robotic Arm",
-        model="Precise Automation PF400",
-        description="pf400 is a robot module that moves plates between two robot locations.",
-        interface="wei_rest_node",
-        version=extract_version(Path(__file__).parent.parent / "pyproject.toml"),
-        actions=[
-            ModuleAction(
-                name="transfer",
-                description="This action transfers a plate from a source robot location to a target robot location.",
-                args=[
-                    ModuleActionArg(
-                        name="source",
-                        description="Source location in the workcell for pf400 to grab plate from.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="target",
-                        description="Transfer location in the workcell for pf400 to transfer plate to.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="source_plate_rotation",
-                        description="Plate rotation for source location in the workcell.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="target_plate_rotation",
-                        description="Plate rotation for target location in the workcell.",
-                        type="str",
-                        required=True,
-                    ),
-                ],
-            ),
-            ModuleAction(
-                name="remove_lid",
-                description="This action removes the lid off of a plate",
-                args=[
-                    ModuleActionArg(
-                        name="target",
-                        description="Target location in the workcell that the plate is currently at.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="lid_height",
-                        description="Lid height of the target plate.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="target_plate_rotation",
-                        description="Rotation of plate at target location in the workcell.",
-                        type="str",
-                        required=True,
-                    ),
-                ],
-            ),
-            ModuleAction(
-                name="replace_lid",
-                description="This action places a lid on a plate with no lid.",
-                args=[
-                    ModuleActionArg(
-                        name="target",
-                        description="Target location in workcell that plate is currently at.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="lid_height",
-                        description="Lid height of the target plate.",
-                        type="str",
-                        required=True,
-                    ),
-                    ModuleActionArg(
-                        name="target_plate_rotation",
-                        description="Rotation of plate at target location in the workcell.",
-                        type="str",
-                        required=True,
-                    ),
-                ],
-            ),
-        ],
-        resource_pools=[],
-    )
-    return JSONResponse(content=about.model_dump(mode="json"))
+@rest_module.action(name="remove_lid", description="Remove a lid from a plate")
+def remove_lid(
+    state: State,
+    action: ActionRequest,
+    target: Annotated[List[float], "Location to remove a plate lid from"],
+    target_plate_rotation: Annotated[
+        str, " Orientation of the plate at the target, wide or narrow"
+    ],
+    lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+) -> StepResponse:
+    """Remove a lid from a plate"""
+    sleep(0.3)
+    state.action_start = datetime.datetime.now()
+    state.pf400.remove_lid(target, lid_height, target_plate_rotation)
+    state.action_start = None
+    return StepResponse.step_succeeded()
 
 
-@app.post("/action")
-def do_action(action_handle: str, action_vars: str):
-    """Executes the action requested by the user"""
-    response = {"action_response": "", "action_msg": "", "action_log": ""}
-    print(action_vars)
-    global pf400, state, action_start
-    if state == "BUSY":
-        return
-    action_start = datetime.datetime.now()
-    if state == "PF400 CONNECTION ERROR":
-        response["action_response"] = "failed"
-        response["action_log"] = "Connection error, cannot accept a job!"
-        return response
-
-    sleep(
-        0.3
-    )  # Before starting the action, wait for stateRefresherCallback function to cycle for at least once to avoid data loss.
-
-    vars = json.loads(action_vars)
-
-    err = False
-    state = "BUSY"
-    if action_handle == "transfer":
-        source_plate_rotation = ""
-        target_plate_rotation = ""
-
-        if "source" not in vars.keys():
-            err = True
-            msg = "Pick up location is not provided. Canceling the job!"
-        elif "target" not in vars.keys():
-            err = True
-            msg = "Drop off up location is not provided. Canceling the job!"
-        elif len(vars.get("source")) != 6:
-            err = True
-            msg = "Position 1 should be six joint angles length. Canceling the job!"
-        elif len(vars.get("target")) != 6:
-            err = True
-            msg = "Position 2 should be six joint angles length. Canceling the job!"
-
-        if err:
-            response["action_response"] = "failed"
-            response["action_log"] = msg
-            state = "ERROR"
-            return response
-
-        if "source_plate_rotation" in vars.keys():
-            source_plate_rotation = str(vars.get("source_plate_rotation"))
-
-        if "target_plate_rotation" in vars.keys():
-            target_plate_rotation = str(vars.get("target_plate_rotation"))
-
-        source = vars.get("source")
-        target = vars.get("target")
-
-        try:
-            pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
-        except Exception:
-            state = "ERROR"
-            traceback.print_exc()
-            response["action_response"] = "failed"
-        else:
-            state = "IDLE"
-            response["action_response"] = "succeeded"
-        return response
-
-    elif action_handle == "remove_lid":
-        target_plate_rotation = ""
-
-        if "target" not in vars.keys():
-            err = 1
-            msg = "Target location is not provided. Canceling the job!"
-            state = "ERROR"
-
-        if len(vars.get("target")) != 6:
-            err = 1
-            msg = (
-                "Target position should be six joint angles length. Canceling the job!"
-            )
-            state = "ERROR"
-
-        if err:
-            response["action_response"] = "failed"
-            response["action_log"] = msg
-            state = "ERROR"
-            return response
-
-        if "target_plate_rotation" not in vars.keys():
-            pass
-        else:
-            target_plate_rotation = str(vars.get("target_plate_rotation"))
-
-        target = vars.get("target")
-
-        lid_height = vars.get("lid_height", 7.0)
-
-        try:
-            pf400.remove_lid(target, lid_height, target_plate_rotation)
-        except Exception:
-            response["action_response"] = "failed"
-            state = "ERROR"
-        else:
-            state = "IDLE"
-            response["action_response"] = "succeeded"
-        return response
-
-    elif action_handle == "replace_lid":
-        target_plate_rotation = ""
-
-        if "target" not in vars.keys():
-            err = 1
-            msg = "Target location is not provided. Canceling the job!"
-            state = "ERROR"
-
-        if len(vars.get("target")) != 6:
-            err = 1
-            msg = (
-                "Target position should be six joint angles length. Canceling the job!"
-            )
-            state = "ERROR"
-
-        if err:
-            response["action_response"] = "failed"
-            response["action_log"] = msg
-            state = "ERROR"
-            return response
-
-        if "target_plate_rotation" not in vars.keys():
-            pass
-        else:
-            target_plate_rotation = str(vars.get("target_plate_rotation"))
-
-        if "lid_height" not in vars.keys():
-            lid_height = 7.0
-
-        else:
-            lid_height = vars.get("lid_height")
-
-        try:
-            pf400.replace_lid(target, lid_height, target_plate_rotation)
-        except Exception:
-            response["action_response"] = "failed"
-            state = "ERROR"
-        else:
-            state = "IDLE"
-            response["action_response"] = "succeeded"
-        return response
-
-    else:
-        msg = "UNKNOWN ACTION REQUEST! Available actions: explore_workcell, transfer, remove_lid, replace_lid"
-        state = "ERROR"
-        response["action_response"] = "failed"
-        response["action_log"] = msg
-        return response
+@rest_module.action(name="replace_lid", description="Replace a lid on a plate")
+def replace_lid(
+    state: State,
+    action: ActionRequest,
+    target: Annotated[List[float], "Location to place a plate to"],
+    target_plate_rotation: Annotated[
+        str, "Orientation of the plate at the target, wide or narrow"
+    ],
+    lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+) -> StepResponse:
+    """Replace a lid on a plate"""
+    sleep(0.3)
+    state.action_start = datetime.datetime.now()
+    state.pf400.replace_lid(target, lid_height, target_plate_rotation)
+    state.action_start = None
+    return StepResponse.step_succeeded()
 
 
-if __name__ == "__main__":
-    import uvicorn
-
-    args = parse_args()
-
-    uvicorn.run(
-        "pf400_rest_node:app",
-        host=args.host,
-        port=args.port,
-        reload=True,
-        ws_max_size=100000000000000000000000000000000000000,
-    )
+rest_module.start()

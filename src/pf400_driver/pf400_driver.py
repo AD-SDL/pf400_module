@@ -995,7 +995,7 @@ class PF400(KINEMATICS):
             print("Transfer cannot be completed, missing plate!")
             self.move_all_joints_neutral()
             sleep(5)
-            return  # Stopping transfer here
+            raise Exception("Transfer failed: no plate detected after picking.")
 
         if plate_source_rotation == 90 and plate_target_rotation == 0:
             # Need a transition from 90 degree to 0 degree

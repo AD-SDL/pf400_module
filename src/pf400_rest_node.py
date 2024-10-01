@@ -182,6 +182,77 @@ def transfer(
     return StepResponse.step_succeeded()
 
 
+@rest_module.action()
+def pick_plate(
+    state: State,
+    source: Annotated[List[float], "Locationto pick a plate from"],
+    source_plate_rotation: Annotated[
+        str, "Orientation of the plate at the source, wide or narrow"
+    ],
+) -> StepResponse:
+    """Picks a plate from a location"""
+    sleep(0.3)
+    err = None
+    if len(source) != 6:
+        err = True
+        msg = "Source should be six joint angles length. Canceling the job!"
+    if err:
+        return StepResponse.step_failed(error=msg)
+    sleep(0.3)
+    state.action_start = datetime.datetime.now()
+    state.pf400.robot_warning = "CLEAR"
+
+    if source_plate_rotation.lower() == "wide":
+        plate_source_rotation = 90
+
+    elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
+        plate_source_rotation = 0
+    source = state.pf400.check_incorrect_plate_orientation(
+        source, plate_source_rotation
+    )
+    state.pf400.force_initialize_robot()
+    state.pf400.pick_plate(source)
+    state.action_start = None
+    if state.pf400.plate_state == -1:
+        state.pf400.robot_warning = "MISSING PLATE"
+        state.pf400.move_all_joints_neutral()
+        sleep(5)
+        return StepResponse.step_failed(error="No plate detected after pick.")
+    return StepResponse.step_succeeded()
+
+
+@rest_module.action()
+def place_plate(
+    state: State,
+    target: Annotated[List[float], "Location to place the plate"],
+    target_plate_rotation: Annotated[
+        str, "Orientation of the plate at the target, wide or narrow"
+    ],
+) -> StepResponse:
+    """Picks a plate from a location"""
+    sleep(0.3)
+    err = None
+    if len(target) != 6:
+        err = True
+        msg = "Target should be six joint angles length. Canceling the job!"
+    if err:
+        return StepResponse.step_failed(error=msg)
+    sleep(0.3)
+    state.action_start = datetime.datetime.now()
+    if target_plate_rotation.lower() == "wide":
+        plate_target_rotation = 90
+
+    elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
+        plate_target_rotation = 0
+    target = state.pf400.check_incorrect_plate_orientation(
+        target, plate_target_rotation
+    )
+    state.pf400.force_initialize_robot()
+    state.pf400.place_plate(target)
+    state.action_start = None
+    return StepResponse.step_succeeded()
+
+
 @rest_module.action(name="remove_lid", description="Remove a lid from a plate")
 def remove_lid(
     state: State,

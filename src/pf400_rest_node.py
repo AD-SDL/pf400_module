@@ -35,10 +35,12 @@ def pf400_startup(state: State):
     try:
         state.pf400 = PF400(state.pf400_ip, state.pf400_port)
         state.pf400.initialize_robot()
-        state.status = ModuleStatus.IDLE
+        state.status[ModuleStatus.READY] = True
+        state.status[ModuleStatus.INIT] = False
         state.action_start = None
     except Exception:
-        state.status = ModuleStatus.ERROR
+        state.status = [ModuleStatus.ERROR] = True
+        state.status[ModuleStatus.INIT] = False
         traceback.print_exc()
 
     else:
@@ -80,29 +82,35 @@ def check_state(state: State):
 
     finally:
         if try_connect:
-            state.status = ModuleStatus.ERROR
+            state.status[ModuleStatus.READY] = False
+            state.status[ModuleStatus.ERROR] = True
             try:
                 state.pf400 = PF400(state.pf400_ip, state.pf400_port)
                 state.pf400.initialize_robot()
-                state.status = ModuleStatus.IDLE
-
+                state.status[ModuleStatus.READY] = True
+                state.status[ModuleStatus.ERROR] = False
+            
             except ConnectionException as error_msg:
-                state.status = ModuleStatus.ERROR
+                state.status[ModuleStatus.READY] = False
+                state.status[ModuleStatus.ERROR] = True
                 print(error_msg)
 
             except Exception as err:
-                state.status = ModuleStatus.ERROR
+                state.status[ModuleStatus.READY] = False
+                state.status[ModuleStatus.ERROR] = True
                 print(err)
             else:
                 print("PF400 online")
 
     if err:
-        state.status = ModuleStatus.ERROR
+        state.status[ModuleStatus.READY] = False
+        state.status[ModuleStatus.ERROR] = True
         return
 
     # Check if robot wasn't attached to the software after recovering from Power Off state
     if state.pf400.attach_state == "-1":
-        state.status = ModuleStatus.ERROR
+        state.status[ModuleStatus.READY] = False
+        state.status[ModuleStatus.ERROR] = True
         state.pf400.force_initialize_robot()
 
     # Publishing robot warning messages if the job wasn't completed successfully
@@ -110,28 +118,30 @@ def check_state(state: State):
         state.pf400.robot_warning.upper() != "CLEAR"
         and len(state.pf400.robot_warning) > 0
     ):
-        state.status = ModuleStatus.ERROR
+        state.status[ModuleStatus.READY] = False
+        state.status[ModuleStatus.ERROR] = True
         state.pf400.robot_warning = "CLEAR"
 
     # Checking real robot state parameters and publishing the current state
     if movement_state == 0:
-        state.status = ModuleStatus.ERROR
+        state.status[ModuleStatus.READY] = False
+        state.status[ModuleStatus.ERROR] = True
         state.pf400.force_initialize_robot()
 
     elif state.pf400.robot_state == "ERROR" or state.status == ModuleStatus.ERROR:
-        state.status = ModuleStatus.ERROR
-
+        state.status[ModuleStatus.READY] = False
+        state.status[ModuleStatus.ERROR] = True
     elif (
         movement_state >= 1 and state.status == ModuleStatus.BUSY
     ) or movement_state >= 2:
-        state.status = ModuleStatus.BUSY
-
+        state.status[ModuleStatus.READY] = False
+        state.status[ModuleStatus.BUST] = True
 
 @rest_module.state_handler()
 def state(state: State):
     """Returns the current state of the Pf400 module"""
 
-    if not (state.status == "BUSY") or (
+    if not (state.status[ModuleStatus.BUSY]) or (
         state.action_start
         and (datetime.datetime.now() - state.action_start > datetime.timedelta(0, 2))
     ):

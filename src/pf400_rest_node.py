@@ -135,7 +135,7 @@ def check_state(state: State):
         movement_state >= 1 and state.status == ModuleStatus.BUSY
     ) or movement_state >= 2:
         state.status[ModuleStatus.READY] = False
-        state.status[ModuleStatus.BUST] = True
+        state.status[ModuleStatus.BUSY] = True
 
 @rest_module.state_handler()
 def state(state: State):

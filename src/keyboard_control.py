@@ -58,13 +58,24 @@ def on_press(key):
       elif key.char == "s":
         move_robot(2, -1)
       elif key.char == "8":
-          move_robot_j(5, 1)
+          pos = robot.get_cartesian_coordinates()
+          pos[3] = 90
+          robot.move_cartesian(pos)
       elif key.char == "2":
-          move_robot_j(5, -1)     
+          pos = robot.get_cartesian_coordinates()
+          print(pos)
+          pos[3] = 270
+          robot.move_cartesian(pos)   
       elif key.char == "4":
-         move_robot_j(4, 1)
+         pos = robot.get_cartesian_coordinates()
+         print(pos)
+         pos[3] = 0
+         robot.move_cartesian(pos)   
       elif key.char == "6":
-         move_robot_j(4, -1)
+         pos = robot.get_cartesian_coordinates()
+         print(pos)
+         pos[3] = 180
+         robot.move_cartesian(pos)   
       # elif key.char == "7":
       #   move_robot(5, 1)
       # elif key.char == "9":

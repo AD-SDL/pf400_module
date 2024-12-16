@@ -157,8 +157,8 @@ def transfer(
     state: State,
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
-    source_approach: Annotated[List[float], "Approach location for source"],
     target: Annotated[List[float], "Location to place a plate to"],
+    source_approach: Annotated[List[float], "Approach location for source"],
     target_approach: Annotated[List[float], "Approach location for target"],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"

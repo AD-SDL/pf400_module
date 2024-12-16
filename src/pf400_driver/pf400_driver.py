@@ -951,7 +951,7 @@ class PF400(KINEMATICS):
         self.move_all_joints_neutral(source_location)
 
     def place_plate(
-        self, target_location: list = None, target_approach_location: list = None
+        self, target_location: list, target_approach_location: list = None
     ) -> None:
         """
         Plate a plate to the target location

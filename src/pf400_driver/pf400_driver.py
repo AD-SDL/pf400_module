@@ -915,14 +915,22 @@ class PF400(KINEMATICS):
         )
         self.move_all_joints_neutral(target)
 
-    def pick_plate(self, source_location):
+    def pick_plate(
+        self, source_location: list, source_approach_location: list = None
+    ) -> None:
         """
-        Description:
+        Pick a plate from the source location
         """
 
         abovePos = list(map(add, source_location, self.above))
         self.gripper_open()
         self.move_all_joints_neutral(source_location)
+        if source_approach_location:
+            self.move_joint(
+                target_joint_angles=source_approach_location,
+                profile=self.fast_motion_profile,
+            )
+
         self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
         self.move_joint(
             target_joint_angles=source_location,
@@ -933,26 +941,49 @@ class PF400(KINEMATICS):
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
+
+        if source_approach_location:
+            self.move_joint(
+                target_joint_angles=source_approach_location,
+                profile=self.fast_motion_profile,
+            )
+
         self.move_all_joints_neutral(source_location)
 
-    def place_plate(self, target_location):
+    def place_plate(
+        self, target_location: list = None, target_approach_location: list = None
+    ) -> None:
         """
-        Description:
+        Plate a plate to the target location
         """
         abovePos = list(map(add, target_location, self.above))
         self.move_all_joints_neutral(target_location)
+        if target_approach_location:
+            self.move_joint(
+                target_joint_angles=target_approach_location,
+                profile=self.fast_motion_profile,
+            )
+
         self.move_joint(abovePos, self.slow_motion_profile)
         self.move_joint(target_location, self.slow_motion_profile)
         self.release_plate()
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
+        if target_approach_location:
+            self.move_joint(
+                target_joint_angles=target_approach_location,
+                profile=self.fast_motion_profile,
+            )
+
         self.move_all_joints_neutral(target_location)
 
     def transfer(
         self,
         source_loc: list,
         target_loc: list,
+        source_approach: list = None,
+        target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
     ):
@@ -988,7 +1019,9 @@ class PF400(KINEMATICS):
         target = self.check_incorrect_plate_orientation(target, plate_target_rotation)
 
         self.force_initialize_robot()
-        self.pick_plate(source)
+        self.pick_plate(
+            source_location=source, source_approach_location=source_approach
+        )
 
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
@@ -1005,7 +1038,9 @@ class PF400(KINEMATICS):
             # Need a transition from 0 degree to 90 degree
             self.rotate_plate_on_deck(plate_target_rotation)
 
-        self.place_plate(target)
+        self.place_plate(
+            target_location=target, target_approach_location=target_approach
+        )
 
 
 if __name__ == "__main__":

@@ -157,7 +157,9 @@ def transfer(
     state: State,
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
+    source_approach: Annotated[List[float], "Approach location for source"],
     target: Annotated[List[float], "Location to place a plate to"],
+    target_approach: Annotated[List[float], "Approach location for target"],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ],
@@ -178,7 +180,14 @@ def transfer(
         return StepResponse.step_failed(error=msg)
     sleep(0.3)
     state.action_start = datetime.datetime.now()
-    state.pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
+    state.pf400.transfer(
+        source_loc=source,
+        target_loc=target,
+        source_approach=source_approach,
+        target_approach=target_approach,
+        source_plate_rotation=source_plate_rotation,
+        target_plate_rotation=target_plate_rotation,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 

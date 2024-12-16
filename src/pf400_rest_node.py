@@ -89,7 +89,7 @@ def check_state(state: State):
                 state.pf400.initialize_robot()
                 state.status[ModuleStatus.READY] = True
                 state.status[ModuleStatus.ERROR] = False
-            
+
             except ConnectionException as error_msg:
                 state.status[ModuleStatus.READY] = False
                 state.status[ModuleStatus.ERROR] = True
@@ -136,6 +136,7 @@ def check_state(state: State):
     ) or movement_state >= 2:
         state.status[ModuleStatus.READY] = False
         state.status[ModuleStatus.BUSY] = True
+
 
 @rest_module.state_handler()
 def state(state: State):

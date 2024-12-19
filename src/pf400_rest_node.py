@@ -32,15 +32,12 @@ rest_module.arg_parser.add_argument(
 @rest_module.startup()
 def pf400_startup(state: State):
     """Example startup handler."""
+    state.pf400 = None
+    state.action_start = None
     try:
         state.pf400 = PF400(state.pf400_ip, state.pf400_port)
         state.pf400.initialize_robot()
-        state.status[ModuleStatus.READY] = True
-        state.status[ModuleStatus.INIT] = False
-        state.action_start = None
     except Exception:
-        state.status = [ModuleStatus.ERROR] = True
-        state.status[ModuleStatus.INIT] = False
         traceback.print_exc()
 
     else:
@@ -62,7 +59,7 @@ def check_state(state: State):
     # TODO: Simplify this function
 
     try_connect = False
-    err = None
+    err = False
 
     try:
         movement_state = state.pf400.movement_state
@@ -89,7 +86,7 @@ def check_state(state: State):
                 state.pf400.initialize_robot()
                 state.status[ModuleStatus.READY] = True
                 state.status[ModuleStatus.ERROR] = False
-            
+
             except ConnectionException as error_msg:
                 state.status[ModuleStatus.READY] = False
                 state.status[ModuleStatus.ERROR] = True
@@ -137,13 +134,20 @@ def check_state(state: State):
         state.status[ModuleStatus.READY] = False
         state.status[ModuleStatus.BUSY] = True
 
+
 @rest_module.state_handler()
 def state(state: State):
     """Returns the current state of the Pf400 module"""
 
-    if not (state.status[ModuleStatus.BUSY]) or (
-        state.action_start
-        and (datetime.datetime.now() - state.action_start > datetime.timedelta(0, 2))
+    if (
+        not (state.status[ModuleStatus.BUSY])
+        and not (state.status[ModuleStatus.INIT])
+        or (
+            state.action_start
+            and (
+                datetime.datetime.now() - state.action_start > datetime.timedelta(0, 2)
+            )
+        )
     ):
         check_state(state)
     return JSONResponse(content={"status": state.status, "error": state.error})

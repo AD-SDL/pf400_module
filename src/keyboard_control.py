@@ -1,4 +1,5 @@
 # ruff: noqa
+
 import argparse
 import math
 
@@ -14,7 +15,8 @@ parser.add_argument("-u", "--url", default="146.137.240.38")
 parser.add_argument("-l", "--lin_speed", default=0.01)
 parser.add_argument("-r", "--rad_speed", default=0.01)
 args = parser.parse_args()
-robot = PF400()
+print(args.url)
+robot = PF400(args.url)
 move_speed = float(args.lin_speed)
 move_speed_radial = float(args.rad_speed)
 # print(robot.ur_connection.getl())
@@ -102,7 +104,6 @@ def on_press(key):
             # pos[5] = 0
             # robot.ur_connection.movej(pos, 0.8, 0.8)
             pos = robot.ur_connection.set_freedrive(True, 600)
-
 
 listener = keyboard.Listener(on_press=on_press)
 listener.daemon = False

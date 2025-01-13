@@ -102,7 +102,23 @@ class PF400(KINEMATICS):
         self.plate_width = 123
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
-        self.plate_rotation_deck = [146.5, -33.811, 107.957, 643.401, 82.122, 995.051]
+        self.plate_rotation_deck_narrow = [
+            631.014,
+            56.297,
+            273.181,
+            449.556,
+            78.458,
+            822.268,
+        ]
+        self.plate_rotation_deck_wide = [
+            628.122,
+            4.926,
+            70.372,
+            615.655,
+            122.046,
+            806.669,
+        ]
+
         self.plate_lid_deck = [145.0, -26.352, 114.149, 629.002, 82.081, 995.105]
         self.plate_camera_deck = [90.597, 26.416, 66.422, 714.811, 81.916, 995.074]
         self.trash_bin = [259.847, -36.810, 69.090, 687.466, 81.002, 995.035]
@@ -874,12 +890,11 @@ class PF400(KINEMATICS):
         Description: Uses the rotation deck to rotate the plate between two transfers
         Parameters: - rotation_degree: Rotation degree.
         """
-        target = self.plate_rotation_deck
+        target = self.plate_rotation_deck_narrow
 
         # Fixing the offset on the z axis
         if rotation_degree == -90:
-            target = self.set_plate_rotation(target, -rotation_degree)
-            target[0] += 5  # Setting vertical rail 5 mm higher
+            target = self.plate_rotation_deck_wide
 
         abovePos = list(map(add, target, self.above))
 
@@ -893,11 +908,12 @@ class PF400(KINEMATICS):
         self.gripper_open()
 
         # Fixing the offset on the z axis for OT2
-        if rotation_degree == -90:
-            target[0] -= 5  # Setting vertical rail 5 mm lower
+        # Setting vertical rail 5 mm lower
 
         # Rotating gripper to grab the plate from other rotation
-        target = self.set_plate_rotation(target, rotation_degree)
+        target = self.plate_rotation_deck_wide
+        if rotation_degree == -90:
+            target = self.plate_rotation_deck_narrow
         # print(target)
         abovePos = list(map(add, target, self.above))
         self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile)

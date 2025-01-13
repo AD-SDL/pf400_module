@@ -105,8 +105,6 @@ def on_press(key):
             # robot.ur_connection.movej(pos, 0.8, 0.8)
             pos = robot.ur_connection.set_freedrive(True, 600)
 
-
-print("here")
 listener = keyboard.Listener(on_press=on_press)
 listener.daemon = False
 listener.start()

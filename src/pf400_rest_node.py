@@ -161,6 +161,8 @@ def transfer(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
+    source_approach: Annotated[List[float], "Approach location for source"],
+    target_approach: Annotated[List[float], "Approach location for target"],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ],
@@ -181,7 +183,14 @@ def transfer(
         return StepResponse.step_failed(error=msg)
     sleep(0.3)
     state.action_start = datetime.datetime.now()
-    state.pf400.transfer(source, target, source_plate_rotation, target_plate_rotation)
+    state.pf400.transfer(
+        source_loc=source,
+        target_loc=target,
+        source_approach=source_approach,
+        target_approach=target_approach,
+        source_plate_rotation=source_plate_rotation,
+        target_plate_rotation=target_plate_rotation,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 
@@ -190,6 +199,7 @@ def transfer(
 def pick_plate(
     state: State,
     source: Annotated[List[float], "Locationto pick a plate from"],
+    source_approach: Annotated[List[float], "Approach location for source"],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ],
@@ -215,7 +225,9 @@ def pick_plate(
         source, plate_source_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.pick_plate(source)
+    state.pf400.pick_plate(
+        source_location=source, source_approach_location=source_approach
+    )
     state.action_start = None
     if state.pf400.plate_state == -1:
         state.pf400.robot_warning = "MISSING PLATE"
@@ -229,6 +241,7 @@ def pick_plate(
 def place_plate(
     state: State,
     target: Annotated[List[float], "Location to place the plate"],
+    target_approach: Annotated[List[float], "Approach location for target"],
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
     ],
@@ -252,7 +265,9 @@ def place_plate(
         target, plate_target_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.place_plate(target)
+    state.pf400.place_plate(
+        target_location=target, target_approach_location=target_approach
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 

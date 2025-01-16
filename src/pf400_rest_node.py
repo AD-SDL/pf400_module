@@ -4,7 +4,7 @@
 import datetime
 import traceback
 from time import sleep
-from typing import List
+from typing import List, Union
 
 from fastapi.datastructures import State
 from fastapi.responses import JSONResponse
@@ -161,8 +161,12 @@ def transfer(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Annotated[List[float], "Approach location for source"],
-    target_approach: Annotated[List[float], "Approach location for target"],
+    source_approach: Annotated[
+        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
+    ],
+    target_approach: Annotated[
+        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
+    ],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ],
@@ -195,11 +199,15 @@ def transfer(
     return StepResponse.step_succeeded()
 
 
-@rest_module.action()
+@rest_module.action(
+    name="pick_plate", description="Pick a plate from a source location"
+)
 def pick_plate(
     state: State,
-    source: Annotated[List[float], "Locationto pick a plate from"],
-    source_approach: Annotated[List[float], "Approach location for source"],
+    source: Annotated[List[float], "Location to pick a plate from"],
+    source_approach: Annotated[
+        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
+    ],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ],
@@ -237,11 +245,15 @@ def pick_plate(
     return StepResponse.step_succeeded()
 
 
-@rest_module.action()
+@rest_module.action(
+    name="place_plate", description="Place a plate to a target location"
+)
 def place_plate(
     state: State,
     target: Annotated[List[float], "Location to place the plate"],
-    target_approach: Annotated[List[float], "Approach location for target"],
+    target_approach: Annotated[
+        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
+    ],
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
     ],

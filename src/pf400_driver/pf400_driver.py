@@ -1068,7 +1068,7 @@ class PF400(KINEMATICS):
 
         self.force_initialize_robot()
         self.pick_plate(
-            source_location=source, source_approach_location=source_approach
+            source_location=source, source_approach_locations=source_approach
         )
 
         if self.plate_state == -1:
@@ -1087,7 +1087,7 @@ class PF400(KINEMATICS):
             self.rotate_plate_on_deck(plate_target_rotation)
 
         self.place_plate(
-            target_location=target, target_approach_location=target_approach
+            target_location=target, target_approach_locations=target_approach
         )
 
 

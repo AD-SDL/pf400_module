@@ -28,6 +28,10 @@ rest_module.arg_parser.add_argument(
     "--pf400_port", type=int, help="pf400 port value", default=10100
 )
 
+rest_module.arg_parser.add_argument(
+    "--locations_file", type=str, help="path of locations file"
+)
+
 
 @rest_module.startup()
 def pf400_startup(state: State):
@@ -35,7 +39,7 @@ def pf400_startup(state: State):
     state.pf400 = None
     state.action_start = None
     try:
-        state.pf400 = PF400(state.pf400_ip, state.pf400_port)
+        state.pf400 = PF400(state.pf400_ip, state.pf400_port, state.locations_file)
         state.pf400.initialize_robot()
     except Exception:
         traceback.print_exc()

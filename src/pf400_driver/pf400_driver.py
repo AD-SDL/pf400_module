@@ -7,6 +7,7 @@ import telnetlib
 import threading
 from operator import add
 from time import sleep
+import yaml
 
 from pf400_driver.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
 from pf400_driver.pf400_errors import (
@@ -16,7 +17,10 @@ from pf400_driver.pf400_errors import (
 )
 from pf400_driver.pf400_kinematics import KINEMATICS
 
-
+class PF400Location:
+    def __init__(self, joint_angles, safe_approach_path=[]):
+        self.joint_angles = joint_angles
+        self.safe_approach_path = safe_approach_path
 class PF400(KINEMATICS):
     """Main Driver Class for the PF400 Robot Arm."""
 
@@ -102,6 +106,7 @@ class PF400(KINEMATICS):
         self.plate_width = 123
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
+        self.locations = {}
         self.plate_rotation_deck_narrow = [
             631.014,
             56.297,

@@ -982,13 +982,16 @@ class PF400(KINEMATICS):
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
+                self.move_all_joints_neutral(location)
+
             else:
                 self.move_joint(
                     target_joint_angles=source_approach_locations,
                     profile=self.fast_motion_profile,
                 )
-
-        self.move_all_joints_neutral(source_location)
+                self.move_all_joints_neutral(source_approach_locations)
+        else: 
+            self.move_all_joints_neutral(source_location)
 
     def place_plate(
         self, target_location: list, target_approach_locations: list = None
@@ -1026,13 +1029,17 @@ class PF400(KINEMATICS):
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
+                self.move_all_joints_neutral(location)
+
             else:
                 self.move_joint(
                     target_joint_angles=target_approach_locations,
                     profile=self.fast_motion_profile,
                 )
+                self.move_all_joints_neutral(target_approach_locations)
 
-        self.move_all_joints_neutral(target_location)
+        else:
+            self.move_all_joints_neutral(target_location)
 
     def transfer(
         self,

@@ -951,19 +951,19 @@ class PF400(KINEMATICS):
         if source_approach_locations:
             if isinstance(source_approach_locations[0], list):
                 # Multiple approach locations provided
+                self.move_all_joints_neutral(source_approach_locations[0])
                 for location in source_approach_locations:
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
-                self.move_all_joints_neutral(location)
             else:
                 # Single approach location provided
+                self.move_all_joints_neutral(source_approach_locations)
                 self.move_joint(
                     target_joint_angles=source_approach_locations,
                     profile=self.fast_motion_profile,
                 )
-                self.move_all_joints_neutral(source_approach_locations)
         else: 
             self.move_all_joints_neutral(source_location)
 
@@ -1006,19 +1006,19 @@ class PF400(KINEMATICS):
         if target_approach_locations:
             if isinstance(target_approach_locations[0], list):
                 # Multiple approach locations provided
+                self.move_all_joints_neutral(target_approach_locations[0])
                 for location in target_approach_locations:
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
-                self.move_all_joints_neutral(location)
             else:
                 # Single approach location provided
+                self.move_all_joints_neutral(target_approach_locations)
                 self.move_joint(
                     target_joint_angles=target_approach_locations,
                     profile=self.fast_motion_profile,
                 )
-                self.move_all_joints_neutral(target_approach_locations)
         else:
             self.move_all_joints_neutral(target_location)
 

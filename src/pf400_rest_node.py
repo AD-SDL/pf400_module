@@ -234,7 +234,7 @@ def pick_plate(
     )
     state.pf400.force_initialize_robot()
     state.pf400.pick_plate(
-        source_location=source, source_approach_location=source_approach
+        source_location=source, source_approach_locations=source_approach
     )
     state.action_start = None
     if state.pf400.plate_state == -1:
@@ -278,7 +278,7 @@ def place_plate(
     )
     state.pf400.force_initialize_robot()
     state.pf400.place_plate(
-        target_location=target, target_approach_location=target_approach
+        target_location=target, target_approach_locations=target_approach
     )
     state.action_start = None
     return StepResponse.step_succeeded()

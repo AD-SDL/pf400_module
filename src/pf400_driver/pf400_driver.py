@@ -948,7 +948,6 @@ class PF400(KINEMATICS):
 
         abovePos = list(map(add, source_location, self.above))
         self.gripper_open()
-        self.move_all_joints_neutral(source_location)
         if source_approach_locations:
             if isinstance(source_approach_locations[0], list):
                 # Multiple approach locations provided
@@ -957,12 +956,16 @@ class PF400(KINEMATICS):
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
+                self.move_all_joints_neutral(location)
             else:
                 # Single approach location provided
                 self.move_joint(
                     target_joint_angles=source_approach_locations,
                     profile=self.fast_motion_profile,
                 )
+                self.move_all_joints_neutral(source_approach_locations)
+        else: 
+            self.move_all_joints_neutral(source_location)
 
         self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
         self.move_joint(
@@ -1000,7 +1003,6 @@ class PF400(KINEMATICS):
         Plate a plate to the target location
         """
         abovePos = list(map(add, target_location, self.above))
-        self.move_all_joints_neutral(target_location)
         if target_approach_locations:
             if isinstance(target_approach_locations[0], list):
                 # Multiple approach locations provided
@@ -1009,12 +1011,16 @@ class PF400(KINEMATICS):
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
+                self.move_all_joints_neutral(location)
             else:
                 # Single approach location provided
                 self.move_joint(
                     target_joint_angles=target_approach_locations,
                     profile=self.fast_motion_profile,
                 )
+                self.move_all_joints_neutral(target_approach_locations)
+        else:
+            self.move_all_joints_neutral(target_location)
 
         self.move_joint(abovePos, self.slow_motion_profile)
         self.move_joint(target_location, self.slow_motion_profile)

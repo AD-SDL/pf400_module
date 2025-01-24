@@ -815,70 +815,48 @@ class PF400(KINEMATICS):
         self.move_rails_neutral(target_location[0], target_location[5])
 
     def remove_lid(
-        self, target_loc, lid_height: float = 7.0, target_plate_rotation: str = ""
-    ):
+        self, 
+        source_loc: list,
+        target_loc: list,
+        lid_height: float = 7.0,        
+        source_approach: list = None,
+        target_approach: list = None,
+        source_plate_rotation: str = "",
+        target_plate_rotation: str = "",
+        ):
         """Remove the lid from the plate"""
-        # TODO: TAKE PLATE TYPE AS A VARIABLE TO CALCULATE LID HEIGHT
-        target = copy.deepcopy(target_loc)
-        self.robot_warning = "CLEAR"
+        source_loc = copy.deepcopy(source_loc)
+        source_loc[0] += lid_height
 
-        self.force_initialize_robot()
-
-        if target_plate_rotation.lower() == "wide":
-            self.plate_target_rotation = 90
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            self.plate_target_rotation = 0
-
-        target = self.check_incorrect_plate_orientation(
-            target, self.plate_target_rotation
-        )
-        target[0] += lid_height
-        self.pick_plate(target)
-
-        if self.plate_state == -1:
-            self.robot_warning = "MISSING PLATE"
-            print("Remove Lid cannot be completed, missing plate!")
-            return  # Stopping job here
-
-        if self.plate_target_rotation == 90:
-            # Need a transition from 90 degree to 0 degree
-            self.rotate_plate_on_deck(-self.plate_target_rotation)
-
-        self.place_plate(self.plate_lid_deck)
+        self.transfer(source_loc=source_loc,
+                      target_loc=target_loc,
+                      source_approach=source_approach,
+                      target_approach=target_approach,
+                      source_plate_rotation=source_plate_rotation,
+                      target_plate_rotation=target_plate_rotation
+                      )
 
     def replace_lid(
-        self, target_loc, lid_height: float = 7.0, target_plate_rotation: str = ""
-    ):
+        self,
+        source_loc: list,
+        target_loc: list,
+        lid_height: float = 7.0,        
+        source_approach: list = None,
+        target_approach: list = None,
+        source_plate_rotation: str = "",
+        target_plate_rotation: str = "",
+        ):
         """Replace the lid on the plate"""
-        # TODO: TAKE PLATE TYPE AS A VARIABLE TO CALCULATE LID HEIGHT
-        target = copy.deepcopy(target_loc)
-        self.robot_warning = "CLEAR"
+        target_loc = copy.deepcopy(target_loc)
+        target_loc[0] += lid_height
 
-        self.force_initialize_robot()
-
-        if target_plate_rotation.lower() == "wide":
-            self.plate_target_rotation = 90
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            self.plate_target_rotation = 0
-
-        self.pick_plate(self.plate_lid_deck)
-
-        if self.plate_state == -1:
-            self.robot_warning = "MISSING PLATE"
-            print("Replace Lid cannot be completed, missing plate!")
-            return  # Stopping job here
-
-        if self.plate_target_rotation == 90:
-            # Need a transition from 90 degree to 0 degree
-            self.rotate_plate_on_deck(self.plate_target_rotation)
-
-        target = self.check_incorrect_plate_orientation(
-            target, self.plate_target_rotation
-        )
-        target[0] += lid_height
-        self.place_plate(target)
+        self.transfer(source_loc=source_loc,
+                      target_loc=target_loc,
+                      source_approach=source_approach,
+                      target_approach=target_approach,
+                      source_plate_rotation=source_plate_rotation,
+                      target_plate_rotation=target_plate_rotation
+                      )
 
     def rotate_plate_on_deck(self, rotation_degree: int):
         """
@@ -1106,7 +1084,6 @@ class PF400(KINEMATICS):
         self.place_plate(
             target_location=target, target_approach_locations=target_approach
         )
-
 
 if __name__ == "__main__":
     # from pf400_driver.pf400_driver import PF400

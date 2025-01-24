@@ -72,8 +72,9 @@ class PF400(KINEMATICS):
         self.robot_warning = ""
 
         # Gripper variables
-        self.gripper_open_state = 130.0
-        self.gripper_closed_state = 77.0
+        self.gripper_open_wide = 130.0
+        self.gripper_open_narrow = 90.0
+        self.gripper_close_value = 77.0
         self.gripper_safe_height = 10.0
         self.set_gripper_open()
         self.set_gripper_close()
@@ -86,7 +87,7 @@ class PF400(KINEMATICS):
             1.400,
             177.101,
             537.107,
-            self.gripper_closed_state,
+            self.gripper_close_value,
             0.0,
         ]
         self.module_left_dist = -350.0
@@ -444,7 +445,7 @@ class PF400(KINEMATICS):
     def get_gripper_state(self):
         """Returns the current state of the gripper."""
 
-        if self.get_gripper_length() > self.gripper_closed_state + 1.0:
+        if self.get_gripper_length() > self.gripper_close_value + 1.0:
             self.gripper_state = "open"
         else:
             self.gripper_state = "closed"
@@ -486,11 +487,11 @@ class PF400(KINEMATICS):
 
     def set_gripper_open(self):
         """Configure the definition of gripper open."""
-        self.send_command("GripOpenPos " + str(self.gripper_open_state))
+        self.send_command("GripOpenPos " + str(self.plate_width))
 
-    def set_gripper_close(self):
+    def set_gripper_close(self, value):
         """Configure the definition of gripper close."""
-        self.send_command("GripClosePos " + str(self.gripper_closed_state))
+        self.send_command("GripClosePos " + str(self.gripper_close_value))
 
     def set_plate_rotation(self, joint_states, rotation_degree=0):
         """
@@ -565,9 +566,9 @@ class PF400(KINEMATICS):
 
         # Setting the gripper location to open or close. If there is no gripper position passed in, target_joint_angles will be used.
         if gripper_close:
-            target_joint_angles[4] = self.gripper_closed_state
+            target_joint_angles[4] = self.gripper_close_value
         elif gripper_open:
-            target_joint_angles[4] = self.gripper_open_state
+            target_joint_angles[4] = self.plate_width
         else:
             target_joint_angles[4] = self.get_gripper_length()
 
@@ -916,7 +917,7 @@ class PF400(KINEMATICS):
             profile=self.slow_motion_profile,
             gripper_open=True,
         )
-        self.grab_plate(self.plate_width, 100, 10)
+        self.grab_plate(width=self.plate_width, speed=100, force=10)
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
             print("Rotation cannot be completed, missing plate!")
@@ -959,7 +960,7 @@ class PF400(KINEMATICS):
             profile=self.fast_motion_profile,
             gripper_open=True,
         )
-        self.grab_plate(self.plate_width, 100, 10)
+        self.grab_plate(width=self.plate_width, speed=100, force=10)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
@@ -1010,7 +1011,7 @@ class PF400(KINEMATICS):
 
         self.move_joint(abovePos, self.slow_motion_profile)
         self.move_joint(target_location, self.slow_motion_profile)
-        self.release_plate()
+        self.release_plate(width=self.plate_width)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
@@ -1060,18 +1061,15 @@ class PF400(KINEMATICS):
 
         if source_plate_rotation.lower() == "wide":
             plate_source_rotation = 90
+            self.plate_width = self.gripper_open_wide
+            self.set_gripper_open()
 
         elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
             plate_source_rotation = 0
-
-        if target_plate_rotation.lower() == "wide":
-            plate_target_rotation = 90
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            plate_target_rotation = 0
-
+            self.plate_width = self.gripper_open_narrow
+            self.set_gripper_open()
+        
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
-        target = self.check_incorrect_plate_orientation(target, plate_target_rotation)
 
         self.force_initialize_robot()
         self.pick_plate(
@@ -1084,7 +1082,19 @@ class PF400(KINEMATICS):
             self.move_all_joints_neutral()
             sleep(5)
             raise Exception("Transfer failed: no plate detected after picking.")
-
+        
+        if target_plate_rotation.lower() == "wide":
+            plate_target_rotation = 90
+            self.plate_width = self.gripper_open_wide
+            self.set_gripper_open()
+            
+        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
+            plate_target_rotation = 0
+            self.plate_width = self.gripper_open_narrow
+            self.set_gripper_open()
+            
+        target = self.check_incorrect_plate_orientation(target, plate_target_rotation)
+        
         if plate_source_rotation == 90 and plate_target_rotation == 0:
             # Need a transition from 90 degree to 0 degree
             self.rotate_plate_on_deck(-plate_source_rotation)

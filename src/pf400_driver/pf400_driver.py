@@ -8,20 +8,13 @@ import threading
 from operator import add
 from time import sleep
 
-# from pf400_driver.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
-# from pf400_driver.pf400_errors import (
-#     CommandException,
-#     ConnectionException,
-#     ErrorResponse,
-# )
-# from pf400_driver.pf400_kinematics import KINEMATICS
-from pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
-from pf400_errors import (
+from pf400_driver.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
+from pf400_driver.pf400_errors import (
     CommandException,
     ConnectionException,
     ErrorResponse,
 )
-from pf400_kinematics import KINEMATICS
+from pf400_driver.pf400_kinematics import KINEMATICS
 
 
 class PF400(KINEMATICS):
@@ -100,8 +93,7 @@ class PF400(KINEMATICS):
         self.module_right_dist = 350.0
 
         # Sample variables
-        # self.sample_above_height = 100.0   # TESTING
-        self.sample_above_height = 15.0  # TESTING
+        self.sample_above_height = 15.0
         self.above = [self.sample_above_height, 0, 0, 0, 0, 0]
         self.y_recoil = 300.0
 
@@ -958,7 +950,7 @@ class PF400(KINEMATICS):
                     target_joint_angles=source_approach_locations,
                     profile=self.fast_motion_profile,
                 )
-        else: 
+        else:
             self.move_all_joints_neutral(source_location)
 
         self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
@@ -987,7 +979,7 @@ class PF400(KINEMATICS):
                     profile=self.fast_motion_profile,
                 )
                 self.move_all_joints_neutral(source_approach_locations)
-        else: 
+        else:
             self.move_all_joints_neutral(source_location)
 
     def place_plate(
@@ -1108,65 +1100,10 @@ class PF400(KINEMATICS):
 
 if __name__ == "__main__":
     # from pf400_driver.pf400_driver import PF400
-    robot = PF400("146.137.240.33")
+    robot = PF400()
 
     sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
     sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
     peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
     thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
     gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
-
-    ot2bioalpha_deck1 = [708.132, -49.277, 318.588, 448.364, 78.476, -207.488]
-    ot2biobeta_deck1 = [708.006, -20.563, 316.331, 333.900, 122.034, 458.676]
-    ot2biobeta_deck3 = [708.006, -73.569, 57.594, 645.534, 122.192, 241.742]
-    hidex_geraldine_default = [695.980, 26.367, 42.204, 739.301, 78.523, -746.939]
-    bio_biometra3_default = [775.356, 66.949, 67.620, 758.671, 77.462, 735.973]
-    bio_peeler_default = [606.489, -38.393, 231.287, 433.080, 77.591, -764.287]
-    bio_sealer_default = [583.320, -69.616, 233.645, 462.783, 77.802, -368.290]
-    # exchange_deck_high_narrow= [629.798, 85.603, 232.216, 460.572, 78.587, 998.622]  633.112
-    exchange_deck_high_narrow = [634.228, 85.603, 232.216, 460.572, 78.587, 998.622]
-    exchange_deck_low_narrow = [624.116, 85.603, 232.216, 460.570, 129.695, 998.622]
-    exchange_deck_high_wide = [634.228, 8.956, 104.501, 576.148, 122.052, 999.428]
-    exchange_deck_low_wide = [624.116, 8.956, 104.501, 576.148, 122.052, 999.428]
-    bmg_reader_default = [612.095, 7.320, 107.721, 692.610, 81.981, 917.649]
-    otflex_deckA = [809.724, 20.567, 285.633, 315.944, 78.646, 999.000]
-    otflex_deckB = [799.863, 4.749, 323.572, 299.211, 78.546, 999.500]
-    tekmatic_incubator_default = [662.907, 47.920, 77.931, 681.833, 82.239, -105.729]
-    safe_path_flexA = [
-        [787.882, -2.133, 175.682, 542.847, 78.581, 999.516],
-        [783.291, 62.017, 175.055, 541.806, 78.587, 999.516],
-        [849.853, 58.209, 283.568, 290.376, 78.575, 999.516],
-    ]
-    safe_path_flexB = [
-        [787.882, -2.133, 175.682, 542.847, 78.581, 999.516],
-        [783.291, 62.017, 175.055, 541.806, 78.587, 999.516],
-        [849.858, 32.559, 329.015, 266.497, 78.487, 999.523],
-    ]
-    tower_deck1 = [659.268, 40.048, 89.617, 676.354, 82.210, -717.291]
-    tower_deck2 = [746.804, 40.355, 89.479, 675.847, 82.186, -716.786]
-    tower_deck3 = [843.536, 40.138, 89.088, 677.201, 82.210, -717.111]
-    tower_deck4 = [937.621, 40.168, 89.179, 677.280, 82.163, -715.834]
-    tower_deck5 = [1018.525, 40.804, 89.204, 676.080, 82.174, -712.890]
-    safe_path_tower_deck1 = [672.247, 17.260, 134.825, 653.927, 82.221, -717.291]
-    safe_path_tower_deck2 = [760.688, 18.372, 133.883, 653.418, 82.186, -716.786]
-    safe_path_tower_deck3 = [854.408, 16.788, 134.302, 655.330, 82.215, -717.111]
-    safe_path_tower_deck4 = [950.484, 15.527, 136.545, 654.549, 82.169, -715.834]
-    safe_path_tower_deck5 = [1030.837, 18.536, 134.023, 653.530, 82.174, -712.890]
-    # safe_path_exchange_narrow= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516]]  # don't need
-    lidnest_1_wide = [378.413, 24.957, 115.554, 668.455, 125.193, -608.621]
-    lidnest_2_wide = [378.411, 23.815, 114.157, 671.301, 125.158, -389.370]
-    lidnest_3_narrow = [379.941, 24.651, 108.336, 674.525, 81.623, -194.111]
-    safe_path_lidnest_1 = [404.584, 6.928, 143.517, 658.529, 125.193, -608.622]
-    safe_path_lidnest_3 = [400.040, -4.149, 147.508, 664.154, 81.629, -194.110]
-    safe_path_lidnest_2 = [404.942, 4.432, 142.130, 662.712, 125.164, -389.370]
-    safe_home = [989.443, -2.007, 174.876, 542.366, 70.574, -843.897]
-    safe_exchange_height = [1010.701, 0.334, 174.659, 539.836, 70.539, 953.593]
-
-    # robot.pick_plate(source_location=exchange_deck_high_wide)
-    # robot.place_plate(target_location=exchange_deck_low_wide)
-    # robot.move_joint(safe_home)
-    # robot.move_joint([640.798, 85.603, 232.216, 460.572, 78.587, 998.622])
-    # robot.transfer(source_loc=ot2biobeta_deck1, target_loc=lidnest_3_narrow, target_approach=safe_path_lidnest_3)
-    # robot.transfer(source_loc=lidnest_3_narrow, target_loc=exchange_deck_high_narrow, source_approach=safe_path_lidnest_3)
-
-    # robot.remove_lid()

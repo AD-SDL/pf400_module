@@ -339,8 +339,6 @@ class PF400(KINEMATICS):
         self.joint_state_position[6] = float(joint_array[6]) * 0.001  # J6, rail
         return self.joint_state_position
 
-    # GET COMMANDS
-
     def get_robot_movement_state(self):
         """Checks the movement state of the robot
         States: 0 = Power off
@@ -460,8 +458,6 @@ class PF400(KINEMATICS):
             self.gripper_state = "closed"
         return self.gripper_state
 
-    # SET COMMANDS
-
     def set_profile(self, wait: int = 0.1, profile_dict: dict = {"0": 0}):
         """
         Description: Sets and saves the motion profiles (defined in robot data) to the robot.
@@ -553,7 +549,6 @@ class PF400(KINEMATICS):
 
         return goal_location
 
-    # MOVE COMMANDS
     def move_joint(
         self,
         target_joint_angles,
@@ -808,11 +803,10 @@ class PF400(KINEMATICS):
         if not h_rail:
             h_rail = current_location[5]  # Keep the horizontal rail same
 
-        self.neutral_joints[0] = v_rail + self.sample_above_height
-        self.move_joint(self.neutral_joints, self.slow_motion_profile)
-
         self.neutral_joints[5] = h_rail
         self.move_joint(self.neutral_joints, self.fast_motion_profile)
+        self.neutral_joints[0] = v_rail + self.sample_above_height
+        self.move_joint(self.neutral_joints, self.slow_motion_profile)
 
     def move_all_joints_neutral(self, target_location=None):
         """

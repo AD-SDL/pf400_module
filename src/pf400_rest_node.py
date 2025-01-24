@@ -307,14 +307,15 @@ def remove_lid(
     """Remove a lid from a plate"""
     sleep(0.3)
     state.action_start = datetime.datetime.now()
-    state.pf400.remove_lid(source_loc = source,
-                            target_loc= target,
-                            lid_height = lid_height,        
-                            source_approach = source_approach,
-                            target_approach = target_approach,
-                            source_plate_rotation = source_plate_rotation,
-                            target_plate_rotation= target_plate_rotation
-                            )
+    state.pf400.remove_lid(
+        source_loc=source,
+        target_loc=target,
+        lid_height=lid_height,
+        source_approach=source_approach,
+        target_approach=target_approach,
+        source_plate_rotation=source_plate_rotation,
+        target_plate_rotation=target_plate_rotation,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 
@@ -342,14 +343,15 @@ def replace_lid(
     """Replace a lid on a plate"""
     sleep(0.3)
     state.action_start = datetime.datetime.now()
-    state.pf400.replace_lid(source_loc = source,
-                            target_loc= target,
-                            lid_height = lid_height,        
-                            source_approach = source_approach,
-                            target_approach = target_approach,
-                            source_plate_rotation = source_plate_rotation,
-                            target_plate_rotation= target_plate_rotation
-                            )
+    state.pf400.replace_lid(
+        source_loc=source,
+        target_loc=target,
+        lid_height=lid_height,
+        source_approach=source_approach,
+        target_approach=target_approach,
+        source_plate_rotation=source_plate_rotation,
+        target_plate_rotation=target_plate_rotation,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 

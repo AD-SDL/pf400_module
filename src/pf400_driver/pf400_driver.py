@@ -815,48 +815,50 @@ class PF400(KINEMATICS):
         self.move_rails_neutral(target_location[0], target_location[5])
 
     def remove_lid(
-        self, 
+        self,
         source_loc: list,
         target_loc: list,
-        lid_height: float = 7.0,        
+        lid_height: float = 7.0,
         source_approach: list = None,
         target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
-        ):
+    ):
         """Remove the lid from the plate"""
         source_loc = copy.deepcopy(source_loc)
         source_loc[0] += lid_height
 
-        self.transfer(source_loc=source_loc,
-                      target_loc=target_loc,
-                      source_approach=source_approach,
-                      target_approach=target_approach,
-                      source_plate_rotation=source_plate_rotation,
-                      target_plate_rotation=target_plate_rotation
-                      )
+        self.transfer(
+            source_loc=source_loc,
+            target_loc=target_loc,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
 
     def replace_lid(
         self,
         source_loc: list,
         target_loc: list,
-        lid_height: float = 7.0,        
+        lid_height: float = 7.0,
         source_approach: list = None,
         target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
-        ):
+    ):
         """Replace the lid on the plate"""
         target_loc = copy.deepcopy(target_loc)
         target_loc[0] += lid_height
 
-        self.transfer(source_loc=source_loc,
-                      target_loc=target_loc,
-                      source_approach=source_approach,
-                      target_approach=target_approach,
-                      source_plate_rotation=source_plate_rotation,
-                      target_plate_rotation=target_plate_rotation
-                      )
+        self.transfer(
+            source_loc=source_loc,
+            target_loc=target_loc,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
 
     def rotate_plate_on_deck(self, rotation_degree: int):
         """
@@ -1046,7 +1048,7 @@ class PF400(KINEMATICS):
             plate_source_rotation = 0
             self.plate_width = self.gripper_open_narrow
             self.set_gripper_open()
-        
+
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
 
         self.force_initialize_robot()
@@ -1060,19 +1062,19 @@ class PF400(KINEMATICS):
             self.move_all_joints_neutral()
             sleep(5)
             raise Exception("Transfer failed: no plate detected after picking.")
-        
+
         if target_plate_rotation.lower() == "wide":
             plate_target_rotation = 90
             self.plate_width = self.gripper_open_wide
             self.set_gripper_open()
-            
+
         elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
             plate_target_rotation = 0
             self.plate_width = self.gripper_open_narrow
             self.set_gripper_open()
-            
+
         target = self.check_incorrect_plate_orientation(target, plate_target_rotation)
-        
+
         if plate_source_rotation == 90 and plate_target_rotation == 0:
             # Need a transition from 90 degree to 0 degree
             self.rotate_plate_on_deck(-plate_source_rotation)
@@ -1084,6 +1086,7 @@ class PF400(KINEMATICS):
         self.place_plate(
             target_location=target, target_approach_locations=target_approach
         )
+
 
 if __name__ == "__main__":
     # from pf400_driver.pf400_driver import PF400

@@ -553,7 +553,7 @@ class PF400(KINEMATICS):
         """
         Description: Creates the movement commands with the given robot_location, profile, gripper closed and gripper open info
         Parameters:
-                        - target_location: Which location the PF400 will move.
+                        - target: Which location the PF400 will move.
                         - profile: Motion profile ID.
                         - gripper_close: If set to TRUE, gripper is closed. If set to FALSE, gripper position will remain same as the previous location.
                         - gripper_open: If set to TRUE, gripper is opened. If set to FALSE, gripper position will remain same as the previous location.
@@ -593,7 +593,7 @@ class PF400(KINEMATICS):
 
     def move_in_one_axis_from_target(
         self,
-        target_location,
+        target,
         profile: int = 1,
         axis_x: int = 0,
         axis_y: int = 0,
@@ -604,18 +604,18 @@ class PF400(KINEMATICS):
 
         Description: Moves the end effector on single axis with a goal movement in millimeters.
         Parameters:
-                - target_location : Joint states of the target location
+                - target : Joint states of the target location
                 - axis_x : Goal movement on x axis in mm
                 - axis_y : Goal movement on y axis in mm
                 - axis_z : Goal movement on z axis in mm
         """
         # First move robot on linear rail
         current_joint_state = self.get_joint_states()
-        current_joint_state[5] = target_location[5]
+        current_joint_state[5] = target[5]
         self.move_joint(current_joint_state)
 
         # Find the cartesian coordinates of the target joint states
-        cartesian_coordinates = self.forward_kinematics(target_location)
+        cartesian_coordinates = self.forward_kinematics(target)
 
         # Move en effector on the single axis
         cartesian_coordinates[0] += axis_x
@@ -802,23 +802,23 @@ class PF400(KINEMATICS):
         self.neutral_joints[0] = v_rail + self.sample_above_height
         self.move_joint(self.neutral_joints, self.slow_motion_profile)
 
-    def move_all_joints_neutral(self, target_location=None):
+    def move_all_joints_neutral(self, target=None):
         """
         Description: Move all joints to neutral position
         """
-        if target_location is None:
-            target_location = self.get_joint_states()
+        if target is None:
+            target = self.get_joint_states()
         # First move end effector to it's nuetral position
         self.move_gripper_neutral()
         # Setting an arm neutral position without moving the horizontal & vertical rails
         self.move_arm_neutral()
         # Setting the target location's linear rail position for pf400_neutral
-        self.move_rails_neutral(target_location[0], target_location[5])
+        self.move_rails_neutral(target[0], target[5])
 
     def remove_lid(
         self,
-        source_loc: list,
-        target_loc: list,
+        source: list,
+        target: list,
         lid_height: float = 7.0,
         source_approach: list = None,
         target_approach: list = None,
@@ -826,12 +826,12 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
     ):
         """Remove the lid from the plate"""
-        source_loc = copy.deepcopy(source_loc)
-        source_loc[0] += lid_height
+        source = copy.deepcopy(source)
+        source[0] += lid_height
 
         self.transfer(
-            source_loc=source_loc,
-            target_loc=target_loc,
+            source=source,
+            target=target,
             source_approach=source_approach,
             target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
@@ -840,8 +840,8 @@ class PF400(KINEMATICS):
 
     def replace_lid(
         self,
-        source_loc: list,
-        target_loc: list,
+        source: list,
+        target: list,
         lid_height: float = 7.0,
         source_approach: list = None,
         target_approach: list = None,
@@ -849,12 +849,12 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
     ):
         """Replace the lid on the plate"""
-        target_loc = copy.deepcopy(target_loc)
-        target_loc[0] += lid_height
+        target = copy.deepcopy(target)
+        target[0] += lid_height
 
         self.transfer(
-            source_loc=source_loc,
-            target_loc=target_loc,
+            source=source,
+            target=target,
             source_approach=source_approach,
             target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
@@ -907,37 +907,35 @@ class PF400(KINEMATICS):
         )
         self.move_all_joints_neutral(target)
 
-    def pick_plate(
-        self, source_location: list, source_approach_locations: list = None
-    ) -> None:
+    def pick_plate(self, source: list, source_approach: list = None) -> None:
         """
         Pick a plate from the source location
         """
 
-        abovePos = list(map(add, source_location, self.above))
+        abovePos = list(map(add, source, self.above))
         self.gripper_open()
-        if source_approach_locations:
-            if isinstance(source_approach_locations[0], list):
+        if source_approach:
+            if isinstance(source_approach[0], list):
                 # Multiple approach locations provided
-                self.move_all_joints_neutral(source_approach_locations[0])
-                for location in source_approach_locations:
+                self.move_all_joints_neutral(source_approach[0])
+                for location in source_approach:
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
             else:
                 # Single approach location provided
-                self.move_all_joints_neutral(source_approach_locations)
+                self.move_all_joints_neutral(source_approach)
                 self.move_joint(
-                    target_joint_angles=source_approach_locations,
+                    target_joint_angles=source_approach,
                     profile=self.fast_motion_profile,
                 )
         else:
-            self.move_all_joints_neutral(source_location)
+            self.move_all_joints_neutral(source)
 
         self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
         self.move_joint(
-            target_joint_angles=source_location,
+            target_joint_angles=source,
             profile=self.fast_motion_profile,
             gripper_open=True,
         )
@@ -946,9 +944,9 @@ class PF400(KINEMATICS):
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
 
-        if source_approach_locations:
-            if isinstance(source_approach_locations[0], list):
-                for location in reversed(source_approach_locations):
+        if source_approach:
+            if isinstance(source_approach[0], list):
+                for location in reversed(source_approach):
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
@@ -957,48 +955,46 @@ class PF400(KINEMATICS):
 
             else:
                 self.move_joint(
-                    target_joint_angles=source_approach_locations,
+                    target_joint_angles=source_approach,
                     profile=self.fast_motion_profile,
                 )
-                self.move_all_joints_neutral(source_approach_locations)
+                self.move_all_joints_neutral(source_approach)
         else:
-            self.move_all_joints_neutral(source_location)
+            self.move_all_joints_neutral(source)
 
-    def place_plate(
-        self, target_location: list, target_approach_locations: list = None
-    ) -> None:
+    def place_plate(self, target: list, targget_approach: list = None) -> None:
         """
         Plate a plate to the target location
         """
-        abovePos = list(map(add, target_location, self.above))
-        if target_approach_locations:
-            if isinstance(target_approach_locations[0], list):
+        abovePos = list(map(add, target, self.above))
+        if targget_approach:
+            if isinstance(targget_approach[0], list):
                 # Multiple approach locations provided
-                self.move_all_joints_neutral(target_approach_locations[0])
-                for location in target_approach_locations:
+                self.move_all_joints_neutral(targget_approach[0])
+                for location in targget_approach:
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
             else:
                 # Single approach location provided
-                self.move_all_joints_neutral(target_approach_locations)
+                self.move_all_joints_neutral(targget_approach)
                 self.move_joint(
-                    target_joint_angles=target_approach_locations,
+                    target_joint_angles=targget_approach,
                     profile=self.fast_motion_profile,
                 )
         else:
-            self.move_all_joints_neutral(target_location)
+            self.move_all_joints_neutral(target)
 
         self.move_joint(abovePos, self.slow_motion_profile)
-        self.move_joint(target_location, self.slow_motion_profile)
+        self.move_joint(target, self.slow_motion_profile)
         self.release_plate(width=self.plate_width)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
-        if target_approach_locations:
-            if isinstance(target_approach_locations[0], list):
-                for location in reversed(target_approach_locations):
+        if targget_approach:
+            if isinstance(targget_approach[0], list):
+                for location in reversed(targget_approach):
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
@@ -1007,18 +1003,18 @@ class PF400(KINEMATICS):
 
             else:
                 self.move_joint(
-                    target_joint_angles=target_approach_locations,
+                    target_joint_angles=targget_approach,
                     profile=self.fast_motion_profile,
                 )
-                self.move_all_joints_neutral(target_approach_locations)
+                self.move_all_joints_neutral(targget_approach)
 
         else:
-            self.move_all_joints_neutral(target_location)
+            self.move_all_joints_neutral(target)
 
     def transfer(
         self,
-        source_loc: list,
-        target_loc: list,
+        source: list,
+        target: list,
         source_approach: list = None,
         target_approach: list = None,
         source_plate_rotation: str = "",
@@ -1035,8 +1031,8 @@ class PF400(KINEMATICS):
                 Note: Plate rotation defines the rotation of the plate on the deck, not the grabing angle.
 
         """
-        source = copy.deepcopy(source_loc)
-        target = copy.deepcopy(target_loc)
+        source = copy.deepcopy(source)
+        target = copy.deepcopy(target)
 
         self.robot_warning = "CLEAR"
 
@@ -1053,9 +1049,7 @@ class PF400(KINEMATICS):
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
 
         self.force_initialize_robot()
-        self.pick_plate(
-            source_location=source, source_approach_locations=source_approach
-        )
+        self.pick_plate(source=source, source_approach=source_approach)
 
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
@@ -1084,9 +1078,7 @@ class PF400(KINEMATICS):
             # Need a transition from 0 degree to 90 degree
             self.rotate_plate_on_deck(plate_target_rotation)
 
-        self.place_plate(
-            target_location=target, target_approach_locations=target_approach
-        )
+        self.place_plate(target=target, targget_approach=target_approach)
 
 
 if __name__ == "__main__":

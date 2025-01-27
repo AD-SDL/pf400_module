@@ -188,8 +188,8 @@ def transfer(
     sleep(0.3)
     state.action_start = datetime.datetime.now()
     state.pf400.transfer(
-        source_loc=source,
-        target_loc=target,
+        source=source,
+        target=target,
         source_approach=source_approach,
         target_approach=target_approach,
         source_plate_rotation=source_plate_rotation,
@@ -233,9 +233,7 @@ def pick_plate(
         source, plate_source_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.pick_plate(
-        source_location=source, source_approach_locations=source_approach
-    )
+    state.pf400.pick_plate(source=source, source_approach=source_approach)
     state.action_start = None
     if state.pf400.plate_state == -1:
         state.pf400.robot_warning = "MISSING PLATE"
@@ -277,9 +275,7 @@ def place_plate(
         target, plate_target_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.place_plate(
-        target_location=target, target_approach_locations=target_approach
-    )
+    state.pf400.place_plate(target=target, target_approach=target_approach)
     state.action_start = None
     return StepResponse.step_succeeded()
 
@@ -308,8 +304,8 @@ def remove_lid(
     sleep(0.3)
     state.action_start = datetime.datetime.now()
     state.pf400.remove_lid(
-        source_loc=source,
-        target_loc=target,
+        source=source,
+        target=target,
         lid_height=lid_height,
         source_approach=source_approach,
         target_approach=target_approach,
@@ -344,8 +340,8 @@ def replace_lid(
     sleep(0.3)
     state.action_start = datetime.datetime.now()
     state.pf400.replace_lid(
-        source_loc=source,
-        target_loc=target,
+        source=source,
+        target=target,
         lid_height=lid_height,
         source_approach=source_approach,
         target_approach=target_approach,

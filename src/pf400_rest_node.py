@@ -4,7 +4,7 @@
 import datetime
 import traceback
 from time import sleep
-from typing import List, Union
+from typing import List, Optional, Union
 
 from fastapi.datastructures import State
 from fastapi.responses import JSONResponse
@@ -161,18 +161,22 @@ def transfer(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
-    ],
-    target_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
-    ],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
+    target_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for target"
+        ]
+    ] = None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
-    ],
+    ] = "",
     target_plate_rotation: Annotated[
         str, "Final orientation of the plate at the target, wide or narrow"
-    ],
+    ] = "",
 ) -> StepResponse:
     """Transfer a plate from one location to another"""
     sleep(0.3)
@@ -205,12 +209,14 @@ def transfer(
 def pick_plate(
     state: State,
     source: Annotated[List[float], "Location to pick a plate from"],
-    source_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
-    ],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
-    ],
+    ] = "",
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
@@ -249,12 +255,14 @@ def pick_plate(
 def place_plate(
     state: State,
     target: Annotated[List[float], "Location to place the plate"],
-    target_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
-    ],
+    target_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for target"
+        ]
+    ] = None,
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
-    ],
+    ] = "",
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
@@ -286,18 +294,22 @@ def remove_lid(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
-    ],
-    target_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
-    ],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
+    target_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for target"
+        ]
+    ] = None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
-    ],
+    ] = "",
     target_plate_rotation: Annotated[
         str, "Final orientation of the plate at the target, wide or narrow"
-    ],
+    ] = "",
     lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
 ) -> StepResponse:
     """Remove a lid from a plate"""
@@ -322,18 +334,22 @@ def replace_lid(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
-    ],
-    target_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
-    ],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
+    target_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for target"
+        ]
+    ] = None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
-    ],
+    ] = "",
     target_plate_rotation: Annotated[
         str, "Final orientation of the plate at the target, wide or narrow"
-    ],
+    ] = "",
     lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
 ) -> StepResponse:
     """Replace a lid on a plate"""

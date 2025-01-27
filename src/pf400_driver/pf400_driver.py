@@ -76,9 +76,6 @@ class PF400(KINEMATICS):
         self.gripper_open_narrow = 90.0
         self.gripper_close_value = 77.0
         self.gripper_safe_height = 10.0
-        self.set_gripper_open()
-        self.set_gripper_close()
-        self.gripper_state = self.get_gripper_state()
 
         # Arm variables
         self.joint_state_position = [0, 0, 0, 0, 0, 0, 0]
@@ -123,6 +120,10 @@ class PF400(KINEMATICS):
         self.plate_lid_deck = [145.0, -26.352, 114.149, 629.002, 82.081, 995.105]
         self.plate_camera_deck = [90.597, 26.416, 66.422, 714.811, 81.916, 995.074]
         self.trash_bin = [259.847, -36.810, 69.090, 687.466, 81.002, 995.035]
+
+        self.set_gripper_open()
+        self.set_gripper_close()
+        self.gripper_state = self.get_gripper_state()
 
     def connect(self):
         """
@@ -489,7 +490,7 @@ class PF400(KINEMATICS):
         """Configure the definition of gripper open."""
         self.send_command("GripOpenPos " + str(self.plate_width))
 
-    def set_gripper_close(self, value):
+    def set_gripper_close(self):
         """Configure the definition of gripper close."""
         self.send_command("GripClosePos " + str(self.gripper_close_value))
 

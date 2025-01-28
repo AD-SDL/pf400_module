@@ -18,15 +18,26 @@ from pf400_driver.pf400_errors import (
 from pf400_driver.pf400_kinematics import KINEMATICS
 
 class PF400Location:
-    def __init__(self, joint_angles, safe_approach_path=[]):
+    """a pf400 location"""
+    def __init__(self, name, joint_angles, safe_approach_path=[]):
         self.joint_angles = joint_angles
         self.safe_approach_path = safe_approach_path
+def load_locations(locations_path: str) -> tuple[dict, dict, str]:
+    location_spec = yaml.safe_load(locations_path)
+    locations = {}
+    for name, location in location_spec["locations"].items():
+        if "safe_approach_path" in location:
+            safe_approach_path = location["safe_approach_path"]
+        else:
+            safe_approach_path = []
+        locations[name] = PF400Location(name, location["joint_angles"], safe_approach_path=safe_approach_path)
+    return locations, location_spec["rotation_locations"], location_spec["plate_lid_nest"]
 class PF400(KINEMATICS):
     """Main Driver Class for the PF400 Robot Arm."""
 
     commandLock = threading.Lock()
 
-    def __init__(self, host="146.137.240.35", port=10100, mode=0):
+    def __init__(self, host="146.137.240.35", port=10100, mode=0, locations_file=None):
         """
         Description:
                         - Python interface that allows remote commands to be executed using simple string messages over Telnet socket on PF400.
@@ -106,7 +117,7 @@ class PF400(KINEMATICS):
         self.plate_width = 123
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
-        self.locations = {}
+        self.locations, self.rotation_locations, self.plate_lid_deck = load_locations(locations_file)
         self.plate_rotation_deck_narrow = [
             631.014,
             56.297,
@@ -124,7 +135,7 @@ class PF400(KINEMATICS):
             806.669,
         ]
 
-        self.plate_lid_deck = [145.0, -26.352, 114.149, 629.002, 82.081, 995.105]
+        #self.plate_lid_deck = [145.0, -26.352, 114.149, 629.002, 82.081, 995.105]
         self.plate_camera_deck = [90.597, 26.416, 66.422, 714.811, 81.916, 995.074]
         self.trash_bin = [259.847, -36.810, 69.090, 687.466, 81.002, 995.035]
 
@@ -895,12 +906,11 @@ class PF400(KINEMATICS):
         Description: Uses the rotation deck to rotate the plate between two transfers
         Parameters: - rotation_degree: Rotation degree.
         """
-        target = self.plate_rotation_deck_narrow
+        target = self.locations[self.rotation_locations["narrow"]]
 
         # Fixing the offset on the z axis
         if rotation_degree == -90:
-            target = self.plate_rotation_deck_wide
-
+            target = self.locations[self.rotation_locations["wide"]]
         abovePos = list(map(add, target, self.above))
 
         self.move_all_joints_neutral(target)
@@ -916,9 +926,9 @@ class PF400(KINEMATICS):
         # Setting vertical rail 5 mm lower
 
         # Rotating gripper to grab the plate from other rotation
-        target = self.plate_rotation_deck_wide
+        target = self.locations[self.rotation_locations["wide"]]
         if rotation_degree == -90:
-            target = self.plate_rotation_deck_narrow
+            target = self.locations[self.rotation_locations["narrow"]]
         # print(target)
         abovePos = list(map(add, target, self.above))
         self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile)
@@ -937,13 +947,14 @@ class PF400(KINEMATICS):
         self.move_all_joints_neutral(target)
 
     def pick_plate(
-        self, source_location: list, source_approach_locations: list = None
+        self, source_location: list, source_approach_locations: list = None, source_offset: float = 0,
     ) -> None:
         """
         Pick a plate from the source location
         """
 
         abovePos = list(map(add, source_location, self.above))
+        source_location[0] += source_offset
         self.gripper_open()
         self.move_all_joints_neutral(source_location)
         if source_approach_locations:
@@ -988,12 +999,14 @@ class PF400(KINEMATICS):
         self.move_all_joints_neutral(source_location)
 
     def place_plate(
-        self, target_location: list, target_approach_locations: list = None
+        self, target_location: list, target_approach_locations: list = None, target_offset: float = 0
     ) -> None:
         """
         Plate a plate to the target location
         """
+
         abovePos = list(map(add, target_location, self.above))
+        target_location[0] += target_offset
         self.move_all_joints_neutral(target_location)
         if target_approach_locations:
             if isinstance(target_approach_locations[0], list):
@@ -1037,6 +1050,8 @@ class PF400(KINEMATICS):
         target_loc: list,
         source_approach: list = None,
         target_approach: list = None,
+        source_offset: float = 0,
+        target_offset: float = 0,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
     ) -> None:
@@ -1053,7 +1068,6 @@ class PF400(KINEMATICS):
         """
         source = copy.deepcopy(source_loc)
         target = copy.deepcopy(target_loc)
-
         self.robot_warning = "CLEAR"
 
         if source_plate_rotation.lower() == "wide":
@@ -1073,7 +1087,7 @@ class PF400(KINEMATICS):
 
         self.force_initialize_robot()
         self.pick_plate(
-            source_location=source, source_approach_locations=source_approach
+            source_location=source, source_approach_locations=source_approach, source_offset=source_offset
         )
 
         if self.plate_state == -1:
@@ -1092,7 +1106,7 @@ class PF400(KINEMATICS):
             self.rotate_plate_on_deck(plate_target_rotation)
 
         self.place_plate(
-            target_location=target, target_approach_locations=target_approach
+            target_location=target, target_approach_locations=target_approach, target_offset=target_offset
         )
 
 

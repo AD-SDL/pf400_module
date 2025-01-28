@@ -4,7 +4,7 @@
 import datetime
 import traceback
 from time import sleep
-from typing import List, Union
+from typing import List, Union, Optional
 
 from fastapi.datastructures import State
 from fastapi.responses import JSONResponse
@@ -40,6 +40,7 @@ def pf400_startup(state: State):
     state.action_start = None
     try:
         state.pf400 = PF400(state.pf400_ip, state.pf400_port, state.locations_file)
+        state.locations = state.pf400.locations
         state.pf400.initialize_robot()
     except Exception:
         traceback.print_exc()
@@ -163,8 +164,8 @@ def state(state: State):
 def transfer(
     state: State,
     action: ActionRequest,
-    source: Annotated[List[float], "Location to pick a plate from"],
-    target: Annotated[List[float], "Location to place a plate to"],
+    source: Annotated[Union[List[float], str],  "Location to pick a plate from"],
+    target: Annotated[Union[List[float], str], "Location to place a plate to"],
     source_approach: Annotated[
         Union[None, List[float], List[List[float]]], "Approach location(s) for source"
     ],
@@ -177,9 +178,15 @@ def transfer(
     target_plate_rotation: Annotated[
         str, "Final orientation of the plate at the target, wide or narrow"
     ],
+    target_offset: Optional[Annotated[float, "Z offset for the target"]] = 0,
+    source_offset: Optional[Annotated[float, "Z offset for the source"]] = 0
 ) -> StepResponse:
     """Transfer a plate from one location to another"""
     sleep(0.3)
+    if type[source] == str:
+        source = state.locations[source]
+    if type[target] == str:
+        target = state.locations[target]
     err = None
     if len(source) != 6:
         err = True
@@ -198,6 +205,8 @@ def transfer(
         target_approach=target_approach,
         source_plate_rotation=source_plate_rotation,
         target_plate_rotation=target_plate_rotation,
+        target_offset=target_offset,
+        source_offset=source_offset
     )
     state.action_start = None
     return StepResponse.step_succeeded()
@@ -208,16 +217,19 @@ def transfer(
 )
 def pick_plate(
     state: State,
-    source: Annotated[List[float], "Location to pick a plate from"],
+    source: Annotated[Union[List[float], str],  "Location to pick a plate from"],
     source_approach: Annotated[
         Union[None, List[float], List[List[float]]], "Approach location(s) for source"
     ],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ],
+    source_offset: Optional[Annotated[float, "Z offset for the source"]] = 0
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
+    if type[source] == str:
+        source = state.locations[source]
     err = None
     if len(source) != 6:
         err = True
@@ -238,7 +250,7 @@ def pick_plate(
     )
     state.pf400.force_initialize_robot()
     state.pf400.pick_plate(
-        source_location=source, source_approach_location=source_approach
+        source_location=source, source_approach_location=source_approach, source_offset=source_offset
     )
     state.action_start = None
     if state.pf400.plate_state == -1:
@@ -254,16 +266,19 @@ def pick_plate(
 )
 def place_plate(
     state: State,
-    target: Annotated[List[float], "Location to place the plate"],
+    target: Annotated[Union[List[float], str], "Location to place the plate"],
     target_approach: Annotated[
         Union[None, List[float], List[List[float]]], "Approach location(s) for target"
     ],
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
     ],
+    target_offset: Optional[Annotated[float, "Z offset for the target"]] = 0
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
+    if type[target] == str:
+        target = state.locations[target]
     err = None
     if len(target) != 6:
         err = True
@@ -282,7 +297,7 @@ def place_plate(
     )
     state.pf400.force_initialize_robot()
     state.pf400.place_plate(
-        target_location=target, target_approach_location=target_approach
+        target_location=target, target_approach_location=target_approach, target_offset=target_offset
     )
     state.action_start = None
     return StepResponse.step_succeeded()

@@ -14,6 +14,8 @@ from typing_extensions import Annotated
 from wei.modules.rest_module import RESTModule
 from wei.types.module_types import ModuleStatus
 from wei.types.step_types import ActionRequest, StepResponse
+import os
+import warnings
 
 rest_module = RESTModule(
     name="pf400_node",
@@ -29,7 +31,7 @@ rest_module.arg_parser.add_argument(
 )
 
 rest_module.arg_parser.add_argument(
-    "--locations_file", type=str, help="path of locations file"
+    "--locations_file", type=str, help="path of locations file", default="default_locations.yaml"
 )
 
 
@@ -38,8 +40,11 @@ def pf400_startup(state: State):
     """Example startup handler."""
     state.pf400 = None
     state.action_start = None
+    print(state.locations_file)
+    print(os.getcwd())
+
     try:
-        state.pf400 = PF400(state.pf400_ip, state.pf400_port, state.locations_file)
+        state.pf400 = PF400(state.pf400_ip, state.pf400_port, locations_file=state.locations_file)
         state.locations = state.pf400.locations
         state.pf400.initialize_robot()
     except Exception:
@@ -167,10 +172,10 @@ def transfer(
     source: Annotated[Union[List[float], str],  "Location to pick a plate from"],
     target: Annotated[Union[List[float], str], "Location to place a plate to"],
     source_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for source"
+        Optional[Union[[None, List[float], List[List[float]]]], "Approach location(s) for source"
     ],
     target_approach: Annotated[
-        Union[None, List[float], List[List[float]]], "Approach location(s) for target"
+        Optional[Union[None, List[float], List[List[float]]]], "Approach location(s) for target"
     ],
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
@@ -183,20 +188,10 @@ def transfer(
 ) -> StepResponse:
     """Transfer a plate from one location to another"""
     sleep(0.3)
-    if type[source] == str:
-        source = state.locations[source]
-    if type[target] == str:
-        target = state.locations[target]
-    err = None
-    if len(source) != 6:
-        err = True
-        msg = "Position 1 should be six joint angles length. Canceling the job!"
-    elif len(target) != 6:
-        err = True
-        msg = "Position 2 should be six joint angles length. Canceling the job!"
-    if err:
-        return StepResponse.step_failed(error=msg)
-    sleep(0.3)
+    if type(source) == str:
+        source = state.locations[source].joint_angles
+    if type(target) == str:
+        target = state.locations[target].joint_angles
     state.action_start = datetime.datetime.now()
     state.pf400.transfer(
         source_loc=source,
@@ -228,15 +223,8 @@ def pick_plate(
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
-    if type[source] == str:
-        source = state.locations[source]
-    err = None
-    if len(source) != 6:
-        err = True
-        msg = "Source should be six joint angles length. Canceling the job!"
-    if err:
-        return StepResponse.step_failed(error=msg)
-    sleep(0.3)
+    if type(source) == str:
+        source = state.locations[source].joint_angles
     state.action_start = datetime.datetime.now()
     state.pf400.robot_warning = "CLEAR"
 
@@ -250,7 +238,7 @@ def pick_plate(
     )
     state.pf400.force_initialize_robot()
     state.pf400.pick_plate(
-        source_location=source, source_approach_location=source_approach, source_offset=source_offset
+        source_location=source, source_approach_locations=source_approach, source_offset=source_offset
     )
     state.action_start = None
     if state.pf400.plate_state == -1:
@@ -277,15 +265,8 @@ def place_plate(
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
-    if type[target] == str:
-        target = state.locations[target]
-    err = None
-    if len(target) != 6:
-        err = True
-        msg = "Target should be six joint angles length. Canceling the job!"
-    if err:
-        return StepResponse.step_failed(error=msg)
-    sleep(0.3)
+    if type(target) == str:
+        target = state.locations[target].joint_angles   
     state.action_start = datetime.datetime.now()
     if target_plate_rotation.lower() == "wide":
         plate_target_rotation = 90
@@ -297,7 +278,7 @@ def place_plate(
     )
     state.pf400.force_initialize_robot()
     state.pf400.place_plate(
-        target_location=target, target_approach_location=target_approach, target_offset=target_offset
+        target_location=target, target_approach_locations=target_approach, target_offset=target_offset
     )
     state.action_start = None
     return StepResponse.step_succeeded()

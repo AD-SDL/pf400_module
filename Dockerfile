@@ -14,7 +14,7 @@ COPY ./src pf400_module/src
 COPY ./README.md pf400_module/README.md
 COPY ./pyproject.toml pf400_module/pyproject.toml
 COPY ./tests pf400_module/tests
-
+COPY ./default_locations.yaml default_locations.yaml
 RUN --mount=type=cache,target=/root/.cache \
     pip install -e ./pf400_module
 

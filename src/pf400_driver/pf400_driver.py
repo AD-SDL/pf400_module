@@ -8,6 +8,8 @@ import threading
 from operator import add
 from time import sleep
 import yaml
+import warnings
+import os
 
 from pf400_driver.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
 from pf400_driver.pf400_errors import (
@@ -23,15 +25,17 @@ class PF400Location:
         self.joint_angles = joint_angles
         self.safe_approach_path = safe_approach_path
 def load_locations(locations_path: str) -> tuple[dict, dict, str]:
-    location_spec = yaml.safe_load(locations_path)
+    with open(locations_path, 'r') as locations_file:
+       location_spec = yaml.safe_load(locations_file)
     locations = {}
     for name, location in location_spec["locations"].items():
         if "safe_approach_path" in location:
             safe_approach_path = location["safe_approach_path"]
         else:
             safe_approach_path = []
+        print(location)
         locations[name] = PF400Location(name, location["joint_angles"], safe_approach_path=safe_approach_path)
-    return locations, location_spec["rotation_locations"], location_spec["plate_lid_nest"]
+    return locations, location_spec["rotation_locations"]
 class PF400(KINEMATICS):
     """Main Driver Class for the PF400 Robot Arm."""
 
@@ -117,7 +121,13 @@ class PF400(KINEMATICS):
         self.plate_width = 123
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
-        self.locations, self.rotation_locations, self.plate_lid_deck = load_locations(locations_file)
+        try:
+            warnings.warn(os.getcwd())
+            self.locations, self.rotation_locations = load_locations(locations_file)
+        except Exception as e:
+            warnings.warn(f"You need to fix your location config file! Error: {e}")
+            self.locations = None
+            self.rotation_locations = None
         self.plate_rotation_deck_narrow = [
             631.014,
             56.297,
@@ -906,11 +916,11 @@ class PF400(KINEMATICS):
         Description: Uses the rotation deck to rotate the plate between two transfers
         Parameters: - rotation_degree: Rotation degree.
         """
-        target = self.locations[self.rotation_locations["narrow"]]
+        target = self.locations[self.rotation_locations["narrow"]].joint_angles
 
         # Fixing the offset on the z axis
         if rotation_degree == -90:
-            target = self.locations[self.rotation_locations["wide"]]
+            target = self.locations[self.rotation_locations["wide"]].joint_angles
         abovePos = list(map(add, target, self.above))
 
         self.move_all_joints_neutral(target)
@@ -926,9 +936,9 @@ class PF400(KINEMATICS):
         # Setting vertical rail 5 mm lower
 
         # Rotating gripper to grab the plate from other rotation
-        target = self.locations[self.rotation_locations["wide"]]
+        target = self.locations[self.rotation_locations["wide"]].joint_angles
         if rotation_degree == -90:
-            target = self.locations[self.rotation_locations["narrow"]]
+            target = self.locations[self.rotation_locations["narrow"]].joint_angles
         # print(target)
         abovePos = list(map(add, target, self.above))
         self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile)

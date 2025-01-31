@@ -488,11 +488,82 @@ class PF400(KINEMATICS):
 
     def set_gripper_open(self):
         """Configure the definition of gripper open."""
-        self.send_command("GripOpenPos " + str(self.plate_width))
+        self.send_command(f"GripOpenPos {self.plate_width}")
 
     def set_gripper_close(self):
         """Configure the definition of gripper close."""
-        self.send_command("GripClosePos " + str(self.gripper_close_value))
+        self.send_command(f"GripClosePos {self.gripper_close_value}")
+
+    def grab_plate(self, width: int = 123, speed: int = 100, force: int = 10):
+        """
+        Description:
+                Grabs the plate by applying additional force
+        Parameters:
+                - width: Plate width, in mm. Should be accurate to within about 1 mm.
+                - speed: Percent speed to open fingers.  1 to 100.
+                - Force: Maximum gripper squeeze force, in Nt.
+                                 A positive value indicates the fingers must close to grasp.
+                                 A negative value indicates the fingers must open to grasp.
+        Returns:
+                - 1: Plate grabbed
+                - 0: Plate is not grabbed
+        """
+        grab_plate_status = self.send_command(
+            "GraspPlate " + str(width) + " " + str(speed) + " " + str(force)
+        ).split(" ")
+
+        if len(grab_plate_status) < 2:
+            return
+
+        elif grab_plate_status[1] == "-1":
+            self.plate_state = 1
+
+        elif grab_plate_status[1] == "0" and width > 80:  # Do not try smaller width
+            width -= 1
+            self.grab_plate(width, speed, force)
+
+        elif width <= 80:
+            print("PLATE WAS NOT FOUND!")
+            self.robot_warning = "Missing Plate"
+            # TODO: Stop robot transfer here
+            self.plate_state = -1
+
+        return grab_plate_status
+
+    def release_plate(self, width: int = 130, speed: int = 100):
+        """
+        Description:
+                Release the plate
+        Parameters:
+                - width: Open width, in mm. Larger than the widest corners of the plates.
+                - speed: Percent speed to open fingers.  1 to 100.
+        Returns:
+                - release_plate_status == "0" -> Plate released
+                - release_plate_status == "1" -> Plate is not released
+        """
+
+        release_plate_status = self.send_command(
+            "ReleasePlate " + str(width) + " " + str(speed)
+        ).split(" ")
+
+        if release_plate_status[0] == "1":
+            print("Plate is not released")
+        elif release_plate_status[0] == "0":
+            self.plate_state = 0
+
+        return release_plate_status
+
+    def gripper_open(self):
+        """Opens the gripper"""
+        self.set_gripper_open()
+        self.send_command("gripper 1")
+        return self.get_gripper_state()
+
+    def gripper_close(self):
+        """Closes the gripper"""
+        self.set_gripper_close()
+        self.send_command("gripper 2")
+        return self.get_gripper_state()
 
     def set_plate_rotation(self, joint_states, rotation_degree=0):
         """
@@ -658,75 +729,6 @@ class PF400(KINEMATICS):
             + " ".join(map(str, cartesian_coordinates))
         )
         return self.send_command(move_command)
-
-    def grab_plate(self, width: int = 123, speed: int = 100, force: int = 10):
-        """
-        Description:
-                Grabs the plate by applying additional force
-        Parameters:
-                - width: Plate width, in mm. Should be accurate to within about 1 mm.
-                - speed: Percent speed to open fingers.  1 to 100.
-                - Force: Maximum gripper squeeze force, in Nt.
-                                 A positive value indicates the fingers must close to grasp.
-                                 A negative value indicates the fingers must open to grasp.
-        Returns:
-                - 1: Plate grabbed
-                - 0: Plate is not grabbed
-        """
-        grab_plate_status = self.send_command(
-            "GraspPlate " + str(width) + " " + str(speed) + " " + str(force)
-        ).split(" ")
-
-        if len(grab_plate_status) < 2:
-            return
-
-        elif grab_plate_status[1] == "-1":
-            self.plate_state = 1
-
-        elif grab_plate_status[1] == "0" and width > 80:  # Do not try smaller width
-            width -= 1
-            self.grab_plate(width, speed, force)
-
-        elif width <= 80:
-            print("PLATE WAS NOT FOUND!")
-            self.robot_warning = "Missing Plate"
-            # TODO: Stop robot transfer here
-            self.plate_state = -1
-
-        return grab_plate_status
-
-    def release_plate(self, width: int = 130, speed: int = 100):
-        """
-        Description:
-                Release the plate
-        Parameters:
-                - width: Open width, in mm. Larger than the widest corners of the plates.
-                - speed: Percent speed to open fingers.  1 to 100.
-        Returns:
-                - release_plate_status == "0" -> Plate released
-                - release_plate_status == "1" -> Plate is not released
-        """
-
-        release_plate_status = self.send_command(
-            "ReleasePlate " + str(width) + " " + str(speed)
-        ).split(" ")
-
-        if release_plate_status[0] == "1":
-            print("Plate is not released")
-        elif release_plate_status[0] == "0":
-            self.plate_state = 0
-
-        return release_plate_status
-
-    def gripper_open(self):
-        """Opens the gripper"""
-        self.send_command("gripper 1")
-        return self.get_gripper_state()
-
-    def gripper_close(self):
-        """Closes the gripper"""
-        self.send_command("gripper 2")
-        return self.get_gripper_state()
 
     def move_one_joint(self, joint_num, target, move_profile):
         """
@@ -1039,11 +1041,13 @@ class PF400(KINEMATICS):
         if source_plate_rotation.lower() == "wide":
             plate_source_rotation = 90
             self.plate_width = self.gripper_open_wide
+            print(f"Setting wide plate width {self.plate_width}")
             self.set_gripper_open()
 
         elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
             plate_source_rotation = 0
             self.plate_width = self.gripper_open_narrow
+            print(f"Setting narrow plate width {self.plate_width}")
             self.set_gripper_open()
 
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
@@ -1061,11 +1065,13 @@ class PF400(KINEMATICS):
         if target_plate_rotation.lower() == "wide":
             plate_target_rotation = 90
             self.plate_width = self.gripper_open_wide
+            print(f"Setting wide plate width {self.plate_width}")
             self.set_gripper_open()
 
         elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
             plate_target_rotation = 0
             self.plate_width = self.gripper_open_narrow
+            print(f"Setting narrow plate width {self.plate_width}")
             self.set_gripper_open()
 
         target = self.check_incorrect_plate_orientation(target, plate_target_rotation)

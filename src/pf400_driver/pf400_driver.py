@@ -525,7 +525,6 @@ class PF400(KINEMATICS):
         elif width <= 80:
             print("PLATE WAS NOT FOUND!")
             self.robot_warning = "Missing Plate"
-            # TODO: Stop robot transfer here
             self.plate_state = -1
 
         return grab_plate_status

@@ -97,7 +97,7 @@ class PF400(KINEMATICS):
 
         # Plate variables
         self.plate_state = 0
-        self.plate_width = 123
+        self.plate_width = self.gripper_open_wide
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
         self.plate_rotation_deck_narrow = [
@@ -1037,6 +1037,7 @@ class PF400(KINEMATICS):
 
         self.robot_warning = "CLEAR"
 
+        # set plate width for source
         if source_plate_rotation.lower() == "wide":
             plate_source_rotation = 90
             self.plate_width = self.gripper_open_wide
@@ -1061,6 +1062,7 @@ class PF400(KINEMATICS):
             sleep(5)
             raise Exception("Transfer failed: no plate detected after picking.")
 
+        # set plate width for target
         if target_plate_rotation.lower() == "wide":
             plate_target_rotation = 90
             self.plate_width = self.gripper_open_wide

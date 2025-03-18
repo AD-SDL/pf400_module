@@ -4,10 +4,11 @@
 import datetime
 import traceback
 from time import sleep
-from typing import List, Optional, Union
+from typing import List, Optional, Union, Any
 
 from madsci.common.types.action_types import ActionFailed, ActionSucceeded
 from madsci.common.types.node_types import RestNodeConfig
+from madsci.common.types.location_types import Location
 from madsci.node_module.abstract_node_module import action
 from madsci.node_module.rest_node_module import RestNode
 from pf400_interface.pf400 import PF400
@@ -20,10 +21,9 @@ class PF400NodeConfig(RestNodeConfig):
 
     __test__ = False
 
-    ip: str = "146.137.240.35"
+    pf400_ip: str = "146.137.240.35"
     """Required Robot IP"""
-    port: int = 10100
-    """Required Robot Port"""
+    pf400_port: int = None
 
 
 class PF400Node(RestNode):
@@ -39,7 +39,7 @@ class PF400Node(RestNode):
         try:
             self.logger.log("Node initializing...")
             self.pf400_interface = PF400(
-                host=self.config_model.ip, port=self.config_model.port
+                host=self.config_model.ip
             )
             self.pf400_interface.initialize_robot()
         except Exception as err:
@@ -101,31 +101,40 @@ class PF400Node(RestNode):
     )
     def transfer(
         self,
-        source: Annotated[List[float], "Location to pick a plate from"],
-        target: Annotated[List[float], "Location to place a plate to"],
+        source: Annotated[dict[str, Any], "Location to pick a plate from"],
+        target: Annotated[dict[str, Any], "Location to place a plate to"],
+        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
-        ],
+        ]= "",
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
-        ],
+        ]= "",
     ):
         """A doc string, but not the actual description of the action."""
-
+        try:
+            source = Location.model_validate(source)
+            target = Location.model_validate(target)
+            source_approach = Location.model_validate(source_approach) if source_approach else None
+            target_approach = Location.model_validate(target_approach) if target_approach else None
+        except Exception as e:
+            return ActionFailed(errors=f"Invalid location data: {e}")
+        
         self.pf400_interface.transfer(
             source_loc=source,
             target_loc=target,
+            source_approach=source_approach,
+            target_approach= target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        result = self.test_interface.run_command(
-            f"Test action with param {test_param}.", fail=True
-        )
-        if result:
-            return ActionSucceeded()
-        return ActionFailed(
-            errors=f"`run_command` returned '{result}'. Expected 'True'."
-        )
+
+        # if result:
+        return ActionSucceeded()
+        # return ActionFailed(
+            # errors=f"`run_command` returned '{result}'. Expected 'True'."
+        # )
 
     def pause(self) -> None:
         """Pause the node."""

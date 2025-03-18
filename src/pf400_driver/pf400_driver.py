@@ -16,14 +16,6 @@ from pf400_driver.pf400_errors import (
 )
 from pf400_driver.pf400_kinematics import KINEMATICS
 
-# from pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
-# from pf400_errors import (
-#     CommandException,
-#     ConnectionException,
-#     ErrorResponse,
-# )
-# from pf400_kinematics import KINEMATICS
-
 
 class PF400(KINEMATICS):
     """Main Driver Class for the PF400 Robot Arm."""
@@ -108,6 +100,7 @@ class PF400(KINEMATICS):
         self.plate_width = self.gripper_open_wide
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
+        self.plate_rotation_deck = [146.5, -33.811, 107.957, 643.401, 82.122, 995.051]
         self.plate_rotation_deck_narrow = [
             631.014,
             56.297,
@@ -875,11 +868,12 @@ class PF400(KINEMATICS):
         Description: Uses the rotation deck to rotate the plate between two transfers
         Parameters: - rotation_degree: Rotation degree.
         """
-        target = self.plate_rotation_deck_narrow
+        target = self.plate_rotation_deck
 
         # Fixing the offset on the z axis
         if rotation_degree == -90:
-            target = self.plate_rotation_deck_wide
+            target = self.set_plate_rotation(target, -rotation_degree)
+            target[0] += 5  # Setting vertical rail 5 mm higher
 
         abovePos = list(map(add, target, self.above))
 
@@ -892,13 +886,12 @@ class PF400(KINEMATICS):
         )
         self.gripper_open()
 
-        # Fixing the offset on the z axis for OT2
-        # Setting vertical rail 5 mm lower
+        # Fixing the offset on the z axis 
+        if rotation_degree == -90:
+            target[0] -= 5  # Setting vertical rail 5 mm lower
 
         # Rotating gripper to grab the plate from other rotation
-        target = self.plate_rotation_deck_wide
-        if rotation_degree == -90:
-            target = self.plate_rotation_deck_narrow
+        target = self.set_plate_rotation(target, rotation_degree)
         # print(target)
         abovePos = list(map(add, target, self.above))
         self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile)
@@ -907,7 +900,7 @@ class PF400(KINEMATICS):
             profile=self.slow_motion_profile,
             gripper_open=True,
         )
-        self.grab_plate(width=self.plate_width, speed=100, force=10)
+        self.grab_plate(self.plate_width, 100, 10)
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
             print("Rotation cannot be completed, missing plate!")

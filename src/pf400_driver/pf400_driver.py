@@ -886,7 +886,7 @@ class PF400(KINEMATICS):
         )
         self.gripper_open()
 
-        # Fixing the offset on the z axis 
+        # Fixing the offset on the z axis
         if rotation_degree == -90:
             target[0] -= 5  # Setting vertical rail 5 mm lower
 

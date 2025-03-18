@@ -1,6 +1,6 @@
 """This module contains the custom exceptions for the pf400_driver package."""
 
-from pf400_driver.pf400_constants import ERROR_CODES
+from pf400_interface.pf400_constants import ERROR_CODES
 
 
 class ConnectionException(Exception):

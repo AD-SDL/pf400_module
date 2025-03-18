@@ -8,8 +8,8 @@ from typing import List
 
 from fastapi.datastructures import State
 from fastapi.responses import JSONResponse
-from pf400_driver.pf400_driver import PF400
-from pf400_driver.pf400_errors import ConnectionException
+from pf400_interface.pf400 import PF400
+from pf400_interface.pf400_errors import ConnectionException
 from typing_extensions import Annotated
 from wei.modules.rest_module import RESTModule
 from wei.types.module_types import ModuleStatus
@@ -89,7 +89,7 @@ def check_state(state: State):
                 state.pf400.initialize_robot()
                 state.status[ModuleStatus.READY] = True
                 state.status[ModuleStatus.ERROR] = False
-            
+
             except ConnectionException as error_msg:
                 state.status[ModuleStatus.READY] = False
                 state.status[ModuleStatus.ERROR] = True
@@ -136,6 +136,7 @@ def check_state(state: State):
     ) or movement_state >= 2:
         state.status[ModuleStatus.READY] = False
         state.status[ModuleStatus.BUSY] = True
+
 
 @rest_module.state_handler()
 def state(state: State):

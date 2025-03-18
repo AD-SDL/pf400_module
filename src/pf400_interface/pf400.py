@@ -8,13 +8,13 @@ import threading
 from operator import add
 from time import sleep
 
-from pf400_driver.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
-from pf400_driver.pf400_errors import (
+from pf400_interface.pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
+from pf400_interface.pf400_errors import (
     CommandException,
     ConnectionException,
     ErrorResponse,
 )
-from pf400_driver.pf400_kinematics import KINEMATICS
+from pf400_interface.pf400_kinematics import KINEMATICS
 
 
 class PF400(KINEMATICS):

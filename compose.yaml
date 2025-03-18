@@ -8,7 +8,6 @@ services:
       dockerfile: Dockerfile
       tags:
         - ${IMAGE}:latest
-        - ${IMAGE}:${PROJECT_VERSION}
         - ${IMAGE}:dev
     command: python -m pf400_rest_node --port 3000 --pf400_ip ${PF400_IP} --pf400_port ${PF400_PORT}
     env_file: .env

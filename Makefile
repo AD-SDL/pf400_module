@@ -1,7 +1,9 @@
-# Python Configuration
-PYPROJECT_TOML := pyproject.toml
-
 .DEFAULT_GOAL := init
+
+.PHONY += init paths checks test clean
+
+init: # Do the initial configuration of the project
+	@test -e .env || cp example.env .env
 
 .PHONY += init paths checks test clean
 init: # Do the initial configuration of the project

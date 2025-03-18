@@ -161,8 +161,10 @@ def transfer(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
-    source_approach=None,
-    target_approach=None,
+    source_approach: Annotated[List[float], "Location to approach from"] = None,
+    target_approach: Annotated[List[float], "Location to approach from"] = None,
+    # source_approach=None,
+    # target_approach=None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ] = "",
@@ -247,16 +249,15 @@ def pick_plate(
 def place_plate(
     state: State,
     target: Annotated[List[float], "Location to place the plate"],
-    target_approach: Optional[
-        Annotated[
-            Union[List[float], List[List[float]]], "Approach location(s) for target"
-        ]
+    target_approach: Annotated[
+        Optional[Union[List[float], List[List[float]]]],
+        "Approach location(s) for target",
     ] = None,
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
     ] = "",
 ) -> StepResponse:
-    """Picks a plate from a location"""
+    """Places a plate at a location"""
     sleep(0.3)
     err = None
     if len(target) != 6:

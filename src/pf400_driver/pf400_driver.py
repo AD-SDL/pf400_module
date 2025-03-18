@@ -16,6 +16,14 @@ from pf400_driver.pf400_errors import (
 )
 from pf400_driver.pf400_kinematics import KINEMATICS
 
+# from pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
+# from pf400_errors import (
+#     CommandException,
+#     ConnectionException,
+#     ErrorResponse,
+# )
+# from pf400_kinematics import KINEMATICS
+
 
 class PF400(KINEMATICS):
     """Main Driver Class for the PF400 Robot Arm."""
@@ -91,7 +99,7 @@ class PF400(KINEMATICS):
         self.module_right_dist = 350.0
 
         # Sample variables
-        self.sample_above_height = 15.0
+        self.sample_above_height = 17.0  # was 15 TESTING
         self.above = [self.sample_above_height, 0, 0, 0, 0, 0]
         self.y_recoil = 300.0
 
@@ -963,25 +971,25 @@ class PF400(KINEMATICS):
         else:
             self.move_all_joints_neutral(source)
 
-    def place_plate(self, target: list, targget_approach: list = None) -> None:
+    def place_plate(self, target: list, target_approach: list = None) -> None:
         """
         Plate a plate to the target location
         """
         abovePos = list(map(add, target, self.above))
-        if targget_approach:
-            if isinstance(targget_approach[0], list):
+        if target_approach:
+            if isinstance(target_approach[0], list):
                 # Multiple approach locations provided
-                self.move_all_joints_neutral(targget_approach[0])
-                for location in targget_approach:
+                self.move_all_joints_neutral(target_approach[0])
+                for location in target_approach:
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
                     )
             else:
                 # Single approach location provided
-                self.move_all_joints_neutral(targget_approach)
+                self.move_all_joints_neutral(target_approach)
                 self.move_joint(
-                    target_joint_angles=targget_approach,
+                    target_joint_angles=target_approach,
                     profile=self.fast_motion_profile,
                 )
         else:
@@ -993,9 +1001,9 @@ class PF400(KINEMATICS):
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
-        if targget_approach:
-            if isinstance(targget_approach[0], list):
-                for location in reversed(targget_approach):
+        if target_approach:
+            if isinstance(target_approach[0], list):
+                for location in reversed(target_approach):
                     self.move_joint(
                         target_joint_angles=location,
                         profile=self.fast_motion_profile,
@@ -1004,10 +1012,10 @@ class PF400(KINEMATICS):
 
             else:
                 self.move_joint(
-                    target_joint_angles=targget_approach,
+                    target_joint_angles=target_approach,
                     profile=self.fast_motion_profile,
                 )
-                self.move_all_joints_neutral(targget_approach)
+                self.move_all_joints_neutral(target_approach)
 
         else:
             self.move_all_joints_neutral(target)
@@ -1041,13 +1049,11 @@ class PF400(KINEMATICS):
         if source_plate_rotation.lower() == "wide":
             plate_source_rotation = 90
             self.plate_width = self.gripper_open_wide
-            print(f"Setting wide plate width {self.plate_width}")
             self.set_gripper_open()
 
         elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
             plate_source_rotation = 0
             self.plate_width = self.gripper_open_narrow
-            print(f"Setting narrow plate width {self.plate_width}")
             self.set_gripper_open()
 
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
@@ -1085,15 +1091,91 @@ class PF400(KINEMATICS):
             # Need a transition from 0 degree to 90 degree
             self.rotate_plate_on_deck(plate_target_rotation)
 
-        self.place_plate(target=target, targget_approach=target_approach)
+        self.place_plate(target=target, target_approach=target_approach)
 
 
 if __name__ == "__main__":
     # from pf400_driver.pf400_driver import PF400
-    robot = PF400()
+    robot = PF400("146.137.240.33")
 
-    sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
-    sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
-    peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
-    thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
-    gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
+    # sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
+    # sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
+    # peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
+    # thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
+    # gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
+
+    # ot2bioalpha_deck1= [708.132, -49.277, 318.588, 448.364, 78.476, -207.488]
+    # ot2biobeta_deck1= [707.171, -18.952, 267.011, 381.434, 122.040, 688.614]
+    # ot2biobeta_deck3= [706.990, -35.793, 256.701, 408.513, 122.046, 576.262]
+    # hidex_geraldine_high_nest = [695.710, 34.270, 90.468, 682.956, 78.417, -455.409]
+    # hidex_geraldine_low_nest = [688.105, 34.164, 90.435, 683.614, 82.034, -455.416]
+    # hidex_geraldine_above_nest= [710.698, 34.164, 90.435, 683.630, 78.540, -455.418]
+    # bio_biometra3_default= [775.356, 66.949, 67.620, 758.671, 77.462, 735.973]
+    # bio_peeler_default= [606.489, -38.393, 231.287, 433.080, 77.591, -764.287]
+    # bio_sealer_default= [583.320, -69.616, 233.645, 462.783, 77.802, -368.290]
+    # exchange_deck_high_narrow= [638.532, -19.079, 65.561, 732.286, 78.587, 752.820]
+    # exchange_deck_low_narrow= [631.616, -19.079, 65.561, 732.286, 78.587, 752.820]
+    # exchange_deck_high_wide= [638.243, 4.798, 93.345, 592.047, 122.134, 918.216]
+    # exchange_deck_low_wide= [631.616, 4.798, 93.345, 592.047, 122.134, 918.216]
+    # bmg_reader_nest= [611.277, 8.035, 107.426, 691.801, 82.004, 917.639]
+    # otflex_deckA= [802.022, 23.010, 280.050, 325.021, 82.051, 999.490]
+    # otflex_deckB= [801.032, 5.962, 321.462, 300.193, 82.180, 999.476]
+    # tekmatic_incubator_nest= [665.511, 48.877, 76.559, 681.782, 82.028, -104.668]
+    # safe_path_tekmatic= [788.160, 28.604, 123.021, 655.281, 70.527, -103.591]
+    # safe_path_flexA= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516], [826.490, 53.122, 275.371, 299.588, 70.515, 999.523]]
+    # safe_path_flexB= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516], [826.748, 33.789, 311.985, 281.840, 89.976, 999.451]]
+    # tower_deck1 = [655.606, 39.980, 89.753, 676.393, 82.040, -717.316]
+    # tower_deck2 = [745.458, 40.302, 89.187, 677.089, 82.016, -717.307]
+    # tower_deck3= [840.092, 40.374, 89.051, 677.195, 82.010, -717.307]
+    # tower_deck4= [935.222, 40.442, 88.917, 677.262, 82.051, -717.282]
+    # tower_deck5= [1016.476, 40.560, 88.680, 677.378, 82.010, -717.309]
+    # safe_path_tower_deck1= [672.247, 17.260, 134.825, 653.927, 82.221, -717.291]
+    # safe_path_tower_deck2= [760.688, 18.372, 133.883, 653.418, 82.186, -716.786]
+    # safe_path_tower_deck3= [854.408, 16.788, 134.302, 655.330, 82.215, -717.111]
+    # safe_path_tower_deck4= [950.484, 15.527, 136.545, 654.549, 82.169, -715.834]
+    # safe_path_tower_deck5= [1030.837, 18.536, 134.023, 653.530, 82.174, -712.890]
+    # lidnest_1_wide= [374.017, 23.944, 115.144, 671.159, 125.123, -611.851]
+    # lidnest_2_wide= [376.183, 20.493, 112.279, 678.140, 125.006, -410.865]
+    # lidnest_3_narrow = [376.649, 24.595, 107.940, 675.546, 81.389, -194.121]
+    # safe_path_lidnest_1= [404.584, 6.928, 143.517, 658.529, 125.193, -608.622]
+    # safe_path_lidnest_2= [404.942, 4.432, 142.130, 662.712, 125.164, -389.370]
+    # safe_path_lidnest_3= [400.040, -4.149, 147.508, 664.154, 81.629, -194.110]
+    # safe_home= [989.443, -2.007, 174.876, 542.366, 70.574, -843.897]
+    # safe_exchange_height= [767.770, 0.265, 175.445, 540.110, 70.521, 543.010]
+    # safe_exchange_above= [756.457, 3.342, 90.607, 586.714, 70.556, 918.234]
+    # safe_path_exchange= [[767.770, 0.265, 175.445, 540.110, 70.521, 543.010], [756.457, 3.342, 90.607, 586.714, 70.556, 918.234]]
+    # safe_path_bmg= [[749.014, -1.224, 175.218, 542.970, 82.151, 702.229], [837.705, 5.468, 111.581, 687.601, 70.486, 917.949]]
+    # safe_path_hidex = [749.110, -2.968, 141.991, 667.548, 78.523, -455.415]
+
+    # robot.move_joint([767.770, 0.265, 175.445, 540.110, 70.521, 543.010])
+    # robot.move_joint([756.457, 3.342, 90.607, 586.714, 70.556, 918.234])
+    # robot.move_joint([756.457, 3.342, 90.607, 586.714, 70.556, 918.234])
+    # [783.291, 62.017, 175.055, 541.806, 78.587, 999.5
+    #
+    # 16]
+    # robot.move_joint([787.882, -2.133, 175.682, 542.847, 78.581, 999.516])
+    # robot.move_joint([783.291, 62.017, 175.055, 541.806, 78.587, 999.516])
+    # robot.move_joint([826.484, 50.573, 279.716, 297.790, 89.976, 999.490])
+    # robot.move_joint([802.022, 23.010, 280.050, 325.021, 82.051, 999.490]) # flex A
+    # robot.move_joint(safe_path_hidex)
+    # robot.move_joint(hidex_geraldine_above_nest)
+
+    # robot.move_joint([787.882, -2.133, 175.682, 542.847, 78.581, 999.516])
+    # robot.move_joint([783.291, 62.017, 175.055, 541.806, 78.587, 999.516])
+    # robot.move_joint([826.742, 27.667, 323.533, 276.413, 89.976, 999.464])  # safe path to flex b
+
+    # robot.move_joint([849.858, 32.559, 329.015, 266.497, 78.487, 999.523])
+    # robot.move_joint([801.032, 5.962, 321.462, 300.193, 82.180, 999.476])
+    # robot.pick_plate(exchange_deck_high_narrow)
+
+    # robot.transfer(source=exchange_deck_high_narrow, target=hidex_geraldine_high_nest, source_approach=safe_path_exchange, target_approach=safe_path_hidex, source_plate_rotation="narrow", target_plate_rotation="narrow")
+    # robot.transfer(source=hidex_geraldine_high_nest, target=exchange_deck_high_narrow, source_approach=safe_path_hidex, target_approach=safe_path_exchange, source_plate_rotation="narrow", target_plate_rotation="narrow")
+
+    # robot.transfer(source=otflex_deckB, target=exchange_deck_low_narrow, target_approach=safe_path_exchange, source_approach=safe_path_flexB, target_plate_rotation="narrow", source_plate_rotation="narrow")
+
+    # robot.transfer(source=ot)
+#
+# safe_path_flexA= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516], [849.853, 58.209, 283.568, 290.376, 78.575, 999.516]]
+
+
+# robot.pick_plate(exchange_deck_low_narrow)

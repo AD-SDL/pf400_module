@@ -16,6 +16,14 @@ from pf400_driver.pf400_errors import (
 )
 from pf400_driver.pf400_kinematics import KINEMATICS
 
+# from pf400_constants import ERROR_CODES, MOTION_PROFILES, OUTPUT_CODES
+# from pf400_errors import (
+#     CommandException,
+#     ConnectionException,
+#     ErrorResponse,
+# )
+# from pf400_kinematics import KINEMATICS
+
 
 class PF400(KINEMATICS):
     """Main Driver Class for the PF400 Robot Arm."""
@@ -72,12 +80,10 @@ class PF400(KINEMATICS):
         self.robot_warning = ""
 
         # Gripper variables
-        self.gripper_open_state = 130.0
-        self.gripper_closed_state = 77.0
+        self.gripper_open_wide = 130.0
+        self.gripper_open_narrow = 90.0
+        self.gripper_close_value = 77.0
         self.gripper_safe_height = 10.0
-        self.set_gripper_open()
-        self.set_gripper_close()
-        self.gripper_state = self.get_gripper_state()
 
         # Arm variables
         self.joint_state_position = [0, 0, 0, 0, 0, 0, 0]
@@ -86,20 +92,20 @@ class PF400(KINEMATICS):
             1.400,
             177.101,
             537.107,
-            self.gripper_closed_state,
+            self.gripper_close_value,
             0.0,
         ]
         self.module_left_dist = -350.0
         self.module_right_dist = 350.0
 
         # Sample variables
-        self.sample_above_height = 100.0
+        self.sample_above_height = 17.0  # was 15 TESTING
         self.above = [self.sample_above_height, 0, 0, 0, 0, 0]
         self.y_recoil = 300.0
 
         # Plate variables
         self.plate_state = 0
-        self.plate_width = 123
+        self.plate_width = self.gripper_open_wide
         self.plate_source_rotation = 0  # 90 to rotate 90 degrees
         self.plate_target_rotation = 0  # 90 to rotate 90 degrees
         self.plate_rotation_deck_narrow = [
@@ -122,6 +128,10 @@ class PF400(KINEMATICS):
         self.plate_lid_deck = [145.0, -26.352, 114.149, 629.002, 82.081, 995.105]
         self.plate_camera_deck = [90.597, 26.416, 66.422, 714.811, 81.916, 995.074]
         self.trash_bin = [259.847, -36.810, 69.090, 687.466, 81.002, 995.035]
+
+        self.set_gripper_open()
+        self.set_gripper_close()
+        self.gripper_state = self.get_gripper_state()
 
     def connect(self):
         """
@@ -331,8 +341,6 @@ class PF400(KINEMATICS):
         self.joint_state_position[6] = float(joint_array[6]) * 0.001  # J6, rail
         return self.joint_state_position
 
-    # GET COMMANDS
-
     def get_robot_movement_state(self):
         """Checks the movement state of the robot
         States: 0 = Power off
@@ -446,13 +454,11 @@ class PF400(KINEMATICS):
     def get_gripper_state(self):
         """Returns the current state of the gripper."""
 
-        if self.get_gripper_length() > self.gripper_closed_state + 1.0:
+        if self.get_gripper_length() > self.gripper_close_value + 1.0:
             self.gripper_state = "open"
         else:
             self.gripper_state = "closed"
         return self.gripper_state
-
-    # SET COMMANDS
 
     def set_profile(self, wait: int = 0.1, profile_dict: dict = {"0": 0}):
         """
@@ -490,11 +496,81 @@ class PF400(KINEMATICS):
 
     def set_gripper_open(self):
         """Configure the definition of gripper open."""
-        self.send_command("GripOpenPos " + str(self.gripper_open_state))
+        self.send_command(f"GripOpenPos {self.plate_width}")
 
     def set_gripper_close(self):
         """Configure the definition of gripper close."""
-        self.send_command("GripClosePos " + str(self.gripper_closed_state))
+        self.send_command(f"GripClosePos {self.gripper_close_value}")
+
+    def grab_plate(self, width: int = 123, speed: int = 100, force: int = 10):
+        """
+        Description:
+                Grabs the plate by applying additional force
+        Parameters:
+                - width: Plate width, in mm. Should be accurate to within about 1 mm.
+                - speed: Percent speed to open fingers.  1 to 100.
+                - Force: Maximum gripper squeeze force, in Nt.
+                                 A positive value indicates the fingers must close to grasp.
+                                 A negative value indicates the fingers must open to grasp.
+        Returns:
+                - 1: Plate grabbed
+                - 0: Plate is not grabbed
+        """
+        grab_plate_status = self.send_command(
+            "GraspPlate " + str(width) + " " + str(speed) + " " + str(force)
+        ).split(" ")
+
+        if len(grab_plate_status) < 2:
+            return
+
+        elif grab_plate_status[1] == "-1":
+            self.plate_state = 1
+
+        elif grab_plate_status[1] == "0" and width > 80:  # Do not try smaller width
+            width -= 1
+            self.grab_plate(width, speed, force)
+
+        elif width <= 80:
+            print("PLATE WAS NOT FOUND!")
+            self.robot_warning = "Missing Plate"
+            self.plate_state = -1
+
+        return grab_plate_status
+
+    def release_plate(self, width: int = 130, speed: int = 100):
+        """
+        Description:
+                Release the plate
+        Parameters:
+                - width: Open width, in mm. Larger than the widest corners of the plates.
+                - speed: Percent speed to open fingers.  1 to 100.
+        Returns:
+                - release_plate_status == "0" -> Plate released
+                - release_plate_status == "1" -> Plate is not released
+        """
+
+        release_plate_status = self.send_command(
+            "ReleasePlate " + str(width) + " " + str(speed)
+        ).split(" ")
+
+        if release_plate_status[0] == "1":
+            print("Plate is not released")
+        elif release_plate_status[0] == "0":
+            self.plate_state = 0
+
+        return release_plate_status
+
+    def gripper_open(self):
+        """Opens the gripper"""
+        self.set_gripper_open()
+        self.send_command("gripper 1")
+        return self.get_gripper_state()
+
+    def gripper_close(self):
+        """Closes the gripper"""
+        self.set_gripper_close()
+        self.send_command("gripper 2")
+        return self.get_gripper_state()
 
     def set_plate_rotation(self, joint_states, rotation_degree=0):
         """
@@ -545,7 +621,6 @@ class PF400(KINEMATICS):
 
         return goal_location
 
-    # MOVE COMMANDS
     def move_joint(
         self,
         target_joint_angles,
@@ -556,7 +631,7 @@ class PF400(KINEMATICS):
         """
         Description: Creates the movement commands with the given robot_location, profile, gripper closed and gripper open info
         Parameters:
-                        - target_location: Which location the PF400 will move.
+                        - target: Which location the PF400 will move.
                         - profile: Motion profile ID.
                         - gripper_close: If set to TRUE, gripper is closed. If set to FALSE, gripper position will remain same as the previous location.
                         - gripper_open: If set to TRUE, gripper is opened. If set to FALSE, gripper position will remain same as the previous location.
@@ -570,9 +645,9 @@ class PF400(KINEMATICS):
 
         # Setting the gripper location to open or close. If there is no gripper position passed in, target_joint_angles will be used.
         if gripper_close:
-            target_joint_angles[4] = self.gripper_closed_state
+            target_joint_angles[4] = self.gripper_close_value
         elif gripper_open:
-            target_joint_angles[4] = self.gripper_open_state
+            target_joint_angles[4] = self.plate_width
         else:
             target_joint_angles[4] = self.get_gripper_length()
 
@@ -596,7 +671,7 @@ class PF400(KINEMATICS):
 
     def move_in_one_axis_from_target(
         self,
-        target_location,
+        target,
         profile: int = 1,
         axis_x: int = 0,
         axis_y: int = 0,
@@ -607,18 +682,18 @@ class PF400(KINEMATICS):
 
         Description: Moves the end effector on single axis with a goal movement in millimeters.
         Parameters:
-                - target_location : Joint states of the target location
+                - target : Joint states of the target location
                 - axis_x : Goal movement on x axis in mm
                 - axis_y : Goal movement on y axis in mm
                 - axis_z : Goal movement on z axis in mm
         """
         # First move robot on linear rail
         current_joint_state = self.get_joint_states()
-        current_joint_state[5] = target_location[5]
+        current_joint_state[5] = target[5]
         self.move_joint(current_joint_state)
 
         # Find the cartesian coordinates of the target joint states
-        cartesian_coordinates = self.forward_kinematics(target_location)
+        cartesian_coordinates = self.forward_kinematics(target)
 
         # Move en effector on the single axis
         cartesian_coordinates[0] += axis_x
@@ -661,75 +736,6 @@ class PF400(KINEMATICS):
             + " ".join(map(str, cartesian_coordinates))
         )
         return self.send_command(move_command)
-
-    def grab_plate(self, width: int = 123, speed: int = 100, force: int = 10):
-        """
-        Description:
-                Grabs the plate by applying additional force
-        Parameters:
-                - width: Plate width, in mm. Should be accurate to within about 1 mm.
-                - speed: Percent speed to open fingers.  1 to 100.
-                - Force: Maximum gripper squeeze force, in Nt.
-                                 A positive value indicates the fingers must close to grasp.
-                                 A negative value indicates the fingers must open to grasp.
-        Returns:
-                - 1: Plate grabbed
-                - 0: Plate is not grabbed
-        """
-        grab_plate_status = self.send_command(
-            "GraspPlate " + str(width) + " " + str(speed) + " " + str(force)
-        ).split(" ")
-
-        if len(grab_plate_status) < 2:
-            return
-
-        elif grab_plate_status[1] == "-1":
-            self.plate_state = 1
-
-        elif grab_plate_status[1] == "0" and width > 80:  # Do not try smaller width
-            width -= 1
-            self.grab_plate(width, speed, force)
-
-        elif width <= 80:
-            print("PLATE WAS NOT FOUND!")
-            self.robot_warning = "Missing Plate"
-            # TODO: Stop robot transfer here
-            self.plate_state = -1
-
-        return grab_plate_status
-
-    def release_plate(self, width: int = 130, speed: int = 100):
-        """
-        Description:
-                Release the plate
-        Parameters:
-                - width: Open width, in mm. Larger than the widest corners of the plates.
-                - speed: Percent speed to open fingers.  1 to 100.
-        Returns:
-                - release_plate_status == "0" -> Plate released
-                - release_plate_status == "1" -> Plate is not released
-        """
-
-        release_plate_status = self.send_command(
-            "ReleasePlate " + str(width) + " " + str(speed)
-        ).split(" ")
-
-        if release_plate_status[0] == "1":
-            print("Plate is not released")
-        elif release_plate_status[0] == "0":
-            self.plate_state = 0
-
-        return release_plate_status
-
-    def gripper_open(self):
-        """Opens the gripper"""
-        self.send_command("gripper 1")
-        return self.get_gripper_state()
-
-    def gripper_close(self):
-        """Closes the gripper"""
-        self.send_command("gripper 2")
-        return self.get_gripper_state()
 
     def move_one_joint(self, joint_num, target, move_profile):
         """
@@ -800,90 +806,69 @@ class PF400(KINEMATICS):
         if not h_rail:
             h_rail = current_location[5]  # Keep the horizontal rail same
 
+        self.neutral_joints[5] = h_rail
+        self.move_joint(self.neutral_joints, self.fast_motion_profile)
         self.neutral_joints[0] = v_rail + self.sample_above_height
         self.move_joint(self.neutral_joints, self.slow_motion_profile)
 
-        self.neutral_joints[5] = h_rail
-        self.move_joint(self.neutral_joints, self.fast_motion_profile)
-
-    def move_all_joints_neutral(self, target_location=None):
+    def move_all_joints_neutral(self, target=None):
         """
         Description: Move all joints to neutral position
         """
-        if target_location is None:
-            target_location = self.get_joint_states()
+        if target is None:
+            target = self.get_joint_states()
         # First move end effector to it's nuetral position
         self.move_gripper_neutral()
         # Setting an arm neutral position without moving the horizontal & vertical rails
         self.move_arm_neutral()
         # Setting the target location's linear rail position for pf400_neutral
-        self.move_rails_neutral(target_location[0], target_location[5])
+        self.move_rails_neutral(target[0], target[5])
 
     def remove_lid(
-        self, target_loc, lid_height: float = 7.0, target_plate_rotation: str = ""
+        self,
+        source: list,
+        target: list,
+        lid_height: float = 7.0,
+        source_approach: list = None,
+        target_approach: list = None,
+        source_plate_rotation: str = "",
+        target_plate_rotation: str = "",
     ):
         """Remove the lid from the plate"""
-        # TODO: TAKE PLATE TYPE AS A VARIABLE TO CALCULATE LID HEIGHT
-        target = copy.deepcopy(target_loc)
-        self.robot_warning = "CLEAR"
+        source = copy.deepcopy(source)
+        source[0] += lid_height
 
-        self.force_initialize_robot()
-
-        if target_plate_rotation.lower() == "wide":
-            self.plate_target_rotation = 90
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            self.plate_target_rotation = 0
-
-        target = self.check_incorrect_plate_orientation(
-            target, self.plate_target_rotation
+        self.transfer(
+            source=source,
+            target=target,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
         )
-        target[0] += lid_height
-        self.pick_plate(target)
-
-        if self.plate_state == -1:
-            self.robot_warning = "MISSING PLATE"
-            print("Remove Lid cannot be completed, missing plate!")
-            return  # Stopping job here
-
-        if self.plate_target_rotation == 90:
-            # Need a transition from 90 degree to 0 degree
-            self.rotate_plate_on_deck(-self.plate_target_rotation)
-
-        self.place_plate(self.plate_lid_deck)
 
     def replace_lid(
-        self, target_loc, lid_height: float = 7.0, target_plate_rotation: str = ""
+        self,
+        source: list,
+        target: list,
+        lid_height: float = 7.0,
+        source_approach: list = None,
+        target_approach: list = None,
+        source_plate_rotation: str = "",
+        target_plate_rotation: str = "",
     ):
         """Replace the lid on the plate"""
-        # TODO: TAKE PLATE TYPE AS A VARIABLE TO CALCULATE LID HEIGHT
-        target = copy.deepcopy(target_loc)
-        self.robot_warning = "CLEAR"
-
-        self.force_initialize_robot()
-
-        if target_plate_rotation.lower() == "wide":
-            self.plate_target_rotation = 90
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            self.plate_target_rotation = 0
-
-        self.pick_plate(self.plate_lid_deck)
-
-        if self.plate_state == -1:
-            self.robot_warning = "MISSING PLATE"
-            print("Replace Lid cannot be completed, missing plate!")
-            return  # Stopping job here
-
-        if self.plate_target_rotation == 90:
-            # Need a transition from 90 degree to 0 degree
-            self.rotate_plate_on_deck(self.plate_target_rotation)
-
-        target = self.check_incorrect_plate_orientation(
-            target, self.plate_target_rotation
-        )
+        target = copy.deepcopy(target)
         target[0] += lid_height
-        self.place_plate(target)
+
+        self.transfer(
+            source=source,
+            target=target,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
 
     def rotate_plate_on_deck(self, rotation_degree: int):
         """
@@ -922,7 +907,7 @@ class PF400(KINEMATICS):
             profile=self.slow_motion_profile,
             gripper_open=True,
         )
-        self.grab_plate(self.plate_width, 100, 10)
+        self.grab_plate(width=self.plate_width, speed=100, force=10)
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
             print("Rotation cannot be completed, missing plate!")
@@ -931,78 +916,119 @@ class PF400(KINEMATICS):
         )
         self.move_all_joints_neutral(target)
 
-    def pick_plate(
-        self, source_location: list, source_approach_location: list = None
-    ) -> None:
+    def pick_plate(self, source: list, source_approach: list = None) -> None:
         """
         Pick a plate from the source location
         """
 
-        abovePos = list(map(add, source_location, self.above))
+        abovePos = list(map(add, source, self.above))
         self.gripper_open()
-        self.move_all_joints_neutral(source_location)
-        if source_approach_location:
-            self.move_joint(
-                target_joint_angles=source_approach_location,
-                profile=self.fast_motion_profile,
-            )
+        if source_approach:
+            if isinstance(source_approach[0], list):
+                # Multiple approach locations provided
+                self.move_all_joints_neutral(source_approach[0])
+                for location in source_approach:
+                    self.move_joint(
+                        target_joint_angles=location,
+                        profile=self.fast_motion_profile,
+                    )
+            else:
+                # Single approach location provided
+                self.move_all_joints_neutral(source_approach)
+                self.move_joint(
+                    target_joint_angles=source_approach,
+                    profile=self.fast_motion_profile,
+                )
+        else:
+            self.move_all_joints_neutral(source)
 
         self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
         self.move_joint(
-            target_joint_angles=source_location,
+            target_joint_angles=source,
             profile=self.fast_motion_profile,
             gripper_open=True,
         )
-        self.grab_plate(self.plate_width, 100, 10)
+        self.grab_plate(width=self.plate_width, speed=100, force=10)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
 
-        if source_approach_location:
-            self.move_joint(
-                target_joint_angles=source_approach_location,
-                profile=self.fast_motion_profile,
-            )
+        if source_approach:
+            if isinstance(source_approach[0], list):
+                for location in reversed(source_approach):
+                    self.move_joint(
+                        target_joint_angles=location,
+                        profile=self.fast_motion_profile,
+                    )
+                self.move_all_joints_neutral(location)
 
-        self.move_all_joints_neutral(source_location)
+            else:
+                self.move_joint(
+                    target_joint_angles=source_approach,
+                    profile=self.fast_motion_profile,
+                )
+                self.move_all_joints_neutral(source_approach)
+        else:
+            self.move_all_joints_neutral(source)
 
-    def place_plate(
-        self, target_location: list, target_approach_location: list = None
-    ) -> None:
+    def place_plate(self, target: list, target_approach: list = None) -> None:
         """
         Plate a plate to the target location
         """
-        abovePos = list(map(add, target_location, self.above))
-        self.move_all_joints_neutral(target_location)
-        if target_approach_location:
-            self.move_joint(
-                target_joint_angles=target_approach_location,
-                profile=self.fast_motion_profile,
-            )
+        abovePos = list(map(add, target, self.above))
+        if target_approach:
+            if isinstance(target_approach[0], list):
+                # Multiple approach locations provided
+                self.move_all_joints_neutral(target_approach[0])
+                for location in target_approach:
+                    self.move_joint(
+                        target_joint_angles=location,
+                        profile=self.fast_motion_profile,
+                    )
+            else:
+                # Single approach location provided
+                self.move_all_joints_neutral(target_approach)
+                self.move_joint(
+                    target_joint_angles=target_approach,
+                    profile=self.fast_motion_profile,
+                )
+        else:
+            self.move_all_joints_neutral(target)
 
         self.move_joint(abovePos, self.slow_motion_profile)
-        self.move_joint(target_location, self.slow_motion_profile)
-        self.release_plate()
+        self.move_joint(target, self.slow_motion_profile)
+        self.release_plate(width=self.plate_width)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
-        if target_approach_location:
-            self.move_joint(
-                target_joint_angles=target_approach_location,
-                profile=self.fast_motion_profile,
-            )
+        if target_approach:
+            if isinstance(target_approach[0], list):
+                for location in reversed(target_approach):
+                    self.move_joint(
+                        target_joint_angles=location,
+                        profile=self.fast_motion_profile,
+                    )
+                self.move_all_joints_neutral(location)
 
-        self.move_all_joints_neutral(target_location)
+            else:
+                self.move_joint(
+                    target_joint_angles=target_approach,
+                    profile=self.fast_motion_profile,
+                )
+                self.move_all_joints_neutral(target_approach)
+
+        else:
+            self.move_all_joints_neutral(target)
 
     def transfer(
         self,
-        source_loc: list,
-        target_loc: list,
+        source: list,
+        target: list,
         source_approach: list = None,
         target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
-    ):
+    ) -> None:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
                 Parameters:
@@ -1014,30 +1040,26 @@ class PF400(KINEMATICS):
                 Note: Plate rotation defines the rotation of the plate on the deck, not the grabing angle.
 
         """
-        source = copy.deepcopy(source_loc)
-        target = copy.deepcopy(target_loc)
+        source = copy.deepcopy(source)
+        target = copy.deepcopy(target)
 
         self.robot_warning = "CLEAR"
 
+        # set plate width for source
         if source_plate_rotation.lower() == "wide":
             plate_source_rotation = 90
+            self.plate_width = self.gripper_open_wide
+            self.set_gripper_open()
 
         elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
             plate_source_rotation = 0
-
-        if target_plate_rotation.lower() == "wide":
-            plate_target_rotation = 90
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            plate_target_rotation = 0
+            self.plate_width = self.gripper_open_narrow
+            self.set_gripper_open()
 
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
-        target = self.check_incorrect_plate_orientation(target, plate_target_rotation)
 
         self.force_initialize_robot()
-        self.pick_plate(
-            source_location=source, source_approach_location=source_approach
-        )
+        self.pick_plate(source=source, source_approach=source_approach)
 
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
@@ -1045,6 +1067,21 @@ class PF400(KINEMATICS):
             self.move_all_joints_neutral()
             sleep(5)
             raise Exception("Transfer failed: no plate detected after picking.")
+
+        # set plate width for target
+        if target_plate_rotation.lower() == "wide":
+            plate_target_rotation = 90
+            self.plate_width = self.gripper_open_wide
+            print(f"Setting wide plate width {self.plate_width}")
+            self.set_gripper_open()
+
+        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
+            plate_target_rotation = 0
+            self.plate_width = self.gripper_open_narrow
+            print(f"Setting narrow plate width {self.plate_width}")
+            self.set_gripper_open()
+
+        target = self.check_incorrect_plate_orientation(target, plate_target_rotation)
 
         if plate_source_rotation == 90 and plate_target_rotation == 0:
             # Need a transition from 90 degree to 0 degree
@@ -1054,17 +1091,91 @@ class PF400(KINEMATICS):
             # Need a transition from 0 degree to 90 degree
             self.rotate_plate_on_deck(plate_target_rotation)
 
-        self.place_plate(
-            target_location=target, target_approach_location=target_approach
-        )
+        self.place_plate(target=target, target_approach=target_approach)
 
 
 if __name__ == "__main__":
     # from pf400_driver.pf400_driver import PF400
-    robot = PF400()
+    robot = PF400("146.137.240.33")
 
-    sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
-    sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
-    peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
-    thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
-    gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
+    # sciclops = [223.0, -38.068, 335.876, 325.434, 79.923, 995.062]
+    # sealer = [201.128, -2.814, 264.373, 365.863, 79.144, 411.553]
+    # peeler = [225.521, -24.846, 244.836, 406.623, 80.967, 398.778]
+    # thermocycler = [247.0, 40.698, 38.294, 728.332, 123.077, 301.082]
+    # gamma = [161.481, 60.986, 88.774, 657.358, 124.091, -951.510]
+
+    # ot2bioalpha_deck1= [708.132, -49.277, 318.588, 448.364, 78.476, -207.488]
+    # ot2biobeta_deck1= [707.171, -18.952, 267.011, 381.434, 122.040, 688.614]
+    # ot2biobeta_deck3= [706.990, -35.793, 256.701, 408.513, 122.046, 576.262]
+    # hidex_geraldine_high_nest = [695.710, 34.270, 90.468, 682.956, 78.417, -455.409]
+    # hidex_geraldine_low_nest = [688.105, 34.164, 90.435, 683.614, 82.034, -455.416]
+    # hidex_geraldine_above_nest= [710.698, 34.164, 90.435, 683.630, 78.540, -455.418]
+    # bio_biometra3_default= [775.356, 66.949, 67.620, 758.671, 77.462, 735.973]
+    # bio_peeler_default= [606.489, -38.393, 231.287, 433.080, 77.591, -764.287]
+    # bio_sealer_default= [583.320, -69.616, 233.645, 462.783, 77.802, -368.290]
+    # exchange_deck_high_narrow= [638.532, -19.079, 65.561, 732.286, 78.587, 752.820]
+    # exchange_deck_low_narrow= [631.616, -19.079, 65.561, 732.286, 78.587, 752.820]
+    # exchange_deck_high_wide= [638.243, 4.798, 93.345, 592.047, 122.134, 918.216]
+    # exchange_deck_low_wide= [631.616, 4.798, 93.345, 592.047, 122.134, 918.216]
+    # bmg_reader_nest= [611.277, 8.035, 107.426, 691.801, 82.004, 917.639]
+    # otflex_deckA= [802.022, 23.010, 280.050, 325.021, 82.051, 999.490]
+    # otflex_deckB= [801.032, 5.962, 321.462, 300.193, 82.180, 999.476]
+    # tekmatic_incubator_nest= [665.511, 48.877, 76.559, 681.782, 82.028, -104.668]
+    # safe_path_tekmatic= [788.160, 28.604, 123.021, 655.281, 70.527, -103.591]
+    # safe_path_flexA= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516], [826.490, 53.122, 275.371, 299.588, 70.515, 999.523]]
+    # safe_path_flexB= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516], [826.748, 33.789, 311.985, 281.840, 89.976, 999.451]]
+    # tower_deck1 = [655.606, 39.980, 89.753, 676.393, 82.040, -717.316]
+    # tower_deck2 = [745.458, 40.302, 89.187, 677.089, 82.016, -717.307]
+    # tower_deck3= [840.092, 40.374, 89.051, 677.195, 82.010, -717.307]
+    # tower_deck4= [935.222, 40.442, 88.917, 677.262, 82.051, -717.282]
+    # tower_deck5= [1016.476, 40.560, 88.680, 677.378, 82.010, -717.309]
+    # safe_path_tower_deck1= [672.247, 17.260, 134.825, 653.927, 82.221, -717.291]
+    # safe_path_tower_deck2= [760.688, 18.372, 133.883, 653.418, 82.186, -716.786]
+    # safe_path_tower_deck3= [854.408, 16.788, 134.302, 655.330, 82.215, -717.111]
+    # safe_path_tower_deck4= [950.484, 15.527, 136.545, 654.549, 82.169, -715.834]
+    # safe_path_tower_deck5= [1030.837, 18.536, 134.023, 653.530, 82.174, -712.890]
+    # lidnest_1_wide= [374.017, 23.944, 115.144, 671.159, 125.123, -611.851]
+    # lidnest_2_wide= [376.183, 20.493, 112.279, 678.140, 125.006, -410.865]
+    # lidnest_3_narrow = [376.649, 24.595, 107.940, 675.546, 81.389, -194.121]
+    # safe_path_lidnest_1= [404.584, 6.928, 143.517, 658.529, 125.193, -608.622]
+    # safe_path_lidnest_2= [404.942, 4.432, 142.130, 662.712, 125.164, -389.370]
+    # safe_path_lidnest_3= [400.040, -4.149, 147.508, 664.154, 81.629, -194.110]
+    # safe_home= [989.443, -2.007, 174.876, 542.366, 70.574, -843.897]
+    # safe_exchange_height= [767.770, 0.265, 175.445, 540.110, 70.521, 543.010]
+    # safe_exchange_above= [756.457, 3.342, 90.607, 586.714, 70.556, 918.234]
+    # safe_path_exchange= [[767.770, 0.265, 175.445, 540.110, 70.521, 543.010], [756.457, 3.342, 90.607, 586.714, 70.556, 918.234]]
+    # safe_path_bmg= [[749.014, -1.224, 175.218, 542.970, 82.151, 702.229], [837.705, 5.468, 111.581, 687.601, 70.486, 917.949]]
+    # safe_path_hidex = [749.110, -2.968, 141.991, 667.548, 78.523, -455.415]
+
+    # robot.move_joint([767.770, 0.265, 175.445, 540.110, 70.521, 543.010])
+    # robot.move_joint([756.457, 3.342, 90.607, 586.714, 70.556, 918.234])
+    # robot.move_joint([756.457, 3.342, 90.607, 586.714, 70.556, 918.234])
+    # [783.291, 62.017, 175.055, 541.806, 78.587, 999.5
+    #
+    # 16]
+    # robot.move_joint([787.882, -2.133, 175.682, 542.847, 78.581, 999.516])
+    # robot.move_joint([783.291, 62.017, 175.055, 541.806, 78.587, 999.516])
+    # robot.move_joint([826.484, 50.573, 279.716, 297.790, 89.976, 999.490])
+    # robot.move_joint([802.022, 23.010, 280.050, 325.021, 82.051, 999.490]) # flex A
+    # robot.move_joint(safe_path_hidex)
+    # robot.move_joint(hidex_geraldine_above_nest)
+
+    # robot.move_joint([787.882, -2.133, 175.682, 542.847, 78.581, 999.516])
+    # robot.move_joint([783.291, 62.017, 175.055, 541.806, 78.587, 999.516])
+    # robot.move_joint([826.742, 27.667, 323.533, 276.413, 89.976, 999.464])  # safe path to flex b
+
+    # robot.move_joint([849.858, 32.559, 329.015, 266.497, 78.487, 999.523])
+    # robot.move_joint([801.032, 5.962, 321.462, 300.193, 82.180, 999.476])
+    # robot.pick_plate(exchange_deck_high_narrow)
+
+    # robot.transfer(source=exchange_deck_high_narrow, target=hidex_geraldine_high_nest, source_approach=safe_path_exchange, target_approach=safe_path_hidex, source_plate_rotation="narrow", target_plate_rotation="narrow")
+    # robot.transfer(source=hidex_geraldine_high_nest, target=exchange_deck_high_narrow, source_approach=safe_path_hidex, target_approach=safe_path_exchange, source_plate_rotation="narrow", target_plate_rotation="narrow")
+
+    # robot.transfer(source=otflex_deckB, target=exchange_deck_low_narrow, target_approach=safe_path_exchange, source_approach=safe_path_flexB, target_plate_rotation="narrow", source_plate_rotation="narrow")
+
+    # robot.transfer(source=ot)
+#
+# safe_path_flexA= [[787.882, -2.133, 175.682, 542.847, 78.581, 999.516], [783.291, 62.017, 175.055, 541.806, 78.587, 999.516], [849.853, 58.209, 283.568, 290.376, 78.575, 999.516]]
+
+
+# robot.pick_plate(exchange_deck_low_narrow)

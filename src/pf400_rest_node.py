@@ -4,7 +4,7 @@
 import datetime
 import traceback
 from time import sleep
-from typing import List
+from typing import List, Optional, Union
 
 from fastapi.datastructures import State
 from fastapi.responses import JSONResponse
@@ -161,14 +161,16 @@ def transfer(
     action: ActionRequest,
     source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Annotated[List[float], "Approach location for source"],
-    target_approach: Annotated[List[float], "Approach location for target"],
+    source_approach: Annotated[List[float], "Location to approach from"] = None,
+    target_approach: Annotated[List[float], "Location to approach from"] = None,
+    # source_approach=None,
+    # target_approach=None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
-    ],
+    ] = "",
     target_plate_rotation: Annotated[
         str, "Final orientation of the plate at the target, wide or narrow"
-    ],
+    ] = "",
 ) -> StepResponse:
     """Transfer a plate from one location to another"""
     sleep(0.3)
@@ -184,8 +186,8 @@ def transfer(
     sleep(0.3)
     state.action_start = datetime.datetime.now()
     state.pf400.transfer(
-        source_loc=source,
-        target_loc=target,
+        source=source,
+        target=target,
         source_approach=source_approach,
         target_approach=target_approach,
         source_plate_rotation=source_plate_rotation,
@@ -195,14 +197,20 @@ def transfer(
     return StepResponse.step_succeeded()
 
 
-@rest_module.action()
+@rest_module.action(
+    name="pick_plate", description="Pick a plate from a source location"
+)
 def pick_plate(
     state: State,
-    source: Annotated[List[float], "Locationto pick a plate from"],
-    source_approach: Annotated[List[float], "Approach location for source"],
+    source: Annotated[List[float], "Location to pick a plate from"],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
-    ],
+    ] = "",
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
@@ -225,9 +233,7 @@ def pick_plate(
         source, plate_source_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.pick_plate(
-        source_location=source, source_approach_location=source_approach
-    )
+    state.pf400.pick_plate(source=source, source_approach=source_approach)
     state.action_start = None
     if state.pf400.plate_state == -1:
         state.pf400.robot_warning = "MISSING PLATE"
@@ -237,16 +243,21 @@ def pick_plate(
     return StepResponse.step_succeeded()
 
 
-@rest_module.action()
+@rest_module.action(
+    name="place_plate", description="Place a plate to a target location"
+)
 def place_plate(
     state: State,
     target: Annotated[List[float], "Location to place the plate"],
-    target_approach: Annotated[List[float], "Approach location for target"],
+    target_approach: Annotated[
+        Optional[Union[List[float], List[List[float]]]],
+        "Approach location(s) for target",
+    ] = None,
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
-    ],
+    ] = "",
 ) -> StepResponse:
-    """Picks a plate from a location"""
+    """Places a plate at a location"""
     sleep(0.3)
     err = None
     if len(target) != 6:
@@ -265,9 +276,7 @@ def place_plate(
         target, plate_target_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.place_plate(
-        target_location=target, target_approach_location=target_approach
-    )
+    state.pf400.place_plate(target=target, target_approach=target_approach)
     state.action_start = None
     return StepResponse.step_succeeded()
 
@@ -276,16 +285,38 @@ def place_plate(
 def remove_lid(
     state: State,
     action: ActionRequest,
-    target: Annotated[List[float], "Location to remove a plate lid from"],
+    source: Annotated[List[float], "Location to pick a plate from"],
+    target: Annotated[List[float], "Location to place a plate to"],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
+    target_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for target"
+        ]
+    ] = None,
+    source_plate_rotation: Annotated[
+        str, "Orientation of the plate at the source, wide or narrow"
+    ] = "",
     target_plate_rotation: Annotated[
-        str, " Orientation of the plate at the target, wide or narrow"
-    ],
+        str, "Final orientation of the plate at the target, wide or narrow"
+    ] = "",
     lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
 ) -> StepResponse:
     """Remove a lid from a plate"""
     sleep(0.3)
     state.action_start = datetime.datetime.now()
-    state.pf400.remove_lid(target, lid_height, target_plate_rotation)
+    state.pf400.remove_lid(
+        source=source,
+        target=target,
+        lid_height=lid_height,
+        source_approach=source_approach,
+        target_approach=target_approach,
+        source_plate_rotation=source_plate_rotation,
+        target_plate_rotation=target_plate_rotation,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 
@@ -294,16 +325,38 @@ def remove_lid(
 def replace_lid(
     state: State,
     action: ActionRequest,
+    source: Annotated[List[float], "Location to pick a plate from"],
     target: Annotated[List[float], "Location to place a plate to"],
+    source_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for source"
+        ]
+    ] = None,
+    target_approach: Optional[
+        Annotated[
+            Union[List[float], List[List[float]]], "Approach location(s) for target"
+        ]
+    ] = None,
+    source_plate_rotation: Annotated[
+        str, "Orientation of the plate at the source, wide or narrow"
+    ] = "",
     target_plate_rotation: Annotated[
-        str, "Orientation of the plate at the target, wide or narrow"
-    ],
+        str, "Final orientation of the plate at the target, wide or narrow"
+    ] = "",
     lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
 ) -> StepResponse:
     """Replace a lid on a plate"""
     sleep(0.3)
     state.action_start = datetime.datetime.now()
-    state.pf400.replace_lid(target, lid_height, target_plate_rotation)
+    state.pf400.replace_lid(
+        source=source,
+        target=target,
+        lid_height=lid_height,
+        source_approach=source_approach,
+        target_approach=target_approach,
+        source_plate_rotation=source_plate_rotation,
+        target_plate_rotation=target_plate_rotation,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 

@@ -1,7 +1,9 @@
-# Python Configuration
-PYPROJECT_TOML := pyproject.toml
-
 .DEFAULT_GOAL := init
+
+.PHONY += init paths checks test clean
+
+init: # Do the initial configuration of the project
+	@test -e .env || cp example.env .env
 
 .PHONY += init paths checks test clean
 init: # Do the initial configuration of the project
@@ -16,11 +18,6 @@ paths: .env # Create the necessary data directories
 checks: # Runs all the pre-commit checks
 	@pre-commit install
 	@pre-commit run --all-files || { echo "Checking fixes\n" ; pre-commit run --all-files; }
-
-# test: init .env paths # Runs all the tests
-# 	@docker compose -f wei.compose.yaml --env-file .env up --build -d
-# 	@docker compose -f wei.compose.yaml --env-file .env exec pf400_module pytest -p no:cacheprovider -m "not hardware" pf400_module
-# 	@docker compose -f wei.compose.yaml --env-file .env down
 
 clean:
 	@rm -f .env

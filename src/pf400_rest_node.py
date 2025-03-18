@@ -1,9 +1,7 @@
 #! /usr/bin/env python3
 """The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
-import datetime
-from time import sleep
-from typing import Any, List, Optional, Union
+from typing import Any
 
 from madsci.client.resource_client import ResourceClient
 from madsci.common.types.action_types import ActionFailed, ActionSucceeded
@@ -138,15 +136,12 @@ class PF400Node(RestNode):
         # return ActionFailed(
         # errors=f"`run_command` returned '{result}'. Expected 'True'."
         # )
-        
-    @action(
-    name="pick_plate", description="Pick a plate from a source location"
-    )
+
+    @action(name="pick_plate", description="Pick a plate from a source location")
     def pick_plate(
         self,
         source: Annotated[dict[str, Any], "Location to pick a plate from"],
         source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
-
     ):
         """A doc string, but not the actual description of the action."""
         try:
@@ -162,12 +157,10 @@ class PF400Node(RestNode):
             source_loc=source.look_up,
             source_approach=source_approach.look_up,
         )
-        
+
         return ActionSucceeded()
-    
-    @action(
-    name="place_plate", description="Place a plate to a target location"
-    )
+
+    @action(name="place_plate", description="Place a plate to a target location")
     def place_plate(
         self,
         target: Annotated[dict[str, Any], "Location to place a plate to"],
@@ -175,9 +168,9 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
         try:
-            source = Location.model_validate(source)
-            source_approach = (
-                Location.model_validate(source_approach) if source_approach else None
+            target = Location.model_validate(target)
+            target_approach = (
+                Location.model_validate(target_approach) if target_approach else None
             )
         except Exception as e:
             return ActionFailed(errors=f"Invalid location data: {e}")
@@ -189,10 +182,8 @@ class PF400Node(RestNode):
         # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
-    
-    @action(
-       name="remove_lid", description="Remove a lid from a plate"
-    )
+
+    @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
         self,
         source: Annotated[dict[str, Any], "Location to pick a plate from"],
@@ -206,7 +197,6 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-
     ):
         """A doc string, but not the actual description of the action."""
         try:
@@ -234,9 +224,8 @@ class PF400Node(RestNode):
         self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
-    @action(
-        name="replace_lid", description="Replace a lid on a plate"
-    )
+
+    @action(name="replace_lid", description="Replace a lid on a plate")
     def replace_lid(
         self,
         source: Annotated[dict[str, Any], "Location to pick a plate from"],
@@ -250,7 +239,6 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-
     ):
         """A doc string, but not the actual description of the action."""
         try:
@@ -278,7 +266,7 @@ class PF400Node(RestNode):
         self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
-            
+
     def pause(self) -> None:
         """Pause the node."""
         self.logger.log("Pausing node...")

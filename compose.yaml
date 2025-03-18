@@ -13,6 +13,5 @@ services:
     env_file: .env
     volumes:
       - ./src:/home/app/pf400_module/src
-      - ./tests:/home/app/pf400_module/tests
     ports:
       - 3000:3000

@@ -125,8 +125,8 @@ class PF400Node(RestNode):
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.transfer(
-            source_loc=source.look_up,
-            target_loc=target.look_up,
+            source=source.look_up,
+            target=target.look_up,
             source_approach=source_approach.look_up,
             target_approach=target_approach.look_up,
             source_plate_rotation=source_plate_rotation,
@@ -134,12 +134,151 @@ class PF400Node(RestNode):
         )
         self.resource_client.push(target.resource_id, popped_plate)
 
-        # if result:
         return ActionSucceeded()
         # return ActionFailed(
         # errors=f"`run_command` returned '{result}'. Expected 'True'."
         # )
+        
+    @action(
+    name="pick_plate", description="Pick a plate from a source location"
+    )
+    def pick_plate(
+        self,
+        source: Annotated[dict[str, Any], "Location to pick a plate from"],
+        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
 
+    ):
+        """A doc string, but not the actual description of the action."""
+        try:
+            source = Location.model_validate(source)
+            source_approach = (
+                Location.model_validate(source_approach) if source_approach else None
+            )
+        except Exception as e:
+            return ActionFailed(errors=f"Invalid location data: {e}")
+        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
+        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        self.pf400_interface.pick_plate(
+            source_loc=source.look_up,
+            source_approach=source_approach.look_up,
+        )
+        
+        return ActionSucceeded()
+    
+    @action(
+    name="place_plate", description="Place a plate to a target location"
+    )
+    def place_plate(
+        self,
+        target: Annotated[dict[str, Any], "Location to place a plate to"],
+        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+    ):
+        """A doc string, but not the actual description of the action."""
+        try:
+            source = Location.model_validate(source)
+            source_approach = (
+                Location.model_validate(source_approach) if source_approach else None
+            )
+        except Exception as e:
+            return ActionFailed(errors=f"Invalid location data: {e}")
+        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
+        self.pf400_interface.place_plate(
+            target=target.look_up,
+            target_approach=target_approach.look_up,
+        )
+        # self.resource_client.push(target.resource_id, popped_plate)
+
+        return ActionSucceeded()
+    
+    @action(
+       name="remove_lid", description="Remove a lid from a plate"
+    )
+    def remove_lid(
+        self,
+        source: Annotated[dict[str, Any], "Location to pick a plate from"],
+        target: Annotated[dict[str, Any], "Location to place a plate to"],
+        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        source_plate_rotation: Annotated[
+            str, "Orientation of the plate at the source, wide or narrow"
+        ] = "",
+        target_plate_rotation: Annotated[
+            str, "Final orientation of the plate at the target, wide or narrow"
+        ] = "",
+        lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+
+    ):
+        """A doc string, but not the actual description of the action."""
+        try:
+            source = Location.model_validate(source)
+            target = Location.model_validate(target)
+            source_approach = (
+                Location.model_validate(source_approach) if source_approach else None
+            )
+            target_approach = (
+                Location.model_validate(target_approach) if target_approach else None
+            )
+        except Exception as e:
+            return ActionFailed(errors=f"Invalid location data: {e}")
+        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
+        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        self.pf400_interface.remove_lid(
+            source=source.look_up,
+            target=target.look_up,
+            lid_height=lid_height,
+            source_approach=source_approach.look_up,
+            target_approach=target_approach.look_up,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
+        self.resource_client.push(target.resource_id, popped_plate)
+
+        return ActionSucceeded()
+    @action(
+        name="replace_lid", description="Replace a lid on a plate"
+    )
+    def replace_lid(
+        self,
+        source: Annotated[dict[str, Any], "Location to pick a plate from"],
+        target: Annotated[dict[str, Any], "Location to place a plate to"],
+        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        source_plate_rotation: Annotated[
+            str, "Orientation of the plate at the source, wide or narrow"
+        ] = "",
+        target_plate_rotation: Annotated[
+            str, "Final orientation of the plate at the target, wide or narrow"
+        ] = "",
+        lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+
+    ):
+        """A doc string, but not the actual description of the action."""
+        try:
+            source = Location.model_validate(source)
+            target = Location.model_validate(target)
+            source_approach = (
+                Location.model_validate(source_approach) if source_approach else None
+            )
+            target_approach = (
+                Location.model_validate(target_approach) if target_approach else None
+            )
+        except Exception as e:
+            return ActionFailed(errors=f"Invalid location data: {e}")
+        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
+        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        self.pf400_interface.replace_lid(
+            source=source.look_up,
+            target=target.look_up,
+            lid_height=lid_height,
+            source_approach=source_approach.look_up,
+            target_approach=target_approach.look_up,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
+        self.resource_client.push(target.resource_id, popped_plate)
+
+        return ActionSucceeded()
+            
     def pause(self) -> None:
         """Pause the node."""
         self.logger.log("Pausing node...")
@@ -179,170 +318,3 @@ class PF400Node(RestNode):
         self.node_status.cancelled = True
         self.logger.log("Node cancelled.")
         return True
-
-
-@rest_module.action(
-    name="pick_plate", description="Pick a plate from a source location"
-)
-def pick_plate(
-    state: State,
-    source: Annotated[List[float], "Location to pick a plate from"],
-    source_approach: Optional[
-        Annotated[
-            Union[List[float], List[List[float]]], "Approach location(s) for source"
-        ]
-    ] = None,
-    source_plate_rotation: Annotated[
-        str, "Orientation of the plate at the source, wide or narrow"
-    ] = "",
-) -> StepResponse:
-    """Picks a plate from a location"""
-    sleep(0.3)
-    err = None
-    if len(source) != 6:
-        err = True
-        msg = "Source should be six joint angles length. Canceling the job!"
-    if err:
-        return StepResponse.step_failed(error=msg)
-    sleep(0.3)
-    state.action_start = datetime.datetime.now()
-    state.pf400.robot_warning = "CLEAR"
-
-    if source_plate_rotation.lower() == "wide":
-        plate_source_rotation = 90
-
-    elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
-        plate_source_rotation = 0
-    source = state.pf400.check_incorrect_plate_orientation(
-        source, plate_source_rotation
-    )
-    state.pf400.force_initialize_robot()
-    state.pf400.pick_plate(source=source, source_approach=source_approach)
-    state.action_start = None
-    if state.pf400.plate_state == -1:
-        state.pf400.robot_warning = "MISSING PLATE"
-        state.pf400.move_all_joints_neutral()
-        sleep(5)
-        return StepResponse.step_failed(error="No plate detected after pick.")
-    return StepResponse.step_succeeded()
-
-
-@rest_module.action(
-    name="place_plate", description="Place a plate to a target location"
-)
-def place_plate(
-    state: State,
-    target: Annotated[List[float], "Location to place the plate"],
-    target_approach: Annotated[
-        Optional[Union[List[float], List[List[float]]]],
-        "Approach location(s) for target",
-    ] = None,
-    target_plate_rotation: Annotated[
-        str, "Orientation of the plate at the target, wide or narrow"
-    ] = "",
-) -> StepResponse:
-    """Places a plate at a location"""
-    sleep(0.3)
-    err = None
-    if len(target) != 6:
-        err = True
-        msg = "Target should be six joint angles length. Canceling the job!"
-    if err:
-        return StepResponse.step_failed(error=msg)
-    sleep(0.3)
-    state.action_start = datetime.datetime.now()
-    if target_plate_rotation.lower() == "wide":
-        plate_target_rotation = 90
-
-    elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-        plate_target_rotation = 0
-    target = state.pf400.check_incorrect_plate_orientation(
-        target, plate_target_rotation
-    )
-    state.pf400.force_initialize_robot()
-    state.pf400.place_plate(target=target, target_approach=target_approach)
-    state.action_start = None
-    return StepResponse.step_succeeded()
-
-
-@rest_module.action(name="remove_lid", description="Remove a lid from a plate")
-def remove_lid(
-    state: State,
-    action: ActionRequest,
-    source: Annotated[List[float], "Location to pick a plate from"],
-    target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Optional[
-        Annotated[
-            Union[List[float], List[List[float]]], "Approach location(s) for source"
-        ]
-    ] = None,
-    target_approach: Optional[
-        Annotated[
-            Union[List[float], List[List[float]]], "Approach location(s) for target"
-        ]
-    ] = None,
-    source_plate_rotation: Annotated[
-        str, "Orientation of the plate at the source, wide or narrow"
-    ] = "",
-    target_plate_rotation: Annotated[
-        str, "Final orientation of the plate at the target, wide or narrow"
-    ] = "",
-    lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-) -> StepResponse:
-    """Remove a lid from a plate"""
-    sleep(0.3)
-    state.action_start = datetime.datetime.now()
-    state.pf400.remove_lid(
-        source=source,
-        target=target,
-        lid_height=lid_height,
-        source_approach=source_approach,
-        target_approach=target_approach,
-        source_plate_rotation=source_plate_rotation,
-        target_plate_rotation=target_plate_rotation,
-    )
-    state.action_start = None
-    return StepResponse.step_succeeded()
-
-
-@rest_module.action(name="replace_lid", description="Replace a lid on a plate")
-def replace_lid(
-    state: State,
-    action: ActionRequest,
-    source: Annotated[List[float], "Location to pick a plate from"],
-    target: Annotated[List[float], "Location to place a plate to"],
-    source_approach: Optional[
-        Annotated[
-            Union[List[float], List[List[float]]], "Approach location(s) for source"
-        ]
-    ] = None,
-    target_approach: Optional[
-        Annotated[
-            Union[List[float], List[List[float]]], "Approach location(s) for target"
-        ]
-    ] = None,
-    source_plate_rotation: Annotated[
-        str, "Orientation of the plate at the source, wide or narrow"
-    ] = "",
-    target_plate_rotation: Annotated[
-        str, "Final orientation of the plate at the target, wide or narrow"
-    ] = "",
-    lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-) -> StepResponse:
-    """Replace a lid on a plate"""
-    sleep(0.3)
-    state.action_start = datetime.datetime.now()
-    state.pf400.replace_lid(
-        source=source,
-        target=target,
-        lid_height=lid_height,
-        source_approach=source_approach,
-        target_approach=target_approach,
-        source_plate_rotation=source_plate_rotation,
-        target_plate_rotation=target_plate_rotation,
-    )
-    state.action_start = None
-    return StepResponse.step_succeeded()
-
-
-rest_module.start()

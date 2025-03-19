@@ -3,6 +3,7 @@
 
 from typing import Any
 
+
 from madsci.client.resource_client import ResourceClient
 from madsci.common.types.action_types import ActionFailed, ActionSucceeded
 from madsci.common.types.location_types import Location
@@ -16,26 +17,23 @@ from typing_extensions import Annotated
 class PF400NodeConfig(RestNodeConfig):
     """Configuration for the pf400 node module."""
 
-    __test__ = False
-
-    pf400_ip: str = "146.137.240.35"
-    """Required Robot IP"""
-    pf400_port: int = None
+    pf400_ip: str 
+    # """Required Robot IP"""
+    # pf400_port: int = None
 
 
 class PF400Node(RestNode):
     """A Rest Node object to control PF400 robots"""
 
-    __test__ = False
-
     pf400_interface = PF400 = None
     config_model = PF400NodeConfig
-
+    
     def startup_handler(self) -> None:
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
+        
         try:
             self.logger.log("Node initializing...")
-            self.pf400_interface = PF400(host=self.config_model.ip)
+            self.pf400_interface = PF400(host=self.config.pf400_ip)
             self.pf400_interface.initialize_robot()
             self.resource_client = ResourceClient(url="http://testserver")
         except Exception as err:
@@ -306,3 +304,7 @@ class PF400Node(RestNode):
         self.node_status.cancelled = True
         self.logger.log("Node cancelled.")
         return True
+
+if __name__ == "__main__":
+    pf400_node = PF400Node()
+    pf400_node.start_node()

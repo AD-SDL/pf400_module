@@ -118,7 +118,7 @@ class PF400Node(RestNode):
         except Exception as e:
             return ActionFailed(errors=f"Invalid location data: {e}")
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.transfer(
             source=source.look_up,
             target=target.look_up,
@@ -127,7 +127,7 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        self.resource_client.push(target.resource_id, popped_plate)
+        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
         # return ActionFailed(
@@ -149,10 +149,11 @@ class PF400Node(RestNode):
         except Exception as e:
             return ActionFailed(errors=f"Invalid location data: {e}")
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        # popped_plate, resource = self.resource_client.pop(source.resource_id)
+        source_approach = None
         self.pf400_interface.pick_plate(
-            source_loc=source.look_up,
-            source_approach=source_approach.look_up,
+            source=source.lookup["value"],
+            source_approach=source_approach,
         )
 
         return ActionSucceeded()
@@ -208,7 +209,7 @@ class PF400Node(RestNode):
         except Exception as e:
             return ActionFailed(errors=f"Invalid location data: {e}")
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.remove_lid(
             source=source.look_up,
             target=target.look_up,
@@ -218,7 +219,7 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        self.resource_client.push(target.resource_id, popped_plate)
+        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
 
@@ -250,7 +251,7 @@ class PF400Node(RestNode):
         except Exception as e:
             return ActionFailed(errors=f"Invalid location data: {e}")
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        popped_plate, resource = self.resource_client.pop(source.resource_id)
+        # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.replace_lid(
             source=source.look_up,
             target=target.look_up,
@@ -260,7 +261,7 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        self.resource_client.push(target.resource_id, popped_plate)
+        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
 

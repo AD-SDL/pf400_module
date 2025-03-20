@@ -1,34 +1,22 @@
 [project]
 name = "pf400_module"
-version = "0.2.0"
+version = "2.0.0"
 description = "Software for automatting a PF400 robot"
 authors = [
     {name = "Ryan D. Lewis", email="ryan.lewis@anl.gov"},
-    {name = "Rafael Vescovi", email="ravescovi@anl.gov"},
     {name = "Doga Ozgulbas", email="dozgulbas@anl.gov"},
     {name = "Abe Stroka", email="astroka@anl.gov"},
-    {name = "Kyle Hippe", email = "khippe@anl.gov"},
     {name = "Tobias Ginsburg", email = "tginsburg@anl.gov"},
 ]
 dependencies = [
-    "ad_sdl.wei>=0.5.3",
-    "fastapi>=0.103.2",
-    "uvicorn>=0.21.1",
-    "pytest",
+    "madsci.node_module>=0.1.5",
 ]
-requires-python = ">=3.8.1"
+requires-python = ">=3.9.1"
 readme = "README.md"
 license = {text = "MIT"}
 
 [project.urls]
 homepage = "https://github.com/AD-SDL/pf400_module"
-
-######################
-# Build Info + Tools #
-######################
-[build-system]
-requires = ["setuptools>=61", "wheel"]
-build-backend = "setuptools.build_meta"
 
 #####################
 # Development Tools #

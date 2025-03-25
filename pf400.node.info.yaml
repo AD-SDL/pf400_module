@@ -18,14 +18,14 @@ capabilities:
   get_resources: false
   get_log: true
   admin_commands:
-  - pause
-  - unlock
-  - lock
   - shutdown
-  - resume
-  - cancel
-  - safety_stop
+  - pause
   - reset
+  - lock
+  - cancel
+  - unlock
+  - safety_stop
+  - resume
 commands: {}
 is_template: false
 config_defaults:
@@ -37,181 +37,191 @@ actions:
     name: transfer
     description: Transfer a plate from one location to another
     args:
-      source:
-        name: source
-        description: Location to pick a plate from
-        type: LocationArgument
-        required: true
-        default: null
-      target:
-        name: target
-        description: Location to place a plate to
-        type: LocationArgument
-        required: true
-        default: null
-      source_approach:
-        name: source_approach
-        description: Location to approach from
-        type: LocationArgument
-        required: true
-        default: null
-      target_approach:
-        name: target_approach
-        description: Location to approach from
-        type: LocationArgument
-        required: true
-        default: null
       source_plate_rotation:
         name: source_plate_rotation
         description: Orientation of the plate at the source, wide or narrow
-        type: str
+        argument_type: str
         required: false
         default: ''
       target_plate_rotation:
         name: target_plate_rotation
         description: Final orientation of the plate at the target, wide or narrow
-        type: str
+        argument_type: str
         required: false
         default: ''
-    files: {}
-    results: {}
-    blocking: false
-  pick_plate:
-    name: pick_plate
-    description: Pick a plate from a source location
-    args:
+    locations:
       source:
         name: source
         description: Location to pick a plate from
-        type: LocationArgument
+        argument_type: location
+        required: true
+        default: null
+      target:
+        name: target
+        description: Location to place a plate to
+        argument_type: location
         required: true
         default: null
       source_approach:
         name: source_approach
         description: Location to approach from
-        type: LocationArgument
-        required: true
+        argument_type: location
+        required: false
+        default: null
+      target_approach:
+        name: target_approach
+        description: Location to approach from
+        argument_type: location
+        required: false
         default: null
     files: {}
     results: {}
     blocking: false
+    asynchronous: true
+  pick_plate:
+    name: pick_plate
+    description: Pick a plate from a source location
+    args: {}
+    locations:
+      source:
+        name: source
+        description: Location to pick a plate from
+        argument_type: location
+        required: true
+        default: null
+      source_approach:
+        name: source_approach
+        description: Location to approach from
+        argument_type: location
+        required: false
+        default: null
+    files: {}
+    results: {}
+    blocking: false
+    asynchronous: true
   place_plate:
     name: place_plate
     description: Place a plate to a target location
-    args:
+    args: {}
+    locations:
       target:
         name: target
         description: Location to place a plate to
-        type: LocationArgument
+        argument_type: location
         required: true
         default: null
       target_approach:
         name: target_approach
         description: Location to approach from
-        type: LocationArgument
-        required: true
+        argument_type: location
+        required: false
         default: null
     files: {}
     results: {}
     blocking: false
+    asynchronous: true
   remove_lid:
     name: remove_lid
     description: Remove a lid from a plate
     args:
-      source:
-        name: source
-        description: Location to pick a plate from
-        type: LocationArgument
-        required: true
-        default: null
-      target:
-        name: target
-        description: Location to place a plate to
-        type: LocationArgument
-        required: true
-        default: null
-      source_approach:
-        name: source_approach
-        description: Location to approach from
-        type: LocationArgument
-        required: true
-        default: null
-      target_approach:
-        name: target_approach
-        description: Location to approach from
-        type: LocationArgument
-        required: true
-        default: null
       source_plate_rotation:
         name: source_plate_rotation
         description: Orientation of the plate at the source, wide or narrow
-        type: str
+        argument_type: str
         required: false
         default: ''
       target_plate_rotation:
         name: target_plate_rotation
         description: Final orientation of the plate at the target, wide or narrow
-        type: str
+        argument_type: str
         required: false
         default: ''
       lid_height:
         name: lid_height
         description: height of the lid, in steps
-        type: float
+        argument_type: float
         required: false
         default: 7.0
+    locations:
+      source:
+        name: source
+        description: Location to pick a plate from
+        argument_type: location
+        required: true
+        default: null
+      target:
+        name: target
+        description: Location to place a plate to
+        argument_type: location
+        required: true
+        default: null
+      source_approach:
+        name: source_approach
+        description: Location to approach from
+        argument_type: location
+        required: false
+        default: null
+      target_approach:
+        name: target_approach
+        description: Location to approach from
+        argument_type: location
+        required: false
+        default: null
     files: {}
     results: {}
     blocking: false
+    asynchronous: true
   replace_lid:
     name: replace_lid
     description: Replace a lid on a plate
     args:
-      source:
-        name: source
-        description: Location to pick a plate from
-        type: LocationArgument
-        required: true
-        default: null
-      target:
-        name: target
-        description: Location to place a plate to
-        type: LocationArgument
-        required: true
-        default: null
-      source_approach:
-        name: source_approach
-        description: Location to approach from
-        type: LocationArgument
-        required: true
-        default: null
-      target_approach:
-        name: target_approach
-        description: Location to approach from
-        type: LocationArgument
-        required: true
-        default: null
       source_plate_rotation:
         name: source_plate_rotation
         description: Orientation of the plate at the source, wide or narrow
-        type: str
+        argument_type: str
         required: false
         default: ''
       target_plate_rotation:
         name: target_plate_rotation
         description: Final orientation of the plate at the target, wide or narrow
-        type: str
+        argument_type: str
         required: false
         default: ''
       lid_height:
         name: lid_height
         description: height of the lid, in steps
-        type: float
+        argument_type: float
         required: false
         default: 7.0
+    locations:
+      source:
+        name: source
+        description: Location to pick a plate from
+        argument_type: location
+        required: true
+        default: null
+      target:
+        name: target
+        description: Location to place a plate to
+        argument_type: location
+        required: true
+        default: null
+      source_approach:
+        name: source_approach
+        description: Location to approach from
+        argument_type: location
+        required: false
+        default: null
+      target_approach:
+        name: target_approach
+        description: Location to approach from
+        argument_type: location
+        required: false
+        default: null
     files: {}
     results: {}
     blocking: false
+    asynchronous: true
 config:
   status_update_interval: null
   state_update_interval: null
@@ -245,10 +255,7 @@ config_schema:
           title: Event Client Log Level
           type: integer
         source:
-          anyOf:
-          - $ref: '#/$defs/OwnershipInfo'
-          - type: 'null'
-          default: null
+          $ref: '#/$defs/OwnershipInfo'
           description: Information about the source of the event client.
           title: Source
         log_dir:
@@ -316,6 +323,20 @@ config_schema:
           default: null
           description: The ID of the lab that owns the object.
           title: Lab ID
+        step_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          description: The ID of the step that owns the object.
+          title: Step ID
+        workflow_id:
+          anyOf:
+          - type: string
+          - type: 'null'
+          default: null
+          description: The ID of the workflow that owns the object.
+          title: Workflow ID
       title: OwnershipInfo
       type: object
   additionalProperties: true

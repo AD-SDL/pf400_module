@@ -5,7 +5,7 @@ from madsci.client.resource_client import ResourceClient
 from madsci.common.types.action_types import ActionSucceeded
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
-from madsci.node_module.abstract_node_module import action
+from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 from pf400_interface.pf400 import PF400
 from typing_extensions import Annotated
@@ -22,7 +22,7 @@ class PF400NodeConfig(RestNodeConfig):
 class PF400Node(RestNode):
     """A Rest Node object to control PF400 robots"""
 
-    pf400_interface = PF400 = None
+    pf400_interface: PF400 = None
     config_model = PF400NodeConfig
 
     def startup_handler(self) -> None:
@@ -31,6 +31,7 @@ class PF400Node(RestNode):
         try:
             self.logger.log("Node initializing...")
             self.pf400_interface = PF400(host=self.config.pf400_ip)
+            self.pf400_joint_state = PF400(host=self.config.pf400_ip, port=10000)
             self.pf400_interface.initialize_robot()
             self.resource_client = ResourceClient(url="http://testserver")
         except Exception as err:
@@ -57,22 +58,27 @@ class PF400Node(RestNode):
         if self.pf400_interface is not None:
             # Getting robot state
             robot_state = self.pf400_interface.movement_state
+            current_location = self.pf400_joint_state.get_joint_states()
             if robot_state == 0:
                 self.node_state = {
                     "pf400_status_code": "POWER OFF",
+                    "current_joint_angles": current_location,
                 }
                 self.logger.log_error("PF400 POWER OFF")
             elif robot_state == 1:
                 self.node_state = {
                     "pf400_status_code": "READY",
+                    "current_joint_angles": current_location,
                 }
             elif robot_state > 1:
                 self.node_state = {
                     "pf400_status_code": "BUSY",
+                    "current_joint_angles": current_location,
                 }
             else:
                 self.node_state = {
                     "pf400_status_code": self.pf400_interface.robot_state,
+                    "current_joint_angles": current_location,
                 }
 
     @action(
@@ -101,8 +107,8 @@ class PF400Node(RestNode):
         self.pf400_interface.transfer(
             source=source.location,
             target=target.location,
-            source_approach=source_approach.location,
-            target_approach=target_approach.location,
+            source_approach=source_approach.location if source_approach else None,
+            target_approach=target_approach.location if target_approach else None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
@@ -128,7 +134,7 @@ class PF400Node(RestNode):
         source_approach = None
         self.pf400_interface.pick_plate(
             source=source.location,
-            source_approach=source_approach.location,
+            source_approach=source_approach.location if source_approach else None,
         )
 
         return ActionSucceeded()
@@ -146,7 +152,7 @@ class PF400Node(RestNode):
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         self.pf400_interface.place_plate(
             target=target.location,
-            target_approach=target_approach.location,
+            target_approach=target_approach.location if target_approach else None,
         )
         # self.resource_client.push(target.resource_id, popped_plate)
 

@@ -9,7 +9,7 @@ authors = [
     {name = "Tobias Ginsburg", email = "tginsburg@anl.gov"},
 ]
 dependencies = [
-    "madsci.node_module>=0.1.5",
+    "madsci.node_module>=0.1.7",
 ]
 requires-python = ">=3.9.1"
 readme = "README.md"
@@ -127,3 +127,8 @@ plugins = ["pydantic.mypy"]
 strict = true
 disallow_untyped_defs = true
 implicit_reexport = true
+
+[dependency-groups]
+dev = [
+    "ipykernel>=6.29.5",
+]

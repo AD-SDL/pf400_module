@@ -18,14 +18,14 @@ capabilities:
   get_resources: false
   get_log: true
   admin_commands:
-  - safety_stop
-  - cancel
-  - resume
-  - unlock
-  - shutdown
-  - reset
   - pause
+  - unlock
   - lock
+  - shutdown
+  - resume
+  - cancel
+  - safety_stop
+  - reset
 commands: {}
 is_template: false
 config_defaults:
@@ -33,19 +33,6 @@ config_defaults:
   port: 3000
   pf400_ip: 146.137.240.35
 actions:
-  test_action:
-    name: test_action
-    description: A test action.
-    args:
-      test_param:
-        name: test_param
-        description: ''
-        type: int
-        required: true
-        default: null
-    files: {}
-    results: {}
-    blocking: false
   transfer:
     name: transfer
     description: Transfer a plate from one location to another
@@ -53,25 +40,25 @@ actions:
       source:
         name: source
         description: Location to pick a plate from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target:
         name: target
         description: Location to place a plate to
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_approach:
         name: source_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target_approach:
         name: target_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_plate_rotation:
@@ -96,13 +83,13 @@ actions:
       source:
         name: source
         description: Location to pick a plate from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_approach:
         name: source_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
     files: {}
@@ -115,13 +102,13 @@ actions:
       target:
         name: target
         description: Location to place a plate to
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target_approach:
         name: target_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
     files: {}
@@ -134,25 +121,25 @@ actions:
       source:
         name: source
         description: Location to pick a plate from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target:
         name: target
         description: Location to place a plate to
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_approach:
         name: source_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target_approach:
         name: target_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_plate_rotation:
@@ -183,25 +170,25 @@ actions:
       source:
         name: source
         description: Location to pick a plate from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target:
         name: target
         description: Location to place a plate to
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_approach:
         name: source_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       target_approach:
         name: target_approach
         description: Location to approach from
-        type: dict[strAny]
+        type: LocationArgument
         required: true
         default: null
       source_plate_rotation:

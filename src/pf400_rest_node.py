@@ -1,11 +1,9 @@
 #! /usr/bin/env python3
 """The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
-from typing import Any
-
 from madsci.client.resource_client import ResourceClient
-from madsci.common.types.action_types import ActionFailed, ActionSucceeded
-from madsci.common.types.location_types import Location
+from madsci.common.types.action_types import ActionSucceeded
+from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
 from madsci.node_module.abstract_node_module import action
 from madsci.node_module.rest_node_module import RestNode
@@ -77,27 +75,19 @@ class PF400Node(RestNode):
                     "pf400_status_code": self.pf400_interface.robot_state,
                 }
 
-    @action
-    def test_action(self, test_param: int) -> bool:
-        """A test action."""
-        result = self.test_interface.run_command(
-            f"Test action with param {test_param}."
-        )
-        if result:
-            return ActionSucceeded()
-        return ActionFailed(
-            errors=f"`run_command` returned '{result}'. Expected 'True'."
-        )
-
     @action(
         name="transfer", description="Transfer a plate from one location to another"
     )
     def transfer(
         self,
-        source: Annotated[dict[str, Any], "Location to pick a plate from"],
-        target: Annotated[dict[str, Any], "Location to place a plate to"],
-        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
-        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        source: Annotated[LocationArgument, "Location to pick a plate from"],
+        target: Annotated[LocationArgument, "Location to place a plate to"],
+        source_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
+        target_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
         ] = "",
@@ -106,24 +96,13 @@ class PF400Node(RestNode):
         ] = "",
     ):
         """A doc string, but not the actual description of the action."""
-        try:
-            source = Location.model_validate(source)
-            target = Location.model_validate(target)
-            source_approach = (
-                Location.model_validate(source_approach) if source_approach else None
-            )
-            target_approach = (
-                Location.model_validate(target_approach) if target_approach else None
-            )
-        except Exception as e:
-            return ActionFailed(errors=f"Invalid location data: {e}")
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.transfer(
-            source=source.look_up,
-            target=target.look_up,
-            source_approach=source_approach.look_up,
-            target_approach=target_approach.look_up,
+            source=source.location,
+            target=target.location,
+            source_approach=source_approach.location,
+            target_approach=target_approach.location,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
@@ -137,23 +116,19 @@ class PF400Node(RestNode):
     @action(name="pick_plate", description="Pick a plate from a source location")
     def pick_plate(
         self,
-        source: Annotated[dict[str, Any], "Location to pick a plate from"],
-        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        source: Annotated[LocationArgument, "Location to pick a plate from"],
+        source_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
     ):
         """A doc string, but not the actual description of the action."""
-        try:
-            source = Location.model_validate(source)
-            source_approach = (
-                Location.model_validate(source_approach) if source_approach else None
-            )
-        except Exception as e:
-            return ActionFailed(errors=f"Invalid location data: {e}")
+
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         # popped_plate, resource = self.resource_client.pop(source.resource_id)
         source_approach = None
         self.pf400_interface.pick_plate(
-            source=source.lookup["value"],
-            source_approach=source_approach,
+            source=source.location,
+            source_approach=source_approach.location,
         )
 
         return ActionSucceeded()
@@ -161,21 +136,17 @@ class PF400Node(RestNode):
     @action(name="place_plate", description="Place a plate to a target location")
     def place_plate(
         self,
-        target: Annotated[dict[str, Any], "Location to place a plate to"],
-        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        target: Annotated[LocationArgument, "Location to place a plate to"],
+        target_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
     ):
         """A doc string, but not the actual description of the action."""
-        try:
-            target = Location.model_validate(target)
-            target_approach = (
-                Location.model_validate(target_approach) if target_approach else None
-            )
-        except Exception as e:
-            return ActionFailed(errors=f"Invalid location data: {e}")
+
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         self.pf400_interface.place_plate(
-            target=target.look_up,
-            target_approach=target_approach.look_up,
+            target=target.location,
+            target_approach=target_approach.location,
         )
         # self.resource_client.push(target.resource_id, popped_plate)
 
@@ -184,10 +155,14 @@ class PF400Node(RestNode):
     @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
         self,
-        source: Annotated[dict[str, Any], "Location to pick a plate from"],
-        target: Annotated[dict[str, Any], "Location to place a plate to"],
-        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
-        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        source: Annotated[LocationArgument, "Location to pick a plate from"],
+        target: Annotated[LocationArgument, "Location to place a plate to"],
+        source_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
+        target_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
         ] = "",
@@ -197,25 +172,15 @@ class PF400Node(RestNode):
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
     ):
         """A doc string, but not the actual description of the action."""
-        try:
-            source = Location.model_validate(source)
-            target = Location.model_validate(target)
-            source_approach = (
-                Location.model_validate(source_approach) if source_approach else None
-            )
-            target_approach = (
-                Location.model_validate(target_approach) if target_approach else None
-            )
-        except Exception as e:
-            return ActionFailed(errors=f"Invalid location data: {e}")
+
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.remove_lid(
-            source=source.look_up,
-            target=target.look_up,
+            source=source.location,
+            target=target.location,
             lid_height=lid_height,
-            source_approach=source_approach.look_up,
-            target_approach=target_approach.look_up,
+            source_approach=source_approach.location,
+            target_approach=target_approach.location,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
@@ -226,10 +191,14 @@ class PF400Node(RestNode):
     @action(name="replace_lid", description="Replace a lid on a plate")
     def replace_lid(
         self,
-        source: Annotated[dict[str, Any], "Location to pick a plate from"],
-        target: Annotated[dict[str, Any], "Location to place a plate to"],
-        source_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
-        target_approach: Annotated[dict[str, Any], "Location to approach from"] = None,
+        source: Annotated[LocationArgument, "Location to pick a plate from"],
+        target: Annotated[LocationArgument, "Location to place a plate to"],
+        source_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
+        target_approach: Annotated[
+            LocationArgument, "Location to approach from"
+        ] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
         ] = "",
@@ -239,25 +208,15 @@ class PF400Node(RestNode):
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
     ):
         """A doc string, but not the actual description of the action."""
-        try:
-            source = Location.model_validate(source)
-            target = Location.model_validate(target)
-            source_approach = (
-                Location.model_validate(source_approach) if source_approach else None
-            )
-            target_approach = (
-                Location.model_validate(target_approach) if target_approach else None
-            )
-        except Exception as e:
-            return ActionFailed(errors=f"Invalid location data: {e}")
+
         # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.replace_lid(
-            source=source.look_up,
-            target=target.look_up,
+            source=source.location,
+            target=target.location,
             lid_height=lid_height,
-            source_approach=source_approach.look_up,
-            target_approach=target_approach.look_up,
+            source_approach=source_approach.location,
+            target_approach=target_approach.location,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )

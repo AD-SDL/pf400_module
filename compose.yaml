@@ -9,9 +9,9 @@ services:
       tags:
         - ${IMAGE}:latest
         - ${IMAGE}:dev
-    command: python -m pf400_rest_node --port 3000 --pf400_ip ${PF400_IP} --pf400_port ${PF400_PORT}
+    command: python -m pf400_rest_node --definition pf400_module/pf400.node.yaml
     env_file: .env
     volumes:
-      - ./src:/home/app/pf400_module/src
+      - ./:/home/madsci/pf400_module/
     ports:
       - 3000:3000

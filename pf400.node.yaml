@@ -32,5 +32,5 @@ config_defaults:
   host: localhost
   port: 3000
   pf400_ip: 146.137.240.35
-  resource_server_url: "URL"
+  resource_server_url: "https://parker.cels.anl.gov:8004"
   gripper_name: pf400_gripper

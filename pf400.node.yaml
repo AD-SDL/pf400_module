@@ -18,18 +18,18 @@ capabilities:
   get_resources: false
   get_log: true
   admin_commands:
-  - shutdown
   - pause
-  - reset
   - lock
   - cancel
+  - reset
   - unlock
-  - safety_stop
+  - shutdown
   - resume
+  - safety_stop
 commands: {}
 is_template: false
 config_defaults:
   host: localhost
   port: 3000
   pf400_ip: 146.137.240.35
-  resource_server_url: "https://parker.cels.anl.gov:8004"
+  resource_manager_url: http://parker.cels.anl.gov:8003

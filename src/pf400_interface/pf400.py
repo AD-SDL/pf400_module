@@ -927,9 +927,9 @@ class PF400(KINEMATICS):
         Pick a plate from the source location
         """
 
-        abovePos = list(map(add, source, self.above))
+        abovePos = list(map(add, source.location, self.above))
         self.gripper_open()
-        if source_approach.location:
+        if source_approach:
             if isinstance(source_approach.location[0], list):
                 # Multiple approach locations provided
                 self.move_all_joints_neutral(source_approach.location[0])
@@ -968,7 +968,7 @@ class PF400(KINEMATICS):
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
 
-        if source_approach.location:
+        if source_approach:
             if isinstance(source_approach.location[0], list):
                 for location in reversed(source_approach.location):
                     self.move_joint(
@@ -993,7 +993,7 @@ class PF400(KINEMATICS):
         Plate a plate to the target location
         """
         abovePos = list(map(add, target.location, self.above))
-        if target_approach.location:
+        if target_approach:
             if isinstance(target_approach.location[0], list):
                 # Multiple approach locations provided
                 self.move_all_joints_neutral(target_approach.location[0])
@@ -1024,7 +1024,7 @@ class PF400(KINEMATICS):
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
         )
-        if target_approach.location:
+        if target_approach:
             if isinstance(target_approach.location[0], list):
                 for location in reversed(target_approach.location):
                     self.move_joint(

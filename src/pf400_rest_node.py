@@ -1,20 +1,26 @@
 #! /usr/bin/env python3
 """The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
+from typing import Annotated, Optional
+
 from madsci.client.resource_client import ResourceClient
 from madsci.common.types.action_types import ActionSucceeded
+from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
+from madsci.common.types.resource_types.definitions import SlotResourceDefinition
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 from pf400_interface.pf400 import PF400
-from typing_extensions import Annotated
+from pydantic.networks import AnyUrl
 
 
 class PF400NodeConfig(RestNodeConfig):
     """Configuration for the pf400 node module."""
 
     pf400_ip: str
+    resource_server_url: Optional[AnyUrl] = None
+
     # """Required Robot IP"""
     # pf400_port: int = None
 
@@ -29,11 +35,26 @@ class PF400Node(RestNode):
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
 
         try:
+            if self.config.resource_server_url:
+                self.resource_client = ResourceClient(self.config.resource_server_url)
+                self.gripper_resource = self.resource_client.init_resource(
+                    SlotResourceDefinition(
+                        resource_name=self.config.gripper_name,
+                        owner=OwnershipInfo(node_id=self.node_definition.node_id),
+                    )
+                )
+            else:
+                self.resource_client = None
+                self.gripper_resource = None
+
             self.logger.log("Node initializing...")
-            self.pf400_interface = PF400(host=self.config.pf400_ip)
+            self.pf400_interface = PF400(
+                host=self.config.pf400_ip,
+                resource_client=self.resource_client,
+                gripper_resource_id=self.gripper_resource.resource_id,
+            )
             self.pf400_joint_state = PF400(host=self.config.pf400_ip, port=10000)
             self.pf400_interface.initialize_robot()
-            self.resource_client = ResourceClient(url="http://testserver")
         except Exception as err:
             self.logger.log_error(f"Error starting the PF400 Node: {err}")
             self.startup_has_run = False
@@ -102,8 +123,7 @@ class PF400Node(RestNode):
         ] = "",
     ):
         """A doc string, but not the actual description of the action."""
-        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        # popped_plate, resource = self.resource_client.pop(source.resource_id)
+
         self.pf400_interface.transfer(
             source=source.location,
             target=target.location,
@@ -112,12 +132,8 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
-        # return ActionFailed(
-        # errors=f"`run_command` returned '{result}'. Expected 'True'."
-        # )
 
     @action(name="pick_plate", description="Pick a plate from a source location")
     def pick_plate(
@@ -129,8 +145,6 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
 
-        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        # popped_plate, resource = self.resource_client.pop(source.resource_id)
         source_approach = None
         self.pf400_interface.pick_plate(
             source=source.location,
@@ -149,12 +163,10 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
 
-        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
         self.pf400_interface.place_plate(
             target=target.location,
             target_approach=target_approach.location if target_approach else None,
         )
-        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
 
@@ -179,8 +191,6 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
 
-        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.remove_lid(
             source=source.location,
             target=target.location,
@@ -190,7 +200,6 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
 
@@ -215,8 +224,6 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
 
-        # resource = self.resource_client.get_resource(resource_id=source.resource_id)
-        # popped_plate, resource = self.resource_client.pop(source.resource_id)
         self.pf400_interface.replace_lid(
             source=source.location,
             target=target.location,
@@ -226,7 +233,6 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        # self.resource_client.push(target.resource_id, popped_plate)
 
         return ActionSucceeded()
 

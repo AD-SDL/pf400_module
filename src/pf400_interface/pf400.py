@@ -957,8 +957,11 @@ class PF400(KINEMATICS):
         self.grab_plate(width=self.plate_width, speed=100, force=10)
 
         if self.resource_client:
+            popped_plate, updated_resource = self.resource_client.pop(
+                resource=source.resource_id
+            )
             self.resource_client.push(
-                resource=self.gripper_resource_id, child=source.resource_id
+                resource=self.gripper_resource_id, child=popped_plate
             )
 
         self.move_in_one_axis(
@@ -1013,9 +1016,10 @@ class PF400(KINEMATICS):
         self.move_joint(target.location, self.slow_motion_profile)
         self.release_plate(width=self.plate_width)
         if self.resource_client:
-            self.resource_client.pop(
-                resource=self.gripper_resource_id, child=target.resource_id
+            popped_plate, updated_resource = self.resource_client.pop(
+                resource=self.gripper_resource_id
             )
+            self.resource_client.push(resource=target.resource_id, child=popped_plate)
 
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height

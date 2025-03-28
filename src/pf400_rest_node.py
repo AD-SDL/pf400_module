@@ -21,9 +21,6 @@ class PF400NodeConfig(RestNodeConfig):
     pf400_ip: str
     resource_server_url: Optional[AnyUrl] = None
 
-    # """Required Robot IP"""
-    # pf400_port: int = None
-
 
 class PF400Node(RestNode):
     """A Rest Node object to control PF400 robots"""
@@ -39,7 +36,7 @@ class PF400Node(RestNode):
                 self.resource_client = ResourceClient(self.config.resource_server_url)
                 self.gripper_resource = self.resource_client.init_resource(
                     SlotResourceDefinition(
-                        resource_name=self.config.gripper_name,
+                        resource_name="pf400_gripper",
                         owner=OwnershipInfo(node_id=self.node_definition.node_id),
                     )
                 )

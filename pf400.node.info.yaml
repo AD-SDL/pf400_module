@@ -18,20 +18,21 @@ capabilities:
   get_resources: false
   get_log: true
   admin_commands:
-  - shutdown
   - pause
-  - reset
   - lock
   - cancel
+  - reset
   - unlock
-  - safety_stop
+  - shutdown
   - resume
+  - safety_stop
 commands: {}
 is_template: false
 config_defaults:
   host: localhost
   port: 3000
   pf400_ip: 146.137.240.35
+  resource_manager_url: http://parker.cels.anl.gov:8003
 actions:
   transfer:
     name: transfer
@@ -223,13 +224,15 @@ actions:
     blocking: false
     asynchronous: true
 config:
-  status_update_interval: null
-  state_update_interval: null
+  status_update_interval: 2.0
+  state_update_interval: 2.0
   event_client_config: null
+  resource_server_url: null
   host: localhost
   port: 3000
   protocol: http
   pf400_ip: 146.137.240.35
+  resource_manager_url: http://parker.cels.anl.gov:8003/
 config_schema:
   $defs:
     EventClientConfig:
@@ -270,10 +273,6 @@ config_schema:
     OwnershipInfo:
       description: Information about the ownership of a MADSci object.
       properties:
-        auth_id:
-          description: The ID of the auth that owns the object.
-          title: Auth ID
-          type: string
         user_id:
           anyOf:
           - type: string
@@ -346,14 +345,14 @@ config_schema:
       anyOf:
       - type: number
       - type: 'null'
-      default: null
+      default: 2.0
       description: The interval in seconds at which the node should update its status.
       title: Status Update Interval
     state_update_interval:
       anyOf:
       - type: number
       - type: 'null'
-      default: null
+      default: 2.0
       description: The interval in seconds at which the node should update its state.
       title: State Update Interval
     event_client_config:
@@ -363,6 +362,15 @@ config_schema:
       default: null
       description: The configuration for a MADSci event client.
       title: Event Client Configuration
+    resource_server_url:
+      anyOf:
+      - format: uri
+        minLength: 1
+        type: string
+      - type: 'null'
+      default: null
+      description: The URL of the resource server for this node to use.
+      title: Resource Client URL
     host:
       default: 127.0.0.1
       description: The host of the REST API.
@@ -381,6 +389,14 @@ config_schema:
     pf400_ip:
       title: Pf400 Ip
       type: string
+    resource_manager_url:
+      anyOf:
+      - format: uri
+        minLength: 1
+        type: string
+      - type: 'null'
+      default: null
+      title: Resource Manager Url
   required:
   - pf400_ip
   title: PF400NodeConfig

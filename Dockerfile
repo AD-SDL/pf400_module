@@ -1,4 +1,4 @@
-FROM ghcr.io/ad-sdl/wei
+FROM madsci:latest
 
 LABEL org.opencontainers.image.source=https://github.com/AD-SDL/pf400_module
 LABEL org.opencontainers.image.description="Drivers and REST API's for the PF400 plate handler robots"

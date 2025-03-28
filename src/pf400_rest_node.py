@@ -1,10 +1,14 @@
 #! /usr/bin/env python3
 """The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
+from typing import Optional
+
 from madsci.client.resource_client import ResourceClient
 from madsci.common.types.action_types import ActionSucceeded
+from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
+from madsci.common.types.resource_types.definitions import SlotResourceDefinition
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 from pf400_interface.pf400 import PF400
@@ -17,6 +21,8 @@ class PF400NodeConfig(RestNodeConfig):
     pf400_ip: str
     # """Required Robot IP"""
     # pf400_port: int = None
+    resource_manager_url: Optional[str] = None
+    """the resource manager url for the pf400"""
 
 
 class PF400Node(RestNode):
@@ -33,7 +39,14 @@ class PF400Node(RestNode):
             self.pf400_interface = PF400(host=self.config.pf400_ip)
             self.pf400_joint_state = PF400(host=self.config.pf400_ip, port=10000)
             self.pf400_interface.initialize_robot()
-            self.resource_client = ResourceClient(url="http://testserver")
+            self.resource_client = ResourceClient(self.config.resource_manager_url)
+            self.gripper = self.resource_client.init_resource(
+                SlotResourceDefinition(
+                    resource_name="pf400_gripper_"
+                    + str(self.node_definition.node_name),
+                    owner=OwnershipInfo(node_id=self.node_definition.node_id),
+                )
+            )
         except Exception as err:
             self.logger.log_error(f"Error starting the PF400 Node: {err}")
             self.startup_has_run = False
@@ -89,10 +102,10 @@ class PF400Node(RestNode):
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
         source_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
         target_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
@@ -124,7 +137,7 @@ class PF400Node(RestNode):
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         source_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
     ):
         """A doc string, but not the actual description of the action."""
@@ -144,7 +157,7 @@ class PF400Node(RestNode):
         self,
         target: Annotated[LocationArgument, "Location to place a plate to"],
         target_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
     ):
         """A doc string, but not the actual description of the action."""
@@ -164,10 +177,10 @@ class PF400Node(RestNode):
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
         source_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
         target_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
@@ -200,10 +213,10 @@ class PF400Node(RestNode):
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
         source_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
         target_approach: Annotated[
-            LocationArgument, "Location to approach from"
+            Optional[LocationArgument], "Location to approach from"
         ] = None,
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"

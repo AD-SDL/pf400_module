@@ -1,8 +1,8 @@
-name: pf400_module
+name: pf400
 services:
-  pf400_module:
-    container_name: pf400_module
-    image: ${IMAGE}
+  pf400:
+    container_name: pf400
+    image: pf400
     build:
       context: .
       dockerfile: Dockerfile

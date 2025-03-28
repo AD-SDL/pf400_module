@@ -19,7 +19,7 @@ class PF400NodeConfig(RestNodeConfig):
     """Configuration for the pf400 node module."""
 
     pf400_ip: str
-    resource_server_url: Optional[AnyUrl] = None
+    resource_manager_url: Optional[AnyUrl] = None
 
 
 class PF400Node(RestNode):
@@ -32,8 +32,8 @@ class PF400Node(RestNode):
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
 
         try:
-            if self.config.resource_server_url:
-                self.resource_client = ResourceClient(self.config.resource_server_url)
+            if self.config.resource_manager_url:
+                self.resource_client = ResourceClient(self.config.resource_manager_url)
                 self.gripper_resource = self.resource_client.init_resource(
                     SlotResourceDefinition(
                         resource_name="pf400_gripper",
@@ -48,23 +48,19 @@ class PF400Node(RestNode):
             self.pf400_interface = PF400(
                 host=self.config.pf400_ip,
                 resource_client=self.resource_client,
-                gripper_resource_id=self.gripper_resource.resource_id,
+                gripper_resource_id=self.gripper_resource.resource_id
+                if self.gripper_resource
+                else None,
             )
             self.pf400_joint_state = PF400(host=self.config.pf400_ip, port=10000)
             self.pf400_interface.initialize_robot()
-            self.resource_client = ResourceClient(self.config.resource_manager_url)
-            self.gripper = self.resource_client.init_resource(
-                SlotResourceDefinition(
-                    resource_name="pf400_gripper" + str(self.node_definition.node_name),
-                    owner=OwnershipInfo(node_id=self.node_definition.node_id),
-                )
-            )
+
         except Exception as err:
             self.logger.log_error(f"Error starting the PF400 Node: {err}")
             self.startup_has_run = False
         else:
             self.startup_has_run = True
-            self.logger.log("Test node initialized!")
+            self.logger.log("PF400 node initialized!")
 
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""
@@ -127,16 +123,17 @@ class PF400Node(RestNode):
         ] = "",
     ):
         """A doc string, but not the actual description of the action."""
-
-        self.pf400_interface.transfer(
-            source=source.location,
-            target=target.location,
-            source_approach=source_approach.location if source_approach else None,
-            target_approach=target_approach.location if target_approach else None,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-        )
-
+        try:
+            self.pf400_interface.transfer(
+                source=source,
+                target=target,
+                source_approach=source_approach if source_approach else None,
+                target_approach=target_approach if target_approach else None,
+                source_plate_rotation=source_plate_rotation,
+                target_plate_rotation=target_plate_rotation,
+            )
+        except Exception as err:
+            self.logger.log_error(err)
         return ActionSucceeded()
 
     @action(name="pick_plate", description="Pick a plate from a source location")
@@ -151,8 +148,8 @@ class PF400Node(RestNode):
 
         source_approach = None
         self.pf400_interface.pick_plate(
-            source=source.location,
-            source_approach=source_approach.location if source_approach else None,
+            source=source,
+            source_approach=source_approach if source_approach else None,
         )
 
         return ActionSucceeded()
@@ -168,8 +165,8 @@ class PF400Node(RestNode):
         """A doc string, but not the actual description of the action."""
 
         self.pf400_interface.place_plate(
-            target=target.location,
-            target_approach=target_approach.location if target_approach else None,
+            target=target,
+            target_approach=target_approach if target_approach else None,
         )
 
         return ActionSucceeded()
@@ -196,11 +193,11 @@ class PF400Node(RestNode):
         """A doc string, but not the actual description of the action."""
 
         self.pf400_interface.remove_lid(
-            source=source.location,
-            target=target.location,
+            source=source,
+            target=target,
             lid_height=lid_height,
-            source_approach=source_approach.location,
-            target_approach=target_approach.location,
+            source_approach=source_approach,
+            target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
@@ -229,11 +226,11 @@ class PF400Node(RestNode):
         """A doc string, but not the actual description of the action."""
 
         self.pf400_interface.replace_lid(
-            source=source.location,
-            target=target.location,
+            source=source,
+            target=target,
             lid_height=lid_height,
-            source_approach=source_approach.location,
-            target_approach=target_approach.location,
+            source_approach=source_approach,
+            target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )

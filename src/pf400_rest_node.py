@@ -4,7 +4,7 @@
 from typing import Annotated, Optional
 
 from madsci.client.resource_client import ResourceClient
-from madsci.common.types.action_types import ActionSucceeded
+from madsci.common.types.action_types import ActionFailed, ActionSucceeded
 from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
@@ -123,6 +123,11 @@ class PF400Node(RestNode):
         ] = "",
     ):
         """A doc string, but not the actual description of the action."""
+        if self.resource_client:
+            source_resource = self.resource_client.query_resource(source.resource_id)
+            target_resource = self.resource_client.query_resource(target.resource_id)
+            if source_resource.quantity == 0 and target_resource != 0:
+                return ActionFailed()
         try:
             self.pf400_interface.transfer(
                 source=source,

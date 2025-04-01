@@ -190,9 +190,9 @@ class PF400Node(RestNode):
         """A doc string, but not the actual description of the action."""
         if self.resource_client:
             target_resource = self.resource_client.get_resource(target.resource_id)
-            if target_resource.quantity == 0:
+            if target_resource.quantity != 0:
                 return ActionFailed(
-                    errors="Resource manager: Plate does not exist at target!"
+                    errors="Resource manager: Target is occupied by another plate!"
                 )
         try:
             self.pf400_interface.place_plate(
@@ -311,7 +311,7 @@ class PF400Node(RestNode):
                 target_plate_rotation=target_plate_rotation,
             )
             if self.resource_client:
-                self.resource_client.remove_resource(lid_resource)
+                self.resource_client.remove_resource(lid_resource.resource_id)
         except Exception as err:
             self.logger.log_error(err)
 

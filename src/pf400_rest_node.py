@@ -8,7 +8,10 @@ from madsci.common.types.action_types import ActionFailed, ActionSucceeded
 from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
-from madsci.common.types.resource_types.definitions import SlotResourceDefinition
+from madsci.common.types.resource_types.definitions import (
+    AssetResourceDefinition,
+    SlotResourceDefinition,
+)
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 from pf400_interface.pf400 import PF400
@@ -34,10 +37,13 @@ class PF400Node(RestNode):
         try:
             if self.config.resource_manager_url:
                 self.resource_client = ResourceClient(self.config.resource_manager_url)
+                self.resource_owner = OwnershipInfo(
+                    node_id=self.node_definition.node_id
+                )
                 self.gripper_resource = self.resource_client.init_resource(
                     SlotResourceDefinition(
                         resource_name="pf400_gripper",
-                        owner=OwnershipInfo(node_id=self.node_definition.node_id),
+                        owner=self.resource_owner,
                     )
                 )
             else:
@@ -124,10 +130,17 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
         if self.resource_client:
-            source_resource = self.resource_client.query_resource(source.resource_id)
-            target_resource = self.resource_client.query_resource(target.resource_id)
-            if source_resource.quantity == 0 and target_resource != 0:
-                return ActionFailed()
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if source_resource.quantity == 0:
+                return ActionFailed(
+                    errors="Resource manager: Plate does not exist at source!"
+                )
+            elif target_resource.quantity != 0:
+                return ActionFailed(
+                    errors="Resource manager: Target is occupied by another plate!"
+                )
+
         try:
             self.pf400_interface.transfer(
                 source=source,
@@ -150,12 +163,19 @@ class PF400Node(RestNode):
         ] = None,
     ):
         """A doc string, but not the actual description of the action."""
-
-        source_approach = None
-        self.pf400_interface.pick_plate(
-            source=source,
-            source_approach=source_approach if source_approach else None,
-        )
+        if self.resource_client:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            if source_resource.quantity == 0:
+                return ActionFailed(
+                    errors="Resource manager: Plate does not exist at source!"
+                )
+        try:
+            self.pf400_interface.pick_plate(
+                source=source,
+                source_approach=source_approach if source_approach else None,
+            )
+        except Exception as err:
+            self.logger.log_error(err)
 
         return ActionSucceeded()
 
@@ -168,11 +188,19 @@ class PF400Node(RestNode):
         ] = None,
     ):
         """A doc string, but not the actual description of the action."""
-
-        self.pf400_interface.place_plate(
-            target=target,
-            target_approach=target_approach if target_approach else None,
-        )
+        if self.resource_client:
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if target_resource.quantity == 0:
+                return ActionFailed(
+                    errors="Resource manager: Plate does not exist at target!"
+                )
+        try:
+            self.pf400_interface.place_plate(
+                target=target,
+                target_approach=target_approach if target_approach else None,
+            )
+        except Exception as err:
+            self.logger.log_error(err)
 
         return ActionSucceeded()
 
@@ -197,15 +225,41 @@ class PF400Node(RestNode):
     ):
         """A doc string, but not the actual description of the action."""
 
-        self.pf400_interface.remove_lid(
-            source=source,
-            target=target,
-            lid_height=lid_height,
-            source_approach=source_approach,
-            target_approach=target_approach,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-        )
+        if self.resource_client:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if source_resource.quantity == 0:
+                return ActionFailed(
+                    errors="Resource manager: Plate does not exist at source!"
+                )
+            elif target_resource.quantity != 0:
+                return ActionFailed(
+                    errors="Resource manager: Target is occupied by another plate!"
+                )
+
+            lid_resource = self.resource_client.init_resource(
+                SlotResourceDefinition(
+                    resource_name="pf400_lid_slot",
+                    owner=self.resource_owner,
+                )
+            )
+            lid = self.resource_client.init_resource(
+                AssetResourceDefinition(resource_name="Lid", owner=self.resource_owner)
+            )
+            lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
+            source.resource_id = lid_resource.resource_id
+        try:
+            self.pf400_interface.remove_lid(
+                source=source,
+                target=target,
+                lid_height=lid_height,
+                source_approach=source_approach,
+                target_approach=target_approach,
+                source_plate_rotation=source_plate_rotation,
+                target_plate_rotation=target_plate_rotation,
+            )
+        except Exception as err:
+            self.logger.log_error(err)
 
         return ActionSucceeded()
 
@@ -229,16 +283,37 @@ class PF400Node(RestNode):
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
     ):
         """A doc string, but not the actual description of the action."""
+        if self.resource_client:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if source_resource.quantity == 0:
+                return ActionFailed(
+                    errors="Resource manager: Lid does not exist at source!"
+                )
+            elif target_resource.quantity == 0:
+                return ActionFailed(errors="Resource manager: No plate on target!")
 
-        self.pf400_interface.replace_lid(
-            source=source,
-            target=target,
-            lid_height=lid_height,
-            source_approach=source_approach,
-            target_approach=target_approach,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-        )
+            lid_resource = self.resource_client.init_resource(
+                SlotResourceDefinition(
+                    resource_name="pf400_lid_slot",
+                    owner=self.resource_owner,
+                )
+            )
+            target.resource_id = lid_resource.resource_id
+        try:
+            self.pf400_interface.replace_lid(
+                source=source,
+                target=target,
+                lid_height=lid_height,
+                source_approach=source_approach,
+                target_approach=target_approach,
+                source_plate_rotation=source_plate_rotation,
+                target_plate_rotation=target_plate_rotation,
+            )
+            if self.resource_client:
+                self.resource_client.remove_resource(lid_resource)
+        except Exception as err:
+            self.logger.log_error(err)
 
         return ActionSucceeded()
 

@@ -3,6 +3,7 @@ services:
   pf400:
     container_name: pf400
     image: pf400
+    network_mode: host
     build:
       context: .
       dockerfile: Dockerfile

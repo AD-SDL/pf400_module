@@ -2,17 +2,17 @@ name: pf400
 services:
   pf400:
     container_name: pf400
-    image: pf400
+    image: ghcr.io/ad-sdl/pf400_module
     network_mode: host
+    environment:
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
     build:
       context: .
       dockerfile: Dockerfile
       tags:
-        - ${IMAGE}:latest
-        - ${IMAGE}:dev
-    command: python -m pf400_rest_node --definition pf400_module/pf400.node.yaml
-    env_file: .env
+        - ghcr.io/ad-sdl/pf400_module:latest
+        - ghcr.io/ad-sdl/pf400_module:dev
+    command: python -m pf400_rest_node --definition definitions/pf400.node.yaml
     volumes:
-      - ./:/home/madsci/pf400_module/
-    ports:
-      - 3000:3000
+      - ./definitions:/home/madsci/definitions/

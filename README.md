@@ -1,20 +1,30 @@
 # pf400_module
 
-Driver for communicating with the PF400.
+Implementation of a MADSci Node Module for integrating a Brooks Automation PreciseFlex 400.
 
-## Installation
+See `definitions/pf400.node.yaml` for an example node definition file, and `definitions/pf400.node.info.yaml` for a description of the capabilities of the node.
 
+## Installation and Usage
+
+### Python
+
+```bash
+# Create a virtual environment named .venv
+python -m venv .venv
+# Activate the virtual environment on Linux or macOS
+source .venv/bin/activate
+# Alternatively, activate the virtual environment on Windows
+# .venv\Scripts\activate
+# Install the module and dependencies in the venv
+pip install .
+# Start the node
+python -m pf400_rest_node --host=<HOSTNAME> --port <PORT> --pf400_ip <IP> --pf400_port <PORT>
 ```
-git clone https://github.com/AD-SDL/pf400_module.git
-cd pf400_module
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
-```
 
-## Running the PF400 Module
+You can use `0.0.0.0` as the hostname to connect from any device on the local network, or `127.0.0.1` to limit it only to local connections.
 
-```
-python3 -m pf400_rest_node --host=<HOSTNAME> --port <PORT> --alias <ALIAS> --pf400_ip <IP> --pf400_port <PORT>
-```
+### Docker
 
-You can use `0.0.0.0` as the hostname to connect from any device on the local network.
+- We provide a `Dockerfile` and example docker compose file (`compose.yaml`) to run this node dockerized.
+- There is also a pre-built image available as `ghcr.io/ad-sdl/sciclops_module`.
+- You can control the container user's id and group id by setting the `USER_ID` and `GROUP_ID`

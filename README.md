@@ -1,6 +1,6 @@
 # pf400_module
 
-Implementation of a MADSci Node Module for integrating a Brooks Automation PreciseFlex 400.
+Implementation of a MADSci Node Module for integrating a Brooks Automation PreciseFlex 400 (PF400).
 
 See `definitions/pf400.node.yaml` for an example node definition file, and `definitions/pf400.node.info.yaml` for a description of the capabilities of the node.
 

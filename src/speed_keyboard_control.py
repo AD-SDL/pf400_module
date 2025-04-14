@@ -2,9 +2,10 @@
 
 import argparse
 
-from pf400_interface.pf400 import PF400
 from pynput import keyboard
 from pynput.keyboard import Key
+
+from pf400_interface.pf400 import PF400
 
 parser = argparse.ArgumentParser(
     prog="UR keyboard",

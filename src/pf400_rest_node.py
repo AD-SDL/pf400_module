@@ -14,8 +14,9 @@ from madsci.common.types.resource_types.definitions import (
 )
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
-from pf400_interface.pf400 import PF400
 from pydantic.networks import AnyUrl
+
+from pf400_interface.pf400 import PF400
 
 
 class PF400NodeConfig(RestNodeConfig):

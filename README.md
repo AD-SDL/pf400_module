@@ -26,5 +26,5 @@ You can use `0.0.0.0` as the hostname to connect from any device on the local ne
 ### Docker
 
 - We provide a `Dockerfile` and example docker compose file (`compose.yaml`) to run this node dockerized.
-- There is also a pre-built image available as `ghcr.io/ad-sdl/sciclops_module`.
+- There is also a pre-built image available as `ghcr.io/ad-sdl/pf400_module`.
 - You can control the container user's id and group id by setting the `USER_ID` and `GROUP_ID`

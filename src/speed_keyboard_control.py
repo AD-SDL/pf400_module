@@ -1,9 +1,11 @@
-# ruff: noqa
+"""Test script to move pf400 using keyboard"""
+
 import argparse
 
-from pf400_driver.pf400_driver import PF400
 from pynput import keyboard
 from pynput.keyboard import Key
+
+from pf400_interface.pf400 import PF400
 
 parser = argparse.ArgumentParser(
     prog="UR keyboard",
@@ -24,6 +26,7 @@ flag2 = False
 
 
 def move_robot(direction, sign):
+    """Move robot with keyboard"""
     global flag, velocity
     flag = True
     velocity[direction] = sign * move_speed
@@ -32,6 +35,7 @@ def move_robot(direction, sign):
 
 
 def move_robot_j(direction, sign):
+    """Move robot joints with keyboard"""
     global flag2
     flag2 = True
     pos = robot.ur_connection.getj()
@@ -45,6 +49,8 @@ exit = False
 
 
 def on_press(key):
+    """Press key on keyboard"""
+
     global flag, flag2
     # print(robot.ur_connection.get_orientation())
     # return
@@ -72,6 +78,8 @@ def on_press(key):
 
 
 def on_release(key):
+    """Release key on keyboard"""
+
     global flag
     # print(robot.ur_connection.get_orientation())
     # return

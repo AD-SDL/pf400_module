@@ -826,6 +826,8 @@ class PF400(KINEMATICS):
         target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
+        grab_offset: float = None,
+        approach_height_offset: float = None,
     ):
         """Remove the lid from the plate"""
         source = copy.deepcopy(source)
@@ -838,6 +840,8 @@ class PF400(KINEMATICS):
             target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
 
     def replace_lid(
@@ -849,6 +853,8 @@ class PF400(KINEMATICS):
         target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
+        grab_offset: float = None,
+        approach_height_offset: float = None,
     ):
         """Replace the lid on the plate"""
         target = copy.deepcopy(target)
@@ -861,6 +867,8 @@ class PF400(KINEMATICS):
             target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
 
     def rotate_plate_on_deck(self, rotation_degree: int):
@@ -909,12 +917,23 @@ class PF400(KINEMATICS):
         )
         self.move_all_joints_neutral(target)
 
-    def pick_plate(self, source: list, source_approach: list = None) -> None:
+    def pick_plate(
+        self,
+        source: list,
+        source_approach: list = None,
+        grab_offset: float = None,
+        approach_height_offset: float = None,
+    ) -> None:
         """
         Pick a plate from the source location
         """
+        if approach_height_offset:
+            above_offset = copy.deepcopy(self.above)
+            above_offset[0] += approach_height_offset
+        else:
+            above_offset = self.above
 
-        abovePos = list(map(add, source, self.above))
+        abovePos = list(map(add, source, above_offset))
         self.gripper_open()
         if source_approach:
             if isinstance(source_approach[0], list):
@@ -936,6 +955,9 @@ class PF400(KINEMATICS):
             self.move_all_joints_neutral(source)
 
         self.move_joint(target_joint_angles=abovePos, profile=self.fast_motion_profile)
+        if grab_offset:
+            source = copy.deepcopy(source)
+            source[0] += grab_offset
         self.move_joint(
             target_joint_angles=source,
             profile=self.fast_motion_profile,
@@ -964,11 +986,23 @@ class PF400(KINEMATICS):
         else:
             self.move_all_joints_neutral(source)
 
-    def place_plate(self, target: list, target_approach: list = None) -> None:
+    def place_plate(
+        self,
+        target: list,
+        target_approach: list = None,
+        grab_offset: float = None,
+        approach_height_offset: float = None,
+    ) -> None:
         """
         Plate a plate to the target location
         """
-        abovePos = list(map(add, target, self.above))
+        if approach_height_offset:
+            above_offset = copy.deepcopy(self.above)
+            above_offset[0] += approach_height_offset
+        else:
+            above_offset = self.above
+
+        abovePos = list(map(add, target, above_offset))
         if target_approach:
             if isinstance(target_approach[0], list):
                 # Multiple approach locations provided
@@ -988,8 +1022,11 @@ class PF400(KINEMATICS):
         else:
             self.move_all_joints_neutral(target)
 
-        self.move_joint(abovePos, self.slow_motion_profile)
-        self.move_joint(target, self.slow_motion_profile)
+        self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile)
+        if grab_offset:
+            target = copy.deepcopy(target)
+            target[0] += grab_offset
+        self.move_joint(target_joint_angles=target, profile=self.slow_motion_profile)
         self.release_plate(width=self.plate_width)
         self.move_in_one_axis(
             profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
@@ -1021,6 +1058,8 @@ class PF400(KINEMATICS):
         target_approach: list = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
+        grab_offset: float = None,
+        approach_height_offset: float = None,
     ) -> None:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
@@ -1052,7 +1091,12 @@ class PF400(KINEMATICS):
         source = self.check_incorrect_plate_orientation(source, plate_source_rotation)
 
         self.force_initialize_robot()
-        self.pick_plate(source=source, source_approach=source_approach)
+        self.pick_plate(
+            source=source,
+            source_approach=source_approach,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
+        )
 
         if self.plate_state == -1:
             self.robot_warning = "MISSING PLATE"
@@ -1084,7 +1128,12 @@ class PF400(KINEMATICS):
             # Need a transition from 0 degree to 90 degree
             self.rotate_plate_on_deck(plate_target_rotation)
 
-        self.place_plate(target=target, target_approach=target_approach)
+        self.place_plate(
+            target=target,
+            target_approach=target_approach,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
+        )
 
 
 if __name__ == "__main__":

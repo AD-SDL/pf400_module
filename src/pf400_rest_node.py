@@ -163,14 +163,16 @@ def transfer(
     target: Annotated[List[float], "Location to place a plate to"],
     source_approach: Annotated[List[float], "Location to approach from"] = None,
     target_approach: Annotated[List[float], "Location to approach from"] = None,
-    # source_approach=None,
-    # target_approach=None,
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ] = "",
     target_plate_rotation: Annotated[
         str, "Final orientation of the plate at the target, wide or narrow"
     ] = "",
+    grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+    approach_height_offset: Optional[
+        Annotated[float, "Add approach height offset"]
+    ] = None,
 ) -> StepResponse:
     """Transfer a plate from one location to another"""
     sleep(0.3)
@@ -192,6 +194,8 @@ def transfer(
         target_approach=target_approach,
         source_plate_rotation=source_plate_rotation,
         target_plate_rotation=target_plate_rotation,
+        grab_offset=grab_offset,
+        approach_height_offset=approach_height_offset,
     )
     state.action_start = None
     return StepResponse.step_succeeded()
@@ -211,6 +215,10 @@ def pick_plate(
     source_plate_rotation: Annotated[
         str, "Orientation of the plate at the source, wide or narrow"
     ] = "",
+    grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+    approach_height_offset: Optional[
+        Annotated[float, "Add approach height offset"]
+    ] = None,
 ) -> StepResponse:
     """Picks a plate from a location"""
     sleep(0.3)
@@ -233,7 +241,12 @@ def pick_plate(
         source, plate_source_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.pick_plate(source=source, source_approach=source_approach)
+    state.pf400.pick_plate(
+        source=source,
+        source_approach=source_approach,
+        grab_offset=grab_offset,
+        approach_height_offset=approach_height_offset,
+    )
     state.action_start = None
     if state.pf400.plate_state == -1:
         state.pf400.robot_warning = "MISSING PLATE"
@@ -256,6 +269,10 @@ def place_plate(
     target_plate_rotation: Annotated[
         str, "Orientation of the plate at the target, wide or narrow"
     ] = "",
+    grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+    approach_height_offset: Optional[
+        Annotated[float, "Add approach height offset"]
+    ] = None,
 ) -> StepResponse:
     """Places a plate at a location"""
     sleep(0.3)
@@ -276,7 +293,12 @@ def place_plate(
         target, plate_target_rotation
     )
     state.pf400.force_initialize_robot()
-    state.pf400.place_plate(target=target, target_approach=target_approach)
+    state.pf400.place_plate(
+        target=target,
+        target_approach=target_approach,
+        grab_offset=grab_offset,
+        approach_height_offset=approach_height_offset,
+    )
     state.action_start = None
     return StepResponse.step_succeeded()
 
@@ -304,6 +326,10 @@ def remove_lid(
         str, "Final orientation of the plate at the target, wide or narrow"
     ] = "",
     lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+    grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+    approach_height_offset: Optional[
+        Annotated[float, "Add approach height offset"]
+    ] = None,
 ) -> StepResponse:
     """Remove a lid from a plate"""
     sleep(0.3)
@@ -316,6 +342,8 @@ def remove_lid(
         target_approach=target_approach,
         source_plate_rotation=source_plate_rotation,
         target_plate_rotation=target_plate_rotation,
+        grab_offset=grab_offset,
+        approach_height_offset=approach_height_offset,
     )
     state.action_start = None
     return StepResponse.step_succeeded()
@@ -344,6 +372,10 @@ def replace_lid(
         str, "Final orientation of the plate at the target, wide or narrow"
     ] = "",
     lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+    grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+    approach_height_offset: Optional[
+        Annotated[float, "Add approach height offset"]
+    ] = None,
 ) -> StepResponse:
     """Replace a lid on a plate"""
     sleep(0.3)
@@ -356,6 +388,8 @@ def replace_lid(
         target_approach=target_approach,
         source_plate_rotation=source_plate_rotation,
         target_plate_rotation=target_plate_rotation,
+        grab_offset=grab_offset,
+        approach_height_offset=approach_height_offset,
     )
     state.action_start = None
     return StepResponse.step_succeeded()

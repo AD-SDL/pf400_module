@@ -1028,9 +1028,8 @@ class PF400(KINEMATICS):
             target[0] += grab_offset
         self.move_joint(target_joint_angles=target, profile=self.slow_motion_profile)
         self.release_plate(width=self.plate_width)
-        self.move_in_one_axis(
-            profile=1, axis_x=0, axis_y=0, axis_z=self.sample_above_height
-        )
+        self.move_joint(target_joint_angles=abovePos, profile=self.slow_motion_profile) 
+
         if target_approach:
             if isinstance(target_approach[0], list):
                 for location in reversed(target_approach):

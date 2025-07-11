@@ -3,8 +3,7 @@
 
 from typing import Annotated, Optional
 
-from madsci.client.resource_client import ResourceClient
-from madsci.common.types.action_types import ActionFailed, ActionSucceeded
+from madsci.common.types.action_types import ActionFailed, ActionResult, ActionSucceeded
 from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
@@ -14,7 +13,6 @@ from madsci.common.types.resource_types.definitions import (
 )
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
-from pydantic.networks import AnyUrl
 
 from pf400_interface.pf400 import PF400
 
@@ -22,71 +20,67 @@ from pf400_interface.pf400 import PF400
 class PF400NodeConfig(RestNodeConfig):
     """Configuration for the pf400 node module."""
 
-    pf400_ip: str
-    resource_manager_url: Optional[AnyUrl] = None
+    pf400_ip: Optional[str] = None
+    """IP Address for the PF400 to control"""
+    pf400_port: int = 10100
+    """Port to connect to the PF400 robot, default is 10100"""
+    pf400_status_port: int = 10000
+    """Port to connect to the PF400 status server, default is 10000"""
 
 
 class PF400Node(RestNode):
     """A Rest Node object to control PF400 robots"""
 
     pf400_interface: PF400 = None
+    config: PF400NodeConfig = PF400NodeConfig()
     config_model = PF400NodeConfig
 
     def startup_handler(self) -> None:
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
 
-        try:
-            if self.config.resource_manager_url:
-                self.resource_client = ResourceClient(self.config.resource_manager_url)
-                self.resource_owner = OwnershipInfo(
-                    node_id=self.node_definition.node_id
+        if self.resource_client:
+            self.resource_owner = OwnershipInfo(node_id=self.node_definition.node_id)
+            self.gripper_resource = self.resource_client.init_resource(
+                SlotResourceDefinition(
+                    resource_name="pf400_gripper",
                 )
-                self.gripper_resource = self.resource_client.init_resource(
-                    SlotResourceDefinition(
-                        resource_name="pf400_gripper",
-                        owner=self.resource_owner,
-                    )
-                )
-            else:
-                self.resource_client = None
-                self.gripper_resource = None
-
-            self.logger.log("Node initializing...")
-            self.pf400_interface = PF400(
-                host=self.config.pf400_ip,
-                resource_client=self.resource_client,
-                gripper_resource_id=self.gripper_resource.resource_id
-                if self.gripper_resource
-                else None,
             )
-            self.pf400_joint_state = PF400(host=self.config.pf400_ip, port=10000)
-            self.pf400_interface.initialize_robot()
-
-        except Exception as err:
-            self.logger.log_error(f"Error starting the PF400 Node: {err}")
-            self.startup_has_run = False
         else:
-            self.startup_has_run = True
-            self.logger.log("PF400 node initialized!")
+            self.resource_client = None
+            self.gripper_resource = None
+
+        if self.config.pf400_ip is None:
+            raise ValueError("PF400 IP address is not set in the configuration.")
+        self.pf400_interface = PF400(
+            host=self.config.pf400_ip,
+            port=self.config.pf400_port,
+            status_port=self.config.pf400_status_port,
+            resource_client=self.resource_client,
+            gripper_resource_id=self.gripper_resource.resource_id
+            if self.gripper_resource
+            else None,
+        )
+        self.pf400_interface.initialize_robot()
 
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""
         try:
             self.logger.log("Shutting down")
-            self.pf400_interface.disconnect()
+            self.pf400_interface.disconnect_sync()
             self.shutdown_has_run = True
             del self.pf400_interface
             self.pf400_interface = None
             self.logger.log("Shutdown complete.")
         except Exception as err:
             self.logger.log_error(f"Error shutting down the PF400 Node: {err}")
+            raise err
 
     def state_handler(self) -> None:
         """Periodically called to update the current state of the node."""
         if self.pf400_interface is not None:
             # Getting robot state
             robot_state = self.pf400_interface.movement_state
-            current_location = self.pf400_joint_state.get_joint_states()
+            current_location = self.pf400_interface.get_joint_states()
             if robot_state == 0:
                 self.node_state = {
                     "pf400_status_code": "POWER OFF",
@@ -128,8 +122,8 @@ class PF400Node(RestNode):
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
-    ):
-        """A doc string, but not the actual description of the action."""
+    ) -> ActionResult:
+        """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
         if self.resource_client:
             source_resource = self.resource_client.get_resource(source.resource_id)
             target_resource = self.resource_client.get_resource(target.resource_id)
@@ -137,22 +131,19 @@ class PF400Node(RestNode):
                 return ActionFailed(
                     errors="Resource manager: Plate does not exist at source!"
                 )
-            elif target_resource.quantity != 0:
+            if target_resource.quantity != 0:
                 return ActionFailed(
                     errors="Resource manager: Target is occupied by another plate!"
                 )
 
-        try:
-            self.pf400_interface.transfer(
-                source=source,
-                target=target,
-                source_approach=source_approach if source_approach else None,
-                target_approach=target_approach if target_approach else None,
-                source_plate_rotation=source_plate_rotation,
-                target_plate_rotation=target_plate_rotation,
-            )
-        except Exception as err:
-            self.logger.log_error(err)
+        self.pf400_interface.transfer(
+            source=source,
+            target=target,
+            source_approach=source_approach if source_approach else None,
+            target_approach=target_approach if target_approach else None,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
         return ActionSucceeded()
 
     @action(name="pick_plate", description="Pick a plate from a source location")
@@ -162,46 +153,46 @@ class PF400Node(RestNode):
         source_approach: Annotated[
             Optional[LocationArgument], "Location to approach from"
         ] = None,
-    ):
-        """A doc string, but not the actual description of the action."""
+    ) -> ActionResult:
+        """Picks a plate from `source`, optionally moving first to `source_approach`."""
         if self.resource_client:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
                 return ActionFailed(
                     errors="Resource manager: Plate does not exist at source!"
                 )
-        try:
-            self.pf400_interface.pick_plate(
-                source=source,
-                source_approach=source_approach if source_approach else None,
-            )
-        except Exception as err:
-            self.logger.log_error(err)
+
+        pick_result = self.pf400_interface.pick_plate(
+            source=source,
+            source_approach=source_approach if source_approach else None,
+        )
+        if not pick_result:
+            return ActionFailed(errors=f"Failed to pick plate from location {source}.")
 
         return ActionSucceeded()
 
-    @action(name="place_plate", description="Place a plate to a target location")
+    @action(
+        name="place_plate",
+        description="Place a plate in a target location, optionally moving first to target_approach",
+    )
     def place_plate(
         self,
         target: Annotated[LocationArgument, "Location to place a plate to"],
         target_approach: Annotated[
             Optional[LocationArgument], "Location to approach from"
         ] = None,
-    ):
-        """A doc string, but not the actual description of the action."""
+    ) -> ActionResult:
+        """Place a plate in the `target` location, optionally moving first to `target_approach`."""
         if self.resource_client:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
                 return ActionFailed(
                     errors="Resource manager: Target is occupied by another plate!"
                 )
-        try:
-            self.pf400_interface.place_plate(
-                target=target,
-                target_approach=target_approach if target_approach else None,
-            )
-        except Exception as err:
-            self.logger.log_error(err)
+        self.pf400_interface.place_plate(
+            target=target,
+            target_approach=target_approach if target_approach else None,
+        )
 
         return ActionSucceeded()
 
@@ -223,8 +214,8 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-    ):
-        """A doc string, but not the actual description of the action."""
+    ) -> ActionResult:
+        """Remove a lid from a plate located at location ."""
 
         if self.resource_client:
             source_resource = self.resource_client.get_resource(source.resource_id)
@@ -233,7 +224,7 @@ class PF400Node(RestNode):
                 return ActionFailed(
                     errors="Resource manager: Plate does not exist at source!"
                 )
-            elif target_resource.quantity != 0:
+            if target_resource.quantity != 0:
                 return ActionFailed(
                     errors="Resource manager: Target is occupied by another plate!"
                 )
@@ -249,18 +240,16 @@ class PF400Node(RestNode):
             )
             lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
             source.resource_id = lid_resource.resource_id
-        try:
-            self.pf400_interface.remove_lid(
-                source=source,
-                target=target,
-                lid_height=lid_height,
-                source_approach=source_approach,
-                target_approach=target_approach,
-                source_plate_rotation=source_plate_rotation,
-                target_plate_rotation=target_plate_rotation,
-            )
-        except Exception as err:
-            self.logger.log_error(err)
+
+        self.pf400_interface.remove_lid(
+            source=source,
+            target=target,
+            lid_height=lid_height,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
 
         return ActionSucceeded()
 
@@ -282,7 +271,7 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-    ):
+    ) -> ActionResult:
         """A doc string, but not the actual description of the action."""
         if self.resource_client:
             source_resource = self.resource_client.get_resource(source.resource_id)
@@ -291,7 +280,7 @@ class PF400Node(RestNode):
                 return ActionFailed(
                     errors="Resource manager: Lid does not exist at source!"
                 )
-            elif target_resource.quantity == 0:
+            if target_resource.quantity == 0:
                 return ActionFailed(errors="Resource manager: No plate on target!")
 
             lid_resource = self.resource_client.init_resource(
@@ -301,20 +290,17 @@ class PF400Node(RestNode):
                 )
             )
             target.resource_id = lid_resource.resource_id
-        try:
-            self.pf400_interface.replace_lid(
-                source=source,
-                target=target,
-                lid_height=lid_height,
-                source_approach=source_approach,
-                target_approach=target_approach,
-                source_plate_rotation=source_plate_rotation,
-                target_plate_rotation=target_plate_rotation,
-            )
-            if self.resource_client:
-                self.resource_client.remove_resource(lid_resource.resource_id)
-        except Exception as err:
-            self.logger.log_error(err)
+        self.pf400_interface.replace_lid(
+            source=source,
+            target=target,
+            lid_height=lid_height,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_plate_rotation,
+            target_plate_rotation=target_plate_rotation,
+        )
+        if self.resource_client:
+            self.resource_client.remove_resource(lid_resource.resource_id)
 
         return ActionSucceeded()
 

@@ -6,14 +6,16 @@ import math
 class KINEMATICS:
     """Class for calculating the forward and inverse kinematics of the PF400 robot arm."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         """Constructor for the KINEMATICS class."""
         # Robot joint lengths
         self.shoulder_length = 302
         self.elbow_length = 289
         self.end_effector_length = 162
 
-    def forward_kinematics(self, joint_states: list):
+    def forward_kinematics(
+        self, joint_states: list[float]
+    ) -> tuple[list[float], float, float]:
         """
         Description: Calculates the forward kinematics for a given array of joint_states.
         Parameters:
@@ -80,7 +82,7 @@ class KINEMATICS:
         phi: float,
         rail: float = 0.0,
         get_gripper_length: float = 123.0,
-    ):
+    ) -> list[float]:
         """
         Description: Calculates the inverse kinematics for a given array of cartesian coordinates.
         Parameters:
@@ -92,7 +94,7 @@ class KINEMATICS:
             - Joint angles: Calculated 6 new joint angles.
         """
 
-        Joint_1 = cartesian_coordinates[2]
+        joint1 = cartesian_coordinates[2]
         xe = cartesian_coordinates[0] - rail
         ye = cartesian_coordinates[1]
 
@@ -100,9 +102,7 @@ class KINEMATICS:
             phi = cartesian_coordinates[3]
         elif phi > 360 and phi < 540:
             phi = cartesian_coordinates[3] + 360
-        elif phi > 540 and phi < 720:
-            phi = cartesian_coordinates[3] + 720
-        elif phi > 720 and phi < 900:
+        elif (phi > 540 and phi < 720) or (phi > 720 and phi < 900):
             phi = cartesian_coordinates[3] + 720
         elif phi > 900 and phi < 1080:
             phi = cartesian_coordinates[3] + 1440
@@ -139,19 +139,19 @@ class KINEMATICS:
             and abs(math.degrees(theta1)) < abs(math.degrees(theta1 + 2 * gamma))
         ):
             # Robot is in the First Quadrant on the coordinate plane (x:+ , y:+)
-            Joint_2 = math.degrees(theta1)
-            Joint_3 = math.degrees(
+            joint1 = math.degrees(theta1)
+            joint3 = math.degrees(
                 theta2
             )  # Adding 360 degrees to Joint 3 to fix the pose.
-            Joint_4 = math.degrees(theta3)
+            joint4 = math.degrees(theta3)
 
         elif cartesian_coordinates[1] < 0:
             # Robot is in the Forth Quadrant on the coordinate plane (x:+ , y:-)
             # Use the joint angles for Forth Quadrant
-            Joint_2 = math.degrees(theta1 + 2 * gamma)
-            Joint_3 = (
+            joint1 = math.degrees(theta1 + 2 * gamma)
+            joint3 = (
                 math.degrees(theta2 * -1) + 360
             )  # Adding 360 degrees to Joint 3 to fix the pose.
-            Joint_4 = math.degrees(theta3 + 2 * (theta2 - gamma))
+            joint4 = math.degrees(theta3 + 2 * (theta2 - gamma))
 
-        return [Joint_1, Joint_2, Joint_3, Joint_4, get_gripper_length, rail]
+        return [joint1, joint1, joint3, joint4, get_gripper_length, rail]

@@ -131,7 +131,10 @@ class PF400Node(RestNode):
                 return ActionFailed(
                     errors="Resource manager: Plate does not exist at source!"
                 )
-            if target_resource.quantity != 0:
+            if (
+                target_resource.quantity != 0
+                and target_resource.resource_id != source_resource.resource_id
+            ):
                 return ActionFailed(
                     errors="Resource manager: Target is occupied by another plate!"
                 )

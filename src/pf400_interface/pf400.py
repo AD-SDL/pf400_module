@@ -3,6 +3,7 @@
 
 import copy
 import telnetlib
+import time
 import typing
 from operator import add
 from threading import Lock
@@ -346,6 +347,7 @@ class PF400(KINEMATICS):
         while True:
             if self.get_robot_movement_state() <= 1:
                 return
+            time.sleep(0.1)
 
     def check_state(self) -> int:
         """
@@ -630,10 +632,10 @@ class PF400(KINEMATICS):
 
         if current_cartesian_coordinates[1] <= self.safe_left_boundary:
             y_distance = self.safe_left_boundary - current_cartesian_coordinates[1]
-            self.move_in_one_axis(1, 0, y_distance, 0)
+            self.move_in_one_axis(profile=self.slow_motion_profile, axis_y=y_distance)
         elif current_cartesian_coordinates[1] >= self.safe_right_boundary:
             y_distance = self.safe_right_boundary - current_cartesian_coordinates[1]
-            self.move_in_one_axis(1, 0, y_distance, 0)
+            self.move_in_one_axis(profile=self.slow_motion_profile, axis_y=y_distance)
 
     def move_gripper_neutral(self) -> None:
         """
@@ -743,7 +745,6 @@ class PF400(KINEMATICS):
         # Fixing the offset on the z axis
         if rotation_degree == -90:
             target = self.set_plate_rotation(target, -rotation_degree)
-            target[0] += 5  # Setting vertical rail 5 mm higher
 
         above_position = list(map(add, target, self.default_approach_vector))
 
@@ -752,13 +753,9 @@ class PF400(KINEMATICS):
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
         self.move_in_one_axis(
-            profile=1, axis_x=0, axis_y=0, axis_z=self.default_approach_height
+            profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
-        self.open_gripper()
-
-        # Fixing the offset on the z axis
-        if rotation_degree == -90:
-            target[0] -= 5  # Setting vertical rail 5 mm lower
+        self.open_gripper(self.gripper_open_wide)
 
         # Rotating gripper to grab the plate from other rotation
         target = self.set_plate_rotation(target, rotation_degree)
@@ -773,7 +770,7 @@ class PF400(KINEMATICS):
         )
         self.grab_plate(speed=100, force=10)
         self.move_in_one_axis(
-            profile=1, axis_x=0, axis_y=0, axis_z=self.default_approach_height
+            profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
         self.move_all_joints_neutral(target)
 
@@ -829,7 +826,7 @@ class PF400(KINEMATICS):
             )
 
         self.move_in_one_axis(
-            profile=1, axis_x=0, axis_y=0, axis_z=self.default_approach_height
+            profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
 
         if source_approach:
@@ -890,7 +887,7 @@ class PF400(KINEMATICS):
             self.resource_client.push(resource=target.resource_id, child=popped_plate)
 
         self.move_in_one_axis(
-            profile=1, axis_x=0, axis_y=0, axis_z=self.default_approach_height
+            profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
         if target_approach:
             if isinstance(target_approach.location[0], list):

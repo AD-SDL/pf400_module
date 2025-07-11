@@ -139,7 +139,7 @@ class KINEMATICS:
             and abs(math.degrees(theta1)) < abs(math.degrees(theta1 + 2 * gamma))
         ):
             # Robot is in the First Quadrant on the coordinate plane (x:+ , y:+)
-            joint1 = math.degrees(theta1)
+            joint2 = math.degrees(theta1)
             joint3 = math.degrees(
                 theta2
             )  # Adding 360 degrees to Joint 3 to fix the pose.
@@ -148,10 +148,10 @@ class KINEMATICS:
         elif cartesian_coordinates[1] < 0:
             # Robot is in the Forth Quadrant on the coordinate plane (x:+ , y:-)
             # Use the joint angles for Forth Quadrant
-            joint1 = math.degrees(theta1 + 2 * gamma)
+            joint2 = math.degrees(theta1 + 2 * gamma)
             joint3 = (
                 math.degrees(theta2 * -1) + 360
             )  # Adding 360 degrees to Joint 3 to fix the pose.
             joint4 = math.degrees(theta3 + 2 * (theta2 - gamma))
 
-        return [joint1, joint1, joint3, joint4, get_gripper_length, rail]
+        return [joint1, joint2, joint3, joint4, get_gripper_length, rail]

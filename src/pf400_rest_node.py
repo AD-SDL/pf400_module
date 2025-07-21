@@ -65,12 +65,9 @@ class PF400Node(RestNode):
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""
         try:
-            self.logger.log("Shutting down")
-            self.pf400_interface.disconnect_sync()
-            self.shutdown_has_run = True
+            self.pf400_interface.disconnect()
             del self.pf400_interface
             self.pf400_interface = None
-            self.logger.log("Shutdown complete.")
         except Exception as err:
             self.logger.log_error(f"Error shutting down the PF400 Node: {err}")
             raise err

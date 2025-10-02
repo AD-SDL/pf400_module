@@ -95,7 +95,7 @@ actions:
     asynchronous: true
   place_plate:
     name: place_plate
-    description: Place a plate to a target location
+    description: Place a plate in a target location, optionally moving first to target_approach
     args: {}
     locations:
       target:
@@ -217,7 +217,7 @@ actions:
     blocking: false
     asynchronous: true
 config:
-  node_definition: definitions/pf400.node.yaml
+  node_definition: /Users/dozgulbas/workspace/pf400_module/definitions/pf400.node.yaml
   node_info_path: null
   update_node_files: true
   status_update_interval: 2.0
@@ -225,6 +225,8 @@ config:
   node_url: http://127.0.0.1:2000/
   uvicorn_kwargs: {}
   pf400_ip: null
+  pf400_port: 10100
+  pf400_status_port: 10000
 config_schema:
   description: Configuration for the pf400 node module.
   properties:
@@ -289,5 +291,13 @@ config_schema:
       - type: 'null'
       default: null
       title: Pf400 Ip
+    pf400_port:
+      default: 10100
+      title: Pf400 Port
+      type: integer
+    pf400_status_port:
+      default: 10000
+      title: Pf400 Status Port
+      type: integer
   title: PF400NodeConfig
   type: object

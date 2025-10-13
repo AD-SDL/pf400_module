@@ -10,10 +10,10 @@ from madsci.common.types.resource_types import Slot
 from madsci.common.types.resource_types.definitions import (
     AssetResourceDefinition,
     SlotResourceDefinition,
-    
 )
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
+
 from pf400_interface.pf400 import PF400
 
 
@@ -40,7 +40,7 @@ class PF400Node(RestNode):
 
         if self.resource_client:
             self.resource_owner = OwnershipInfo(node_id=self.node_definition.node_id)
-            
+
             gripper_slot = Slot(
                 resource_name="pf400_gripper",
                 resource_class="PF400Gripper",
@@ -51,27 +51,29 @@ class PF400Node(RestNode):
                     "payload_lb": 1.1,
                     "max_grip_force_newton": 23.0,
                     "grip_width_range": [80.0, 140.0],
-                    "description": "PF400 robot gripper slot"
-                }
+                    "description": "PF400 robot gripper slot",
+                },
             )
-            
-            gripper_template = self.resource_client.init_template(
+
+            _gripper_template = self.resource_client.init_template(
                 resource=gripper_slot,
                 template_name="pf400_gripper_slot",
                 description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
                 required_overrides=["resource_name"],
                 tags=["pf400", "gripper", "slot"],
                 created_by=self.node_definition.node_id,
-                version="1.0.0"
+                version="1.0.0",
             )
-            
+
             self.gripper_resource = self.resource_client.create_resource_from_template(
                 template_name="pf400_gripper_slot",
                 resource_name="pf400_gripper",
                 overrides={"resource_name_prefix": "123243134124"},
-                add_to_database=True
+                add_to_database=True,
             )
-            self.logger.log(f"Initialized gripper resource from template: {self.gripper_resource.resource_id}")
+            self.logger.log(
+                f"Initialized gripper resource from template: {self.gripper_resource.resource_id}"
+            )
         else:
             self.resource_client = None
             self.gripper_resource = None
@@ -127,8 +129,6 @@ class PF400Node(RestNode):
                     "current_joint_angles": current_location,
                 }
 
-
-        
     @action(
         name="transfer", description="Transfer a plate from one location to another"
     )
@@ -154,13 +154,13 @@ class PF400Node(RestNode):
             source_resource = self.resource_client.get_resource(source.resource_id)
             target_resource = self.resource_client.get_resource(target.resource_id)
             if source_resource.quantity == 0:
-                raise Exception("Resource manager: Plate does not exist at source!"
-                )
+                raise Exception("Resource manager: Plate does not exist at source!")
             if (
                 target_resource.quantity != 0
                 and target_resource.resource_id != source_resource.resource_id
             ):
-                raise Exception("Resource manager: Target is occupied by another plate!"
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
                 )
 
         self.pf400_interface.transfer(
@@ -170,7 +170,7 @@ class PF400Node(RestNode):
             target_approach=target_approach if target_approach else None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
-        ) 
+        )
 
     @action(name="pick_plate", description="Pick a plate from a source location")
     def pick_plate(
@@ -184,8 +184,7 @@ class PF400Node(RestNode):
         if self.resource_client:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
-                raise Exception("Resource manager: Plate does not exist at source!"
-                )
+                raise Exception("Resource manager: Plate does not exist at source!")
 
         pick_result = self.pf400_interface.pick_plate(
             source=source,
@@ -193,8 +192,6 @@ class PF400Node(RestNode):
         )
         if not pick_result:
             raise Exception(f"Failed to pick plate from location {source}.")
-
-        
 
     @action(
         name="place_plate",
@@ -218,8 +215,6 @@ class PF400Node(RestNode):
             target=target,
             target_approach=target_approach if target_approach else None,
         )
-
-        
 
     @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
@@ -246,8 +241,7 @@ class PF400Node(RestNode):
             source_resource = self.resource_client.get_resource(source.resource_id)
             target_resource = self.resource_client.get_resource(target.resource_id)
             if source_resource.quantity == 0:
-               raise Exception("Resource manager: Plate does not exist at source!"
-                )
+                raise Exception("Resource manager: Plate does not exist at source!")
             if target_resource.quantity != 0:
                 raise Exception(
                     "Resource manager: Target is occupied by another plate!"
@@ -275,8 +269,6 @@ class PF400Node(RestNode):
             target_plate_rotation=target_plate_rotation,
         )
 
-        
-
     @action(name="replace_lid", description="Replace a lid on a plate")
     def replace_lid(
         self,
@@ -301,9 +293,7 @@ class PF400Node(RestNode):
             source_resource = self.resource_client.get_resource(source.resource_id)
             target_resource = self.resource_client.get_resource(target.resource_id)
             if source_resource.quantity == 0:
-                raise Exception(
-                    "Resource manager: Lid does not exist at source!"
-                )
+                raise Exception("Resource manager: Lid does not exist at source!")
             if target_resource.quantity == 0:
                 raise Exception("Resource manager: No plate on target!")
 
@@ -325,8 +315,6 @@ class PF400Node(RestNode):
         )
         if self.resource_client:
             self.resource_client.remove_resource(lid_resource.resource_id)
-
-        
 
     def pause(self) -> None:
         """Pause the node."""

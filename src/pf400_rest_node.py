@@ -6,13 +6,14 @@ from typing import Annotated, Optional
 from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
+from madsci.common.types.resource_types import Slot
 from madsci.common.types.resource_types.definitions import (
     AssetResourceDefinition,
     SlotResourceDefinition,
+    
 )
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
-
 from pf400_interface.pf400 import PF400
 
 
@@ -39,11 +40,38 @@ class PF400Node(RestNode):
 
         if self.resource_client:
             self.resource_owner = OwnershipInfo(node_id=self.node_definition.node_id)
-            self.gripper_resource = self.resource_client.init_resource(
-                SlotResourceDefinition(
-                    resource_name="pf400_gripper",
-                )
+            
+            gripper_slot = Slot(
+                resource_name="pf400_gripper",
+                resource_class="PF400Gripper",
+                capacity=1,
+                attributes={
+                    "gripper_type": "finger",
+                    "payload_kg": 0.5,
+                    "payload_lb": 1.1,
+                    "max_grip_force_newton": 23.0,
+                    "grip_width_range": [80.0, 140.0],
+                    "description": "PF400 robot gripper slot"
+                }
             )
+            
+            gripper_template = self.resource_client.init_template(
+                resource=gripper_slot,
+                template_name="pf400_gripper_slot",
+                description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
+                required_overrides=["resource_name"],
+                tags=["pf400", "gripper", "slot"],
+                created_by=self.node_definition.node_id,
+                version="1.0.0"
+            )
+            
+            self.gripper_resource = self.resource_client.create_resource_from_template(
+                template_name="pf400_gripper_slot",
+                resource_name="pf400_gripper",
+                overrides={"resource_name_prefix": "123243134124"},
+                add_to_database=True
+            )
+            self.logger.log(f"Initialized gripper resource from template: {self.gripper_resource.resource_id}")
         else:
             self.resource_client = None
             self.gripper_resource = None
@@ -99,6 +127,8 @@ class PF400Node(RestNode):
                     "current_joint_angles": current_location,
                 }
 
+
+        
     @action(
         name="transfer", description="Transfer a plate from one location to another"
     )

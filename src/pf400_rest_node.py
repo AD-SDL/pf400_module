@@ -68,7 +68,6 @@ class PF400Node(RestNode):
             self.gripper_resource = self.resource_client.create_resource_from_template(
                 template_name="pf400_gripper_slot",
                 resource_name="pf400_gripper",
-                overrides={"resource_name_prefix": "123243134124"},
                 add_to_database=True,
             )
             self.logger.log(

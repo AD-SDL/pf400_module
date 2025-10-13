@@ -67,14 +67,14 @@ class PF400(KINEMATICS):
         status_port: int = 10000,
         robot_id: int = 1,
         mode: int = 0,
-        plate_rotation_location: Optional[list[float]] = [
+        _plate_rotation_location: Optional[list[float]] = [
             146.5,
             -33.811,
             107.957,
             643.401,
             82.122,
             995.051,
-        ],
+        ],  # THIS IS DEPRECATED, USE rotation_deck INSTEAD
         resource_client: ResourceClient = None,
         gripper_resource_id: Optional[str] = None,
         logger: Optional[EventClient] = None,
@@ -103,7 +103,6 @@ class PF400(KINEMATICS):
         self.connect()
         self.configure_robot()
         # Plate variables
-        self.plate_rotation_location = plate_rotation_location
 
         # Initialize neutral_joints as an instance attribute
         self.neutral_joints = [
@@ -117,6 +116,9 @@ class PF400(KINEMATICS):
 
         self.set_gripper_open()
         self.set_gripper_close()
+        self.logger.warn(
+            "HARD CODED ROTATION LOCATION IS DEPRECATED, USE rotation_deck WITH TRANSFER METHOD INSTEAD"
+        )
 
     def connect(self) -> None:
         """
@@ -735,12 +737,16 @@ class PF400(KINEMATICS):
             target_plate_rotation=target_plate_rotation,
         )
 
-    def rotate_plate_on_deck(self, rotation_degree: int) -> None:
+    def rotate_plate_on_deck(
+        self, rotation_degree: int, rotation_deck: Optional[LocationArgument] = None
+    ) -> None:
         """
         Description: Uses the rotation deck to rotate the plate between two transfers
         Parameters: - rotation_degree: Rotation degree.
         """
-        target = self.plate_rotation_location
+        if not rotation_deck:
+            raise ValueError("Rotation deck location must be provided.")
+        target = rotation_deck.location
 
         # Fixing the offset on the z axis
         if rotation_degree == -90:
@@ -752,6 +758,19 @@ class PF400(KINEMATICS):
         self.move_joint(above_position, self.slow_motion_profile)
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
+
+        try:
+            if self.resource_client:
+                popped_plate, updated_resource = self.resource_client.pop(
+                    resource=self.gripper_resource_id
+                )
+                self.resource_client.push(
+                    resource=rotation_deck.resource_id, child=popped_plate
+                )
+        except Exception as e:
+            self.logger.log_error(f"Error during plate rotation: {e}")
+            raise e
+
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
@@ -769,6 +788,19 @@ class PF400(KINEMATICS):
             gripper_open=True,
         )
         self.grab_plate(speed=100, force=10)
+
+        try:
+            if self.resource_client:
+                popped_plate, updated_resource = self.resource_client.pop(
+                    resource=rotation_deck.resource_id
+                )
+                self.resource_client.push(
+                    resource=self.gripper_resource_id, child=popped_plate
+                )
+        except Exception as e:
+            self.logger.log_error(f"Error during plate rotation: {e}")
+            raise e
+
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
@@ -916,6 +948,7 @@ class PF400(KINEMATICS):
         target_approach: LocationArgument = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
+        rotation_deck: Optional[LocationArgument] = None,
     ) -> None:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
@@ -924,9 +957,8 @@ class PF400(KINEMATICS):
                         - target: Target location
                         - source_plate_rotation: narrow or wide
                         - target_plate_rotation: narrow or wide
-
-                Note: Plate rotation defines the rotation of the plate on the deck, not the grabing angle.
-
+                        - rotation_deck: Location for plate rotation deck
+                Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
         """
         source = copy.deepcopy(source)
         target = copy.deepcopy(target)
@@ -972,10 +1004,14 @@ class PF400(KINEMATICS):
 
         if plate_source_rotation == 90 and plate_target_rotation == 0:
             # Need a transition from 90 degree to 0 degree
-            self.rotate_plate_on_deck(-plate_source_rotation)
+            self.rotate_plate_on_deck(
+                rotation_degree=-plate_source_rotation, rotation_deck=rotation_deck
+            )
 
         elif plate_source_rotation == 0 and plate_target_rotation == 90:
             # Need a transition from 0 degree to 90 degree
-            self.rotate_plate_on_deck(plate_target_rotation)
+            self.rotate_plate_on_deck(
+                rotation_degree=plate_target_rotation, rotation_deck=rotation_deck
+            )
 
         self.place_plate(target=target, target_approach=target_approach)

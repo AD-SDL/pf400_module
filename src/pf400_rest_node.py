@@ -147,6 +147,9 @@ class PF400Node(RestNode):
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
+        rotation_deck: Annotated[
+            Optional[LocationArgument], "Plate rotation deck location"
+        ] = None,
     ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
         if self.resource_client:
@@ -169,6 +172,7 @@ class PF400Node(RestNode):
             target_approach=target_approach if target_approach else None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
+            rotation_deck=rotation_deck if rotation_deck else None,
         )
 
     @action(name="pick_plate", description="Pick a plate from a source location")

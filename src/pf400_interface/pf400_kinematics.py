@@ -5,6 +5,7 @@ import math
 
 class KINEMATICS:
     """Class for calculating the forward and inverse kinematics of the PF400 robot arm."""
+
     """
     Joint coordinates, list of length 6 for PF400 with horizontal rail,
       rail positions units are mm, angles in degrees increasing CCW looking down (-z):
@@ -14,7 +15,7 @@ class KINEMATICS:
         3  angle of wrist joint (forearm to end_effector), 0 deg extends forearm, range: [-960, 960] deg
         4  the separation between plate-handling gripper fingers, range: [ ???, ??? ] mm
         5  horizontal rail position in mm, +x perp v_rail, range: [-1000,1000] (for the 2m h_rail)
-    
+
     Cartesian coordinates, list of length 6:
         0  X       increasing away from the face of the v_rail, parallel to the h_rail
         1  Y       increasing to the left when facing in the +x direction
@@ -27,9 +28,13 @@ class KINEMATICS:
     def __init__(self) -> None:
         """Constructor for the KINEMATICS class."""
         # Robot arm segment lengths (in millimeters)
-        self.shoulder_length     = 302 # mm    (perhaps rename to upper_arm, as shoulder is a joint)
-        self.elbow_length        = 289 # mm    (perhaps rename to forearm, as elbo is a joint)
-        self.end_effector_length = 162 # mm    (???does this length terminate at the Tool Center Point?)
+        self.shoulder_length = (
+            302  # mm    (perhaps rename to upper_arm, as shoulder is a joint)
+        )
+        self.elbow_length = 289  # mm    (perhaps rename to forearm, as elbo is a joint)
+        self.end_effector_length = (
+            162  # mm    (???does this length terminate at the Tool Center Point?)
+        )
 
     def forward_kinematics(
         self, joint_states: list[float]

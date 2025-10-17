@@ -67,14 +67,6 @@ class PF400(KINEMATICS):
         status_port: int = 10000,
         robot_id: int = 1,
         mode: int = 0,
-        _plate_rotation_location: Optional[list[float]] = [
-            146.5,
-            -33.811,
-            107.957,
-            643.401,
-            82.122,
-            995.051,
-        ],  # THIS IS DEPRECATED, USE rotation_deck INSTEAD
         resource_client: ResourceClient = None,
         gripper_resource_id: Optional[str] = None,
         logger: Optional[EventClient] = None,

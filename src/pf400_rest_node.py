@@ -62,7 +62,7 @@ class PF400Node(RestNode):
             resource_name="pf400_gripper",
             add_to_database=True,
         )
-        self.logger.log(
+        self.logger.log_info(
             f"Initialized gripper resource from template: {self.gripper_resource.resource_id}"
         )
 
@@ -119,7 +119,7 @@ class PF400Node(RestNode):
             gripper_resource_id=self.gripper_resource.resource_id,
         )
         self.pf400_interface.initialize_robot()
-        self.logger.log("PF400 Node initialized.")
+        self.logger.log_info("PF400 Node initialized.")
 
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""

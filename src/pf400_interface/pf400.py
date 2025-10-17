@@ -694,8 +694,8 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
     ) -> None:
         """Remove the lid from the plate"""
-        source.location = copy.deepcopy(source.location)
-        source.location[0] += lid_height
+        source.representation = copy.deepcopy(source.representation)
+        source.representation[0] += lid_height
 
         self.transfer(
             source=source,
@@ -717,8 +717,8 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
     ) -> None:
         """Replace the lid on the plate"""
-        target.location = copy.deepcopy(target.location)
-        target.location[0] += lid_height
+        target.representation = copy.deepcopy(target.representation)
+        target.representation[0] += lid_height
 
         self.transfer(
             source=source,
@@ -810,7 +810,7 @@ class PF400(KINEMATICS):
         Returns True if the plate was successfully grabbed, False otherwise.
         """
 
-        above_position = list(map(add, source.location, self.default_approach_vector))
+        above_position = list(map(add, source.representation, self.default_approach_vector))
         self.open_gripper()
         if source_approach:
             if isinstance(source_approach.location[0], list):
@@ -829,13 +829,13 @@ class PF400(KINEMATICS):
                     profile=self.fast_motion_profile,
                 )
         else:
-            self.move_all_joints_neutral(source.location)
+            self.move_all_joints_neutral(source.representation)
 
         self.move_joint(
             target_joint_angles=above_position, profile=self.fast_motion_profile
         )
         self.move_joint(
-            target_joint_angles=source.location,
+            target_joint_angles=source.representation,
             profile=self.fast_motion_profile,
             gripper_open=True,
         )
@@ -869,7 +869,7 @@ class PF400(KINEMATICS):
                 )
                 self.move_all_joints_neutral(source_approach.location)
         else:
-            self.move_all_joints_neutral(source.location)
+            self.move_all_joints_neutral(source.representation)
         return grab_succeeded
 
     def place_plate(
@@ -881,7 +881,7 @@ class PF400(KINEMATICS):
         """
         Place a plate in the target location
         """
-        above_position = list(map(add, target.location, self.default_approach_vector))
+        above_position = list(map(add, target.representation, self.default_approach_vector))
         if target_approach:
             if isinstance(target_approach.location[0], list):
                 # Multiple approach locations provided
@@ -899,10 +899,10 @@ class PF400(KINEMATICS):
                     profile=self.fast_motion_profile,
                 )
         else:
-            self.move_all_joints_neutral(target.location)
+            self.move_all_joints_neutral(target.representation)
 
         self.move_joint(above_position, self.slow_motion_profile)
-        self.move_joint(target.location, self.slow_motion_profile)
+        self.move_joint(target.representation, self.slow_motion_profile)
         self.release_plate(width=open_width)
         if self.resource_client:
             popped_plate, updated_resource = self.resource_client.pop(
@@ -930,7 +930,7 @@ class PF400(KINEMATICS):
                 self.move_all_joints_neutral(target_approach.location)
 
         else:
-            self.move_all_joints_neutral(target.location)
+            self.move_all_joints_neutral(target.representation)
 
     def transfer(
         self,
@@ -970,8 +970,8 @@ class PF400(KINEMATICS):
             plate_source_rotation = 0
             self.grip_wide = False
 
-        source.location = self.check_incorrect_plate_orientation(
-            source.location, plate_source_rotation
+        source.representation = self.check_incorrect_plate_orientation(
+            source.representation, plate_source_rotation
         )
 
         pick_result = self.pick_plate(source=source, source_approach=source_approach)
@@ -990,8 +990,8 @@ class PF400(KINEMATICS):
             plate_target_rotation = 0
             self.grip_wide = False
 
-        target.location = self.check_incorrect_plate_orientation(
-            target.location, plate_target_rotation
+        target.representation = self.check_incorrect_plate_orientation(
+            target.representation, plate_target_rotation
         )
 
         if plate_source_rotation == 90 and plate_target_rotation == 0:

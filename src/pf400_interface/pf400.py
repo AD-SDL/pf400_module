@@ -531,7 +531,9 @@ class PF400(KINEMATICS):
                 - Same goal location if there orientation was correct.
         """
         # This will fix plate rotation on the goal location if it was recorded with an incorrect orientation
-        cartesian_goal, phi_source, rail_source = self.forward_kinematics(goal_location)
+        cartesian_goal, _phi_source, _rail_source = self.forward_kinematics(
+            goal_location
+        )
         # Checking yaw angle
         if goal_rotation != 0 and cartesian_goal[3] > -10 and cartesian_goal[3] < 10:
             goal_location = self.set_plate_rotation(goal_location, -goal_rotation)
@@ -753,7 +755,7 @@ class PF400(KINEMATICS):
 
         try:
             if self.resource_client:
-                popped_plate, updated_resource = self.resource_client.pop(
+                popped_plate, _updated_resource = self.resource_client.pop(
                     resource=self.gripper_resource_id
                 )
                 self.resource_client.push(
@@ -783,7 +785,7 @@ class PF400(KINEMATICS):
 
         try:
             if self.resource_client:
-                popped_plate, updated_resource = self.resource_client.pop(
+                popped_plate, _updated_resource = self.resource_client.pop(
                     resource=rotation_deck.resource_id
                 )
                 self.resource_client.push(
@@ -810,7 +812,9 @@ class PF400(KINEMATICS):
         Returns True if the plate was successfully grabbed, False otherwise.
         """
 
-        above_position = list(map(add, source.representation, self.default_approach_vector))
+        above_position = list(
+            map(add, source.representation, self.default_approach_vector)
+        )
         self.open_gripper()
         if source_approach:
             if isinstance(source_approach.location[0], list):
@@ -842,7 +846,7 @@ class PF400(KINEMATICS):
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
 
         if self.resource_client and grab_succeeded:
-            popped_plate, updated_resource = self.resource_client.pop(
+            popped_plate, _updated_resource = self.resource_client.pop(
                 resource=source.resource_id
             )
             self.resource_client.push(
@@ -881,7 +885,9 @@ class PF400(KINEMATICS):
         """
         Place a plate in the target location
         """
-        above_position = list(map(add, target.representation, self.default_approach_vector))
+        above_position = list(
+            map(add, target.representation, self.default_approach_vector)
+        )
         if target_approach:
             if isinstance(target_approach.location[0], list):
                 # Multiple approach locations provided
@@ -905,7 +911,7 @@ class PF400(KINEMATICS):
         self.move_joint(target.representation, self.slow_motion_profile)
         self.release_plate(width=open_width)
         if self.resource_client:
-            popped_plate, updated_resource = self.resource_client.pop(
+            popped_plate, _updated_resource = self.resource_client.pop(
                 resource=self.gripper_resource_id
             )
             self.resource_client.push(resource=target.resource_id, child=popped_plate)

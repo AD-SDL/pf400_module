@@ -179,7 +179,7 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         rotation_deck: Annotated[
-            Optional[LocationArgument], "Plate rotation deck location"
+            LocationArgument, "Plate rotation deck location"
         ] = None,
     ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
@@ -211,11 +211,31 @@ class PF400Node(RestNode):
         source_approach: Annotated[
             Optional[LocationArgument], "Location to approach from"
         ] = None,
+        source_plate_rotation: Annotated[
+            str, "Orientation of the plate at the source, wide or narrow"
+        ] = "",
     ) -> None:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         source_resource = self.resource_client.get_resource(source.resource_id)
         if source_resource.quantity == 0:
             raise Exception("Resource manager: Plate does not exist at source!")
+
+        # set plate width for source
+        if source_plate_rotation.lower() == "wide":
+            plate_source_rotation = 90
+            self.pf400_interface.grip_wide = True
+        elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
+            plate_source_rotation = 0
+            self.pf400_interface.grip_wide = False
+        else:
+            raise ValueError(
+                f"Invalid source plate rotation: {source_plate_rotation}. "
+                "Expected 'wide', 'narrow', or ''."
+            )
+
+        source.representation = self.pf400_interface.check_incorrect_plate_orientation(
+            source.representation, plate_source_rotation
+        )
 
         pick_result = self.pf400_interface.pick_plate(
             source=source,
@@ -234,12 +254,32 @@ class PF400Node(RestNode):
         target_approach: Annotated[
             Optional[LocationArgument], "Location to approach from"
         ] = None,
+        target_plate_rotation: Annotated[
+            str, "Final orientation of the plate at the target, wide or narrow"
+        ] = "",
     ) -> None:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
         target_resource = self.resource_client.get_resource(target.resource_id)
         if target_resource.quantity != 0:
             raise Exception("Resource manager: Target is occupied by another plate!")
+
+        if target_plate_rotation.lower() == "wide":
+            plate_target_rotation = 90
+            self.pf400_interface.grip_wide = True
+        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
+            plate_target_rotation = 0
+            self.pf400_interface.grip_wide = False
+        else:
+            raise ValueError(
+                f"Invalid target plate rotation: {target_plate_rotation}. "
+                "Expected 'wide', 'narrow', or ''."
+            )
+
+        target.representation = self.pf400_interface.check_incorrect_plate_orientation(
+            target.representation, plate_target_rotation
+        )
+
         self.pf400_interface.place_plate(
             target=target,
             target_approach=target_approach if target_approach else None,

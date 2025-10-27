@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = ["inherit_metadata"]
 lock_version = "4.5.0"
-content_hash = "sha256:3843db356d411abdb12753bf3956c97515c8d0a9427082dbebe09b34aa5349ee"
+content_hash = "sha256:41616c5fdae43b3aeba05965b489e0997d95c76ff82e06397258ec2ac00fcc2e"
 
 [[metadata.targets]]
 requires_python = ">=3.9.1,<3.13"
@@ -270,17 +270,17 @@ files = [
 
 [[package]]
 name = "classy-fastapi"
-version = "0.6.1"
-requires_python = ">=3.8"
+version = "0.7.0"
+requires_python = ">=3.9"
 summary = "Class based routing for FastAPI"
 groups = ["default"]
 dependencies = [
     "fastapi<1.0.0,>=0.73.0",
-    "pydantic<3.0.0,>=1.10.2",
+    "pydantic<3.0.0,>=2.8",
 ]
 files = [
-    {file = "classy-fastapi-0.6.1.tar.gz", hash = "sha256:5dfc33bab8e01e07c56855b78ce9a8152c871ab544a565d0d3d05a5c1ca4ed68"},
-    {file = "classy_fastapi-0.6.1-py3-none-any.whl", hash = "sha256:196e5c2890269627d52851f3f86001a0dfda0070053d38f8a7bd896ac2f67737"},
+    {file = "classy_fastapi-0.7.0-py3-none-any.whl", hash = "sha256:eea211181d065fecb543d68b75a6a6ab93393bb7ca48551887fa898ba7d40ec3"},
+    {file = "classy_fastapi-0.7.0.tar.gz", hash = "sha256:4ab934fc309b134cd8dde5f7d6f98e1303a111cf1341ebd5bf900a630d20b084"},
 ]
 
 [[package]]
@@ -703,7 +703,7 @@ files = [
 
 [[package]]
 name = "madsci-client"
-version = "0.5.0rc2"
+version = "0.5.0"
 requires_python = ">=3.9.1"
 summary = "The Modular Autonomous Discovery for Science (MADSci) Python Client and CLI."
 groups = ["default"]
@@ -714,20 +714,20 @@ dependencies = [
     "trogon>=0.6.0",
 ]
 files = [
-    {file = "madsci_client-0.5.0rc2-py3-none-any.whl", hash = "sha256:d46c774ccc5e30ea57fcbd58daefa691242e167d2f53ff7f45ee7174e0378917"},
-    {file = "madsci_client-0.5.0rc2.tar.gz", hash = "sha256:250336a1b3d0d6727a54a9222f446e224dd8a7783e3dd85cb08d17994ef7f9b2"},
+    {file = "madsci_client-0.5.0-py3-none-any.whl", hash = "sha256:350f63132a8a64a0c238e0b9d946b4a65cf03e744c2971d4fb3ff4e58d9f36fb"},
+    {file = "madsci_client-0.5.0.tar.gz", hash = "sha256:1f7eb89ff83d20042f0d6b5d22a0a893cc535a3948c2e7bf487bbea259d3b946"},
 ]
 
 [[package]]
 name = "madsci-common"
-version = "0.5.0rc2"
+version = "0.5.0"
 requires_python = ">=3.9.1"
 summary = "The Modular Autonomous Discovery for Science (MADSci) Common Definitions and Utilities."
 groups = ["default"]
 dependencies = [
     "PyYAML>=6.0.2",
     "aenum>=3.1.15",
-    "classy-fastapi>=0.6.1",
+    "classy-fastapi>=0.7.0",
     "fastapi>=0.115.4",
     "multiprocess>=0.70.17",
     "pydantic-extra-types>=2.10.2",
@@ -745,13 +745,13 @@ dependencies = [
     "uvicorn[standard]>=0.32.0",
 ]
 files = [
-    {file = "madsci_common-0.5.0rc2-py3-none-any.whl", hash = "sha256:13e4f811850cbe59194c9ce8d54d8f90ddba9abe7cf1e46472e123454dad2483"},
-    {file = "madsci_common-0.5.0rc2.tar.gz", hash = "sha256:99dd5d107416873870d95b5f33e511541fa4c498034550e86da013b8279007e3"},
+    {file = "madsci_common-0.5.0-py3-none-any.whl", hash = "sha256:69f123576a414c046cff5b238ac9b2ab5f3ae895bde69688f1bb3b56bcada3d5"},
+    {file = "madsci_common-0.5.0.tar.gz", hash = "sha256:68c7a2fbd27262ea0d228c1a20c18173d68e653908ebb672bbcdd9fe019f2835"},
 ]
 
 [[package]]
 name = "madsci-node-module"
-version = "0.5.0rc2"
+version = "0.5.0"
 requires_python = ">=3.9.1"
 summary = "The Modular Autonomous Discovery for Science (MADSci) Node Module Helper Classes."
 groups = ["default"]
@@ -761,8 +761,8 @@ dependencies = [
     "regex",
 ]
 files = [
-    {file = "madsci_node_module-0.5.0rc2-py3-none-any.whl", hash = "sha256:5402c0230df41cf4213ad0ebe3f6e1fae7d1208e7b998b2827f1404cd395c7e9"},
-    {file = "madsci_node_module-0.5.0rc2.tar.gz", hash = "sha256:01fb81ae226f5ce963dce4b759c78dbe7fe4400d929261f5f785e2a58b0eb9b2"},
+    {file = "madsci_node_module-0.5.0-py3-none-any.whl", hash = "sha256:b7353d8633740bf62cfad05ad1a3bd2e9c190f997fac7fed93919361c503c36e"},
+    {file = "madsci_node_module-0.5.0.tar.gz", hash = "sha256:77bdea14bf1ce01bc46fe99865cb3294f947e81e613d7b79c4097c6ed8462087"},
 ]
 
 [[package]]

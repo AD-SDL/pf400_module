@@ -194,7 +194,9 @@ class PF400Node(RestNode):
                 target_resource.quantity != 0
                 and target_resource.resource_id != source_resource.resource_id
             ):
-                raise Exception("Resource manager: Target is occupied by another plate!")
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
+                )
 
         self.pf400_interface.transfer(
             source=source,
@@ -266,7 +268,9 @@ class PF400Node(RestNode):
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
-                raise Exception("Resource manager: Target is occupied by another plate!")
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
+                )
 
         if target_plate_rotation.lower() == "wide":
             plate_target_rotation = 90
@@ -317,7 +321,9 @@ class PF400Node(RestNode):
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
-                raise Exception("Resource manager: Target is occupied by another plate!")
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
+                )
 
         # Create temporary lid slot from template
         lid_resource = self.resource_client.create_resource_from_template(

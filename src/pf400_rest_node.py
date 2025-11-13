@@ -184,15 +184,17 @@ class PF400Node(RestNode):
     ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 
-        source_resource = self.resource_client.get_resource(source.resource_id)
-        target_resource = self.resource_client.get_resource(target.resource_id)
-        if source_resource.quantity == 0:
-            raise Exception("Resource manager: Plate does not exist at source!")
-        if (
-            target_resource.quantity != 0
-            and target_resource.resource_id != source_resource.resource_id
-        ):
-            raise Exception("Resource manager: Target is occupied by another plate!")
+        if source.resource_id:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            if source_resource.quantity == 0:
+                raise Exception("Resource manager: Plate does not exist at source!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if (
+                target_resource.quantity != 0
+                and target_resource.resource_id != source_resource.resource_id
+            ):
+                raise Exception("Resource manager: Target is occupied by another plate!")
 
         self.pf400_interface.transfer(
             source=source,
@@ -216,9 +218,10 @@ class PF400Node(RestNode):
         ] = "",
     ) -> None:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
-        source_resource = self.resource_client.get_resource(source.resource_id)
-        if source_resource.quantity == 0:
-            raise Exception("Resource manager: Plate does not exist at source!")
+        if source.resource_id:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            if source_resource.quantity == 0:
+                raise Exception("Resource manager: Plate does not exist at source!")
 
         # set plate width for source
         if source_plate_rotation.lower() == "wide":
@@ -260,9 +263,10 @@ class PF400Node(RestNode):
     ) -> None:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
-        target_resource = self.resource_client.get_resource(target.resource_id)
-        if target_resource.quantity != 0:
-            raise Exception("Resource manager: Target is occupied by another plate!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if target_resource.quantity != 0:
+                raise Exception("Resource manager: Target is occupied by another plate!")
 
         if target_plate_rotation.lower() == "wide":
             plate_target_rotation = 90
@@ -306,12 +310,14 @@ class PF400Node(RestNode):
     ) -> None:
         """Remove a lid from a plate located at location ."""
 
-        source_resource = self.resource_client.get_resource(source.resource_id)
-        target_resource = self.resource_client.get_resource(target.resource_id)
-        if source_resource.quantity == 0:
-            raise Exception("Resource manager: Plate does not exist at source!")
-        if target_resource.quantity != 0:
-            raise Exception("Resource manager: Target is occupied by another plate!")
+        if source.resource_id:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            if source_resource.quantity == 0:
+                raise Exception("Resource manager: Plate does not exist at source!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if target_resource.quantity != 0:
+                raise Exception("Resource manager: Target is occupied by another plate!")
 
         # Create temporary lid slot from template
         lid_resource = self.resource_client.create_resource_from_template(
@@ -361,12 +367,14 @@ class PF400Node(RestNode):
     ) -> None:
         """A doc string, but not the actual description of the action."""
 
-        source_resource = self.resource_client.get_resource(source.resource_id)
-        target_resource = self.resource_client.get_resource(target.resource_id)
-        if source_resource.quantity == 0:
-            raise Exception("Resource manager: Lid does not exist at source!")
-        if target_resource.quantity == 0:
-            raise Exception("Resource manager: No plate on target!")
+        if source.resource_id:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            if source_resource.quantity == 0:
+                raise Exception("Resource manager: Lid does not exist at source!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if target_resource.quantity == 0:
+                raise Exception("Resource manager: No plate on target!")
 
         # Create temporary lid slot from template
         lid_resource = self.resource_client.create_resource_from_template(

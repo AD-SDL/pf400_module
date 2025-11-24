@@ -47,9 +47,9 @@ class PF400Node(RestNode):
             },
         )
 
-        _gripper_template = self.resource_client.init_template(
+        self.resource_client.init_template(
             resource=gripper_slot,
-            template_name="pf400_gripper_slot",
+            template_name="pf400_gripper",
             description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
             required_overrides=["resource_name"],
             tags=["pf400", "gripper", "slot"],
@@ -58,8 +58,8 @@ class PF400Node(RestNode):
         )
 
         self.gripper_resource = self.resource_client.create_resource_from_template(
-            template_name="pf400_gripper_slot",
-            resource_name="pf400_gripper",
+            template_name="pf400_gripper",
+            resource_name=f"{self.node_definition.node_name}.gripper",
             add_to_database=True,
         )
         self.logger.log_info(
@@ -178,9 +178,7 @@ class PF400Node(RestNode):
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
-        rotation_deck: Annotated[
-            LocationArgument, "Plate rotation deck location"
-        ] = None,
+        rotation_deck: Optional[LocationArgument] = None,
     ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 

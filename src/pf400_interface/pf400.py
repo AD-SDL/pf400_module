@@ -39,7 +39,7 @@ class PF400(KINEMATICS):
     safe_left_boundary = -350.0
     safe_right_boundary = 350.0
 
-    default_approach_height = 75.0
+    default_approach_height = 15.0
     default_approach_vector: typing.ClassVar[list] = [
         default_approach_height,
         0.0,

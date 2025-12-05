@@ -323,6 +323,11 @@ class PF400Node(RestNode):
                     "Resource manager: Target is occupied by another plate!"
                 )
 
+        # Extract id of plate resource at source
+        plate_resource_id = self.resource_client.get_resource(
+            source.resource_id
+        ).child.resource_id
+
         # Create temporary lid slot from template
         lid_resource = self.resource_client.create_resource_from_template(
             template_name="pf400_lid_slot",
@@ -333,7 +338,7 @@ class PF400Node(RestNode):
         # Create lid asset from template
         lid = self.resource_client.create_resource_from_template(
             template_name="plate_lid",
-            resource_name=f"Lid_{self.node_definition.node_id}",
+            resource_name=f"Lid_from_{plate_resource_id}",
             add_to_database=True,
         )
 

@@ -3,14 +3,9 @@
 
 from typing import Annotated, Optional
 
-from madsci.common.types.action_types import ActionFailed, ActionResult, ActionSucceeded
-from madsci.common.types.auth_types import OwnershipInfo
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
-from madsci.common.types.resource_types.definitions import (
-    AssetResourceDefinition,
-    SlotResourceDefinition,
-)
+from madsci.common.types.resource_types import Asset, Slot
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 
@@ -38,16 +33,81 @@ class PF400Node(RestNode):
     def startup_handler(self) -> None:
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
 
-        if self.resource_client:
-            self.resource_owner = OwnershipInfo(node_id=self.node_definition.node_id)
-            self.gripper_resource = self.resource_client.init_resource(
-                SlotResourceDefinition(
-                    resource_name="pf400_gripper",
-                )
-            )
-        else:
-            self.resource_client = None
-            self.gripper_resource = None
+        gripper_slot = Slot(
+            resource_name="pf400_gripper",
+            resource_class="PF400Gripper",
+            capacity=1,
+            attributes={
+                "gripper_type": "finger",
+                "payload_kg": 0.5,
+                "payload_lb": 1.1,
+                "max_grip_force_newton": 23.0,
+                "grip_width_range": [80.0, 140.0],
+                "description": "PF400 robot gripper slot",
+            },
+        )
+
+        _gripper_template = self.resource_client.init_template(
+            resource=gripper_slot,
+            template_name="pf400_gripper_slot",
+            description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
+            required_overrides=["resource_name"],
+            tags=["pf400", "gripper", "slot"],
+            created_by=self.node_definition.node_id,
+            version="1.0.0",
+        )
+
+        self.gripper_resource = self.resource_client.create_resource_from_template(
+            template_name="pf400_gripper_slot",
+            resource_name="pf400_gripper",
+            add_to_database=True,
+        )
+        self.logger.log_info(
+            f"Initialized gripper resource from template: {self.gripper_resource.resource_id}"
+        )
+
+        # Create lid slot template for temporary lid storage
+        lid_slot = Slot(
+            resource_name="pf400_lid_slot",
+            resource_class="PF400LidSlot",
+            capacity=1,
+            attributes={
+                "slot_type": "lid_holder",
+                "description": "Temporary slot for holding plate lids during lid operations",
+            },
+        )
+
+        self.resource_client.init_template(
+            resource=lid_slot,
+            template_name="pf400_lid_slot",
+            description="Template for temporary lid storage slot. Used when removing/replacing lids from plates.",
+            required_overrides=["resource_name"],
+            tags=["pf400", "lid", "slot", "temporary"],
+            created_by=self.node_definition.node_id,
+            version="1.0.0",
+        )
+
+        # Create plate lid asset template
+        plate_lid = Asset(
+            resource_name="Lid",
+            resource_class="PlateLid",
+            attributes={
+                "lid_type": "microplate",
+                "compatible_with": ["96-well"],
+                "material": "plastic",
+                "description": "Standard plate lid",
+            },
+        )
+
+        self.resource_client.init_template(
+            resource=plate_lid,
+            template_name="plate_lid",
+            description="Template for plate lids. Used to track lids during lid operations.",
+            required_overrides=["resource_name"],
+            tags=["lid", "plate", "asset"],
+            created_by=self.node_definition.node_id,
+            version="1.0.0",
+        )
 
         if self.config.pf400_ip is None:
             raise ValueError("PF400 IP address is not set in the configuration.")
@@ -56,11 +116,10 @@ class PF400Node(RestNode):
             port=self.config.pf400_port,
             status_port=self.config.pf400_status_port,
             resource_client=self.resource_client,
-            gripper_resource_id=self.gripper_resource.resource_id
-            if self.gripper_resource
-            else None,
+            gripper_resource_id=self.gripper_resource.resource_id,
         )
         self.pf400_interface.initialize_robot()
+        self.logger.log_info("PF400 Node initialized.")
 
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""
@@ -119,21 +178,24 @@ class PF400Node(RestNode):
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
-    ) -> ActionResult:
+        rotation_deck: Annotated[
+            LocationArgument, "Plate rotation deck location"
+        ] = None,
+    ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
-        if self.resource_client:
+
+        if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
-            target_resource = self.resource_client.get_resource(target.resource_id)
             if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors="Resource manager: Plate does not exist at source!"
-                )
+                raise Exception("Resource manager: Plate does not exist at source!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
             if (
                 target_resource.quantity != 0
                 and target_resource.resource_id != source_resource.resource_id
             ):
-                return ActionFailed(
-                    errors="Resource manager: Target is occupied by another plate!"
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
                 )
 
         self.pf400_interface.transfer(
@@ -143,8 +205,8 @@ class PF400Node(RestNode):
             target_approach=target_approach if target_approach else None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
+            rotation_deck=rotation_deck if rotation_deck else None,
         )
-        return ActionSucceeded()
 
     @action(name="pick_plate", description="Pick a plate from a source location")
     def pick_plate(
@@ -153,23 +215,39 @@ class PF400Node(RestNode):
         source_approach: Annotated[
             Optional[LocationArgument], "Location to approach from"
         ] = None,
-    ) -> ActionResult:
+        source_plate_rotation: Annotated[
+            str, "Orientation of the plate at the source, wide or narrow"
+        ] = "",
+    ) -> None:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
-        if self.resource_client:
+        if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors="Resource manager: Plate does not exist at source!"
-                )
+                raise Exception("Resource manager: Plate does not exist at source!")
+
+        # set plate width for source
+        if source_plate_rotation.lower() == "wide":
+            plate_source_rotation = 90
+            self.pf400_interface.grip_wide = True
+        elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
+            plate_source_rotation = 0
+            self.pf400_interface.grip_wide = False
+        else:
+            raise ValueError(
+                f"Invalid source plate rotation: {source_plate_rotation}. "
+                "Expected 'wide', 'narrow', or ''."
+            )
+
+        source.representation = self.pf400_interface.check_incorrect_plate_orientation(
+            source.representation, plate_source_rotation
+        )
 
         pick_result = self.pf400_interface.pick_plate(
             source=source,
             source_approach=source_approach if source_approach else None,
         )
         if not pick_result:
-            return ActionFailed(errors=f"Failed to pick plate from location {source}.")
-
-        return ActionSucceeded()
+            raise Exception(f"Failed to pick plate from location {source}.")
 
     @action(
         name="place_plate",
@@ -181,20 +259,39 @@ class PF400Node(RestNode):
         target_approach: Annotated[
             Optional[LocationArgument], "Location to approach from"
         ] = None,
-    ) -> ActionResult:
+        target_plate_rotation: Annotated[
+            str, "Final orientation of the plate at the target, wide or narrow"
+        ] = "",
+    ) -> None:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
-        if self.resource_client:
+
+        if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
-                return ActionFailed(
-                    errors="Resource manager: Target is occupied by another plate!"
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
                 )
+
+        if target_plate_rotation.lower() == "wide":
+            plate_target_rotation = 90
+            self.pf400_interface.grip_wide = True
+        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
+            plate_target_rotation = 0
+            self.pf400_interface.grip_wide = False
+        else:
+            raise ValueError(
+                f"Invalid target plate rotation: {target_plate_rotation}. "
+                "Expected 'wide', 'narrow', or ''."
+            )
+
+        target.representation = self.pf400_interface.check_incorrect_plate_orientation(
+            target.representation, plate_target_rotation
+        )
+
         self.pf400_interface.place_plate(
             target=target,
             target_approach=target_approach if target_approach else None,
         )
-
-        return ActionSucceeded()
 
     @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
@@ -214,32 +311,36 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-    ) -> ActionResult:
+    ) -> None:
         """Remove a lid from a plate located at location ."""
 
-        if self.resource_client:
+        if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
-            target_resource = self.resource_client.get_resource(target.resource_id)
             if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors="Resource manager: Plate does not exist at source!"
-                )
+                raise Exception("Resource manager: Plate does not exist at source!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
-                return ActionFailed(
-                    errors="Resource manager: Target is occupied by another plate!"
+                raise Exception(
+                    "Resource manager: Target is occupied by another plate!"
                 )
 
-            lid_resource = self.resource_client.init_resource(
-                SlotResourceDefinition(
-                    resource_name="pf400_lid_slot",
-                    owner=self.resource_owner,
-                )
-            )
-            lid = self.resource_client.init_resource(
-                AssetResourceDefinition(resource_name="Lid", owner=self.resource_owner)
-            )
-            lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
-            source.resource_id = lid_resource.resource_id
+        # Create temporary lid slot from template
+        lid_resource = self.resource_client.create_resource_from_template(
+            template_name="pf400_lid_slot",
+            resource_name="pf400_lid_slot",
+            add_to_database=True,
+        )
+
+        # Create lid asset from template
+        lid = self.resource_client.create_resource_from_template(
+            template_name="plate_lid",
+            resource_name=f"Lid_{self.node_definition.node_id}",
+            add_to_database=True,
+        )
+
+        lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
+        source.resource_id = lid_resource.resource_id
 
         self.pf400_interface.remove_lid(
             source=source,
@@ -250,8 +351,6 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-
-        return ActionSucceeded()
 
     @action(name="replace_lid", description="Replace a lid on a plate")
     def replace_lid(
@@ -271,25 +370,26 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-    ) -> ActionResult:
+    ) -> None:
         """A doc string, but not the actual description of the action."""
-        if self.resource_client:
-            source_resource = self.resource_client.get_resource(source.resource_id)
-            target_resource = self.resource_client.get_resource(target.resource_id)
-            if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors="Resource manager: Lid does not exist at source!"
-                )
-            if target_resource.quantity == 0:
-                return ActionFailed(errors="Resource manager: No plate on target!")
 
-            lid_resource = self.resource_client.init_resource(
-                SlotResourceDefinition(
-                    resource_name="pf400_lid_slot",
-                    owner=self.resource_owner,
-                )
-            )
-            target.resource_id = lid_resource.resource_id
+        if source.resource_id:
+            source_resource = self.resource_client.get_resource(source.resource_id)
+            if source_resource.quantity == 0:
+                raise Exception("Resource manager: Lid does not exist at source!")
+        if target.resource_id:
+            target_resource = self.resource_client.get_resource(target.resource_id)
+            if target_resource.quantity == 0:
+                raise Exception("Resource manager: No plate on target!")
+
+        # Create temporary lid slot from template
+        lid_resource = self.resource_client.create_resource_from_template(
+            template_name="pf400_lid_slot",
+            resource_name="pf400_lid_slot",
+            add_to_database=True,
+        )
+        target.resource_id = lid_resource.resource_id
+
         self.pf400_interface.replace_lid(
             source=source,
             target=target,
@@ -299,10 +399,8 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
         )
-        if self.resource_client:
-            self.resource_client.remove_resource(lid_resource.resource_id)
 
-        return ActionSucceeded()
+        self.resource_client.remove_resource(lid_resource.resource_id)
 
     def pause(self) -> None:
         """Pause the node."""

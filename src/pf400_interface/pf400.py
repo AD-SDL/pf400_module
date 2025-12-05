@@ -67,14 +67,6 @@ class PF400(KINEMATICS):
         status_port: int = 10000,
         robot_id: int = 1,
         mode: int = 0,
-        plate_rotation_location: Optional[list[float]] = [
-            146.5,
-            -33.811,
-            107.957,
-            643.401,
-            82.122,
-            995.051,
-        ],
         resource_client: ResourceClient = None,
         gripper_resource_id: Optional[str] = None,
         logger: Optional[EventClient] = None,
@@ -103,7 +95,6 @@ class PF400(KINEMATICS):
         self.connect()
         self.configure_robot()
         # Plate variables
-        self.plate_rotation_location = plate_rotation_location
 
         # Initialize neutral_joints as an instance attribute
         self.neutral_joints = [
@@ -117,6 +108,9 @@ class PF400(KINEMATICS):
 
         self.set_gripper_open()
         self.set_gripper_close()
+        self.logger.warn(
+            "HARD CODED ROTATION LOCATION IS DEPRECATED, USE rotation_deck WITH TRANSFER METHOD INSTEAD"
+        )
 
     def connect(self) -> None:
         """
@@ -537,7 +531,9 @@ class PF400(KINEMATICS):
                 - Same goal location if there orientation was correct.
         """
         # This will fix plate rotation on the goal location if it was recorded with an incorrect orientation
-        cartesian_goal, phi_source, rail_source = self.forward_kinematics(goal_location)
+        cartesian_goal, _phi_source, _rail_source = self.forward_kinematics(
+            goal_location
+        )
         # Checking yaw angle
         if goal_rotation != 0 and cartesian_goal[3] > -10 and cartesian_goal[3] < 10:
             goal_location = self.set_plate_rotation(goal_location, -goal_rotation)
@@ -700,8 +696,8 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
     ) -> None:
         """Remove the lid from the plate"""
-        source.location = copy.deepcopy(source.location)
-        source.location[0] += lid_height
+        source.representation = copy.deepcopy(source.representation)
+        source.representation[0] += lid_height
 
         self.transfer(
             source=source,
@@ -723,8 +719,8 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
     ) -> None:
         """Replace the lid on the plate"""
-        target.location = copy.deepcopy(target.location)
-        target.location[0] += lid_height
+        target.representation = copy.deepcopy(target.representation)
+        target.representation[0] += lid_height
 
         self.transfer(
             source=source,
@@ -735,12 +731,16 @@ class PF400(KINEMATICS):
             target_plate_rotation=target_plate_rotation,
         )
 
-    def rotate_plate_on_deck(self, rotation_degree: int) -> None:
+    def rotate_plate_on_deck(
+        self, rotation_degree: int, rotation_deck: Optional[LocationArgument] = None
+    ) -> None:
         """
         Description: Uses the rotation deck to rotate the plate between two transfers
         Parameters: - rotation_degree: Rotation degree.
         """
-        target = self.plate_rotation_location
+        if not rotation_deck:
+            raise ValueError("Rotation deck location must be provided.")
+        target = rotation_deck.location
 
         # Fixing the offset on the z axis
         if rotation_degree == -90:
@@ -752,6 +752,19 @@ class PF400(KINEMATICS):
         self.move_joint(above_position, self.slow_motion_profile)
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
+
+        try:
+            if self.resource_client:
+                popped_plate, _updated_resource = self.resource_client.pop(
+                    resource=self.gripper_resource_id
+                )
+                self.resource_client.push(
+                    resource=rotation_deck.resource_id, child=popped_plate
+                )
+        except Exception as e:
+            self.logger.log_error(f"Error during plate rotation: {e}")
+            raise e
+
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
@@ -769,6 +782,19 @@ class PF400(KINEMATICS):
             gripper_open=True,
         )
         self.grab_plate(speed=100, force=10)
+
+        try:
+            if self.resource_client:
+                popped_plate, _updated_resource = self.resource_client.pop(
+                    resource=rotation_deck.resource_id
+                )
+                self.resource_client.push(
+                    resource=self.gripper_resource_id, child=popped_plate
+                )
+        except Exception as e:
+            self.logger.log_error(f"Error during plate rotation: {e}")
+            raise e
+
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
@@ -786,7 +812,9 @@ class PF400(KINEMATICS):
         Returns True if the plate was successfully grabbed, False otherwise.
         """
 
-        above_position = list(map(add, source.location, self.default_approach_vector))
+        above_position = list(
+            map(add, source.representation, self.default_approach_vector)
+        )
         self.open_gripper()
         if source_approach:
             if isinstance(source_approach.location[0], list):
@@ -805,20 +833,20 @@ class PF400(KINEMATICS):
                     profile=self.fast_motion_profile,
                 )
         else:
-            self.move_all_joints_neutral(source.location)
+            self.move_all_joints_neutral(source.representation)
 
         self.move_joint(
             target_joint_angles=above_position, profile=self.fast_motion_profile
         )
         self.move_joint(
-            target_joint_angles=source.location,
+            target_joint_angles=source.representation,
             profile=self.fast_motion_profile,
             gripper_open=True,
         )
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
 
-        if self.resource_client and grab_succeeded:
-            popped_plate, updated_resource = self.resource_client.pop(
+        if self.resource_client and grab_succeeded and source.resource_id:
+            popped_plate, _updated_resource = self.resource_client.pop(
                 resource=source.resource_id
             )
             self.resource_client.push(
@@ -845,7 +873,7 @@ class PF400(KINEMATICS):
                 )
                 self.move_all_joints_neutral(source_approach.location)
         else:
-            self.move_all_joints_neutral(source.location)
+            self.move_all_joints_neutral(source.representation)
         return grab_succeeded
 
     def place_plate(
@@ -857,7 +885,9 @@ class PF400(KINEMATICS):
         """
         Place a plate in the target location
         """
-        above_position = list(map(add, target.location, self.default_approach_vector))
+        above_position = list(
+            map(add, target.representation, self.default_approach_vector)
+        )
         if target_approach:
             if isinstance(target_approach.location[0], list):
                 # Multiple approach locations provided
@@ -875,16 +905,25 @@ class PF400(KINEMATICS):
                     profile=self.fast_motion_profile,
                 )
         else:
-            self.move_all_joints_neutral(target.location)
+            self.move_all_joints_neutral(target.representation)
 
         self.move_joint(above_position, self.slow_motion_profile)
-        self.move_joint(target.location, self.slow_motion_profile)
+        self.move_joint(target.representation, self.slow_motion_profile)
         self.release_plate(width=open_width)
-        if self.resource_client:
-            popped_plate, updated_resource = self.resource_client.pop(
+        if (
+            self.resource_client
+            and len(
+                self.resource_client.get_resource(self.gripper_resource_id).children
+            )
+            > 0
+        ):
+            popped_plate, _updated_resource = self.resource_client.pop(
                 resource=self.gripper_resource_id
             )
-            self.resource_client.push(resource=target.resource_id, child=popped_plate)
+            if target.resource_id:
+                self.resource_client.push(
+                    resource=target.resource_id, child=popped_plate
+                )
 
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
@@ -906,7 +945,7 @@ class PF400(KINEMATICS):
                 self.move_all_joints_neutral(target_approach.location)
 
         else:
-            self.move_all_joints_neutral(target.location)
+            self.move_all_joints_neutral(target.representation)
 
     def transfer(
         self,
@@ -916,6 +955,7 @@ class PF400(KINEMATICS):
         target_approach: LocationArgument = None,
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
+        rotation_deck: Optional[LocationArgument] = None,
     ) -> None:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
@@ -924,9 +964,8 @@ class PF400(KINEMATICS):
                         - target: Target location
                         - source_plate_rotation: narrow or wide
                         - target_plate_rotation: narrow or wide
-
-                Note: Plate rotation defines the rotation of the plate on the deck, not the grabing angle.
-
+                        - rotation_deck: Location for plate rotation deck
+                Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
         """
         source = copy.deepcopy(source)
         target = copy.deepcopy(target)
@@ -946,8 +985,8 @@ class PF400(KINEMATICS):
             plate_source_rotation = 0
             self.grip_wide = False
 
-        source.location = self.check_incorrect_plate_orientation(
-            source.location, plate_source_rotation
+        source.representation = self.check_incorrect_plate_orientation(
+            source.representation, plate_source_rotation
         )
 
         pick_result = self.pick_plate(source=source, source_approach=source_approach)
@@ -966,16 +1005,20 @@ class PF400(KINEMATICS):
             plate_target_rotation = 0
             self.grip_wide = False
 
-        target.location = self.check_incorrect_plate_orientation(
-            target.location, plate_target_rotation
+        target.representation = self.check_incorrect_plate_orientation(
+            target.representation, plate_target_rotation
         )
 
         if plate_source_rotation == 90 and plate_target_rotation == 0:
             # Need a transition from 90 degree to 0 degree
-            self.rotate_plate_on_deck(-plate_source_rotation)
+            self.rotate_plate_on_deck(
+                rotation_degree=-plate_source_rotation, rotation_deck=rotation_deck
+            )
 
         elif plate_source_rotation == 0 and plate_target_rotation == 90:
             # Need a transition from 0 degree to 90 degree
-            self.rotate_plate_on_deck(plate_target_rotation)
+            self.rotate_plate_on_deck(
+                rotation_degree=plate_target_rotation, rotation_deck=rotation_deck
+            )
 
         self.place_plate(target=target, target_approach=target_approach)

@@ -181,6 +181,10 @@ class PF400Node(RestNode):
         rotation_deck: Annotated[
             LocationArgument, "Plate rotation deck location"
         ] = None,
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
     ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 
@@ -206,6 +210,8 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             rotation_deck=rotation_deck if rotation_deck else None,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
 
     @action(name="pick_plate", description="Pick a plate from a source location")
@@ -218,6 +224,10 @@ class PF400Node(RestNode):
         source_plate_rotation: Annotated[
             str, "Orientation of the plate at the source, wide or narrow"
         ] = "",
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
     ) -> None:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         if source.resource_id:
@@ -245,6 +255,8 @@ class PF400Node(RestNode):
         pick_result = self.pf400_interface.pick_plate(
             source=source,
             source_approach=source_approach if source_approach else None,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
         if not pick_result:
             raise Exception(f"Failed to pick plate from location {source}.")
@@ -262,6 +274,10 @@ class PF400Node(RestNode):
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
     ) -> None:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
@@ -291,6 +307,8 @@ class PF400Node(RestNode):
         self.pf400_interface.place_plate(
             target=target,
             target_approach=target_approach if target_approach else None,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
 
     @action(name="remove_lid", description="Remove a lid from a plate")
@@ -311,6 +329,10 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
     ) -> None:
         """Remove a lid from a plate located at location ."""
 
@@ -350,6 +372,8 @@ class PF400Node(RestNode):
             target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
 
     @action(name="replace_lid", description="Replace a lid on a plate")
@@ -370,6 +394,10 @@ class PF400Node(RestNode):
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
     ) -> None:
         """A doc string, but not the actual description of the action."""
 
@@ -398,6 +426,8 @@ class PF400Node(RestNode):
             target_approach=target_approach,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
         )
 
         self.resource_client.remove_resource(lid_resource.resource_id)

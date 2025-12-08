@@ -178,9 +178,7 @@ class PF400Node(RestNode):
         target_plate_rotation: Annotated[
             str, "Final orientation of the plate at the target, wide or narrow"
         ] = "",
-        rotation_deck: Annotated[
-            LocationArgument, "Plate rotation deck location"
-        ] = None,
+        rotation_deck: Optional[LocationArgument] = None,
         grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
         approach_height_offset: Optional[
             Annotated[float, "Add approach height offset"]

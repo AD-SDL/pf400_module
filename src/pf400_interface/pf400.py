@@ -915,7 +915,10 @@ class PF400(KINEMATICS):
             )
 
         self.move_in_one_axis(
-            profile=self.slow_motion_profile, axis_z=self.default_approach_height
+            profile=self.slow_motion_profile,
+            axis_z=self.default_approach_height + approach_height_offset
+            if approach_height_offset
+            else self.default_approach_height,
         )
 
         if source_approach:
@@ -971,7 +974,10 @@ class PF400(KINEMATICS):
                 )
 
         self.move_in_one_axis(
-            profile=self.slow_motion_profile, axis_z=self.default_approach_height
+            profile=self.slow_motion_profile,
+            axis_z=self.default_approach_height + approach_height_offset
+            if approach_height_offset
+            else self.default_approach_height,
         )
 
         if target_approach:

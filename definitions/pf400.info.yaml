@@ -217,7 +217,7 @@ actions:
     blocking: false
     asynchronous: true
 config:
-  node_definition: /Users/dozgulbas/workspace/pf400_module/definitions/pf400.node.yaml
+  node_definition: definitions/pf400.node.yaml
   node_info_path: null
   update_node_files: true
   status_update_interval: 2.0

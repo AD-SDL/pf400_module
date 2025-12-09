@@ -847,16 +847,21 @@ class PF400(KINEMATICS):
             self.move_all_joints_neutral(approach.representation)
 
     def _calculate_above_position(
-        self, position: list, approach_height_offset: Optional[float] = None
+        self,
+        position: list,
+        approach_height_offset: Optional[float] = None,
+        grab_height_offset: Optional[float] = None,
     ) -> list:
         """
         Calculate the position above a target with optional height offset.
         """
+        above_offset = copy.deepcopy(self.default_approach_vector)
+
         if approach_height_offset:
-            above_offset = copy.deepcopy(self.default_approach_vector)
             above_offset[0] += approach_height_offset
-        else:
-            above_offset = self.default_approach_vector
+        if grab_height_offset:
+            above_offset[0] += grab_height_offset
+
         return list(map(add, position, above_offset))
 
     def _apply_grab_offset(self, position: list, grab_offset: float) -> list:
@@ -881,7 +886,7 @@ class PF400(KINEMATICS):
         Returns True if the plate was successfully grabbed, False otherwise.
         """
         above_position = self._calculate_above_position(
-            source.representation, approach_height_offset
+            source.representation, approach_height_offset, grab_offset
         )
         self.open_gripper()
 
@@ -940,7 +945,7 @@ class PF400(KINEMATICS):
         Place a plate in the target location
         """
         above_position = self._calculate_above_position(
-            target.representation, approach_height_offset
+            target.representation, approach_height_offset, grab_offset
         )
 
         if target_approach:
@@ -995,7 +1000,8 @@ class PF400(KINEMATICS):
         target_plate_rotation: str = "",
         rotation_deck: Optional[LocationArgument] = None,
         grab_offset: Optional[float] = None,
-        approach_height_offset: Optional[float] = None,
+        source_approach_height_offset: Optional[float] = None,
+        target_approach_height_offset: Optional[float] = None,
     ) -> None:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
@@ -1008,7 +1014,8 @@ class PF400(KINEMATICS):
                         - target_plate_rotation: narrow or wide
                         - rotation_deck: Location for plate rotation deck
                         - grab_offset: Add grab height offset
-                        - approach_height_offset: Add approach height offset
+                        - source_approach_height_offset: Add source approach height offset
+                        - target_approach_height_offset: Add target approach height offset
 
                 Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
         """
@@ -1038,7 +1045,7 @@ class PF400(KINEMATICS):
             source=source,
             source_approach=source_approach,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            approach_height_offset=source_approach_height_offset,
         )
 
         if not pick_result:
@@ -1075,5 +1082,5 @@ class PF400(KINEMATICS):
             target=target,
             target_approach=target_approach,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            approach_height_offset=target_approach_height_offset,
         )

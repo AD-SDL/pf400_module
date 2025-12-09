@@ -180,8 +180,11 @@ class PF400Node(RestNode):
         ] = "",
         rotation_deck: Optional[LocationArgument] = None,
         grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
+        source_approach_height_offset: Optional[
+            Annotated[float, "Add source approach height offset"]
+        ] = None,
+        target_approach_height_offset: Optional[
+            Annotated[float, "Add target approach height offset"]
         ] = None,
     ) -> None:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
@@ -209,7 +212,8 @@ class PF400Node(RestNode):
             target_plate_rotation=target_plate_rotation,
             rotation_deck=rotation_deck if rotation_deck else None,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
         )
 
     @action(name="pick_plate", description="Pick a plate from a source location")

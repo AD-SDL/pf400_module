@@ -28,6 +28,7 @@ class PF400(KINEMATICS):
 
     slow_motion_profile = 1
     fast_motion_profile = 2
+    straight_motion_profile = 3
 
     gripper_open_wide = 130
     gripper_open_narrow = 90
@@ -383,27 +384,33 @@ class PF400(KINEMATICS):
         joint_angles = self.get_joint_states()
         return joint_angles[4]
 
-    def set_profile(self, profile_dict: dict = {"0": 0}) -> str:
+    def set_profile(self, profile_dict: Optional[dict] = None) -> str:
         """
         Description: Sets and saves the motion profiles (defined in robot data) to the robot.
                                 If user defines a custom profile, this profile will saved onto motion profile 3 on the robot
         Parameters:
                         - profile_dict: Custom motion profile
         """
-        if len(profile_dict) == 1:
+        if profile_dict is None:
             profile1 = "Profile 1"
             for value in MOTION_PROFILES[0].values():
                 profile1 += " " + str(value)
             profile2 = "Profile 2"
             for value in MOTION_PROFILES[1].values():
                 profile2 += " " + str(value)
-            out_msg = self.send_robot_command(profile1)
-            self.send_robot_command(profile2)
-        elif len(profile_dict) == 8:
             profile3 = "Profile 3"
-            for value in profile_dict.values():
+            for value in MOTION_PROFILES[2].values():
                 profile3 += " " + str(value)
+
+            self.send_robot_command(profile1)
+            self.send_robot_command(profile2)
             out_msg = self.send_robot_command(profile3)
+
+        elif len(profile_dict) == 8:
+            profile4 = "Profile 4"
+            for value in profile_dict.values():
+                profile4 += " " + str(value)
+            out_msg = self.send_robot_command(profile4)
         else:
             raise Exception(
                 f"Motion profile takes 8 arguments, {len(profile_dict)} where given"
@@ -910,7 +917,7 @@ class PF400(KINEMATICS):
             self.move_all_joints_neutral(source.representation)
 
         self.move_joint(
-            target_joint_angles=above_position, profile=self.fast_motion_profile
+            target_joint_angles=above_position, profile=self.straight_motion_profile
         )
 
         target_position = (
@@ -920,7 +927,7 @@ class PF400(KINEMATICS):
         )
         self.move_joint(
             target_joint_angles=target_position,
-            profile=self.fast_motion_profile,
+            profile=self.straight_motion_profile,
             gripper_open=True,
         )
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
@@ -934,7 +941,7 @@ class PF400(KINEMATICS):
             )
 
         self.move_in_one_axis(
-            profile=self.slow_motion_profile,
+            profile=self.straight_motion_profile,
             axis_z=self.default_approach_height + approach_height_offset
             if approach_height_offset
             else self.default_approach_height,
@@ -967,14 +974,14 @@ class PF400(KINEMATICS):
         else:
             self.move_all_joints_neutral(target.representation)
 
-        self.move_joint(above_position, self.slow_motion_profile)
+        self.move_joint(above_position, self.straight_motion_profile)
 
         target_position = (
             self._apply_grab_offset(target.representation, grab_offset)
             if grab_offset
             else target.representation
         )
-        self.move_joint(target_position, self.slow_motion_profile)
+        self.move_joint(target_position, self.straight_motion_profile)
         release_succeeded = self.release_plate(width=open_width)
 
         if (
@@ -994,7 +1001,7 @@ class PF400(KINEMATICS):
                 )
 
         self.move_in_one_axis(
-            profile=self.slow_motion_profile,
+            profile=self.straight_motion_profile,
             axis_z=self.default_approach_height + approach_height_offset
             if approach_height_offset
             else self.default_approach_height,

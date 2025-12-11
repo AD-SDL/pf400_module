@@ -379,8 +379,8 @@ class PF400(KINEMATICS):
         coordinates_list = coordinates_list[1:-1]
         return [float(x) for x in coordinates_list]
 
-    def get_gripper_length(self) -> float:
-        """Returns the current length of the gripper."""
+    def get_gripper_position(self) -> float:
+        """Returns the current position of the gripper."""
         joint_angles = self.get_joint_states()
         return joint_angles[4]
 
@@ -467,46 +467,54 @@ class PF400(KINEMATICS):
             f"Unexpected response from GraspPlate command: {grab_plate_status[1]}."
         )
 
-    def release_plate(self, width: int = 130, speed: int = 100) -> bool:
+    def release_plate(self, width: Optional[int] = None, speed: int = 100) -> bool:
         """
         Description:
                 Release the plate
         Parameters:
                 - width: Open width, in mm. Larger than the widest corners of the plates.
+                        If None, uses the default gripper_open value based on grip_wide setting.
                 - speed: Percent speed to open fingers.  1 to 100.
         Returns:
-            A string response from the robot indicating the result of the release command.
+            True if the gripper successfully opened to the target width, False otherwise.
         """
         if width is None:
             width = self.gripper_open
 
         release_plate_status = self.send_robot_command(
-            "ReleasePlate " + str(width) + " " + str(speed)
+            f"ReleasePlate {width} {speed}"
         ).split(" ")
 
-        if release_plate_status[1] == "0":
-            return False
-        if release_plate_status[1] == "-1":
+        if release_plate_status[0] != "0":
+            self.logger.log_error(
+                f"Unexpected response from ReleasePlate: {release_plate_status[0]}"
+            )
+            raise Pf400ResponseError(
+                f"Unexpected response from ReleasePlate command: {release_plate_status[0]}."
+            )
+
+        # Verify gripper opened to target width
+        current_gripper_position = self.get_gripper_position()
+
+        if abs(current_gripper_position - width) <= 1:
             return True
 
         self.logger.log_error(
-            f"Unexpected response from ReleasePlate: {release_plate_status[1]}"
+            f"Gripper failed to open to target width. Expected: {width}, Got: {current_gripper_position}"
         )
-        raise Pf400ResponseError(
-            f"Unexpected response from ReleasePlate command: {release_plate_status[1]}."
-        )
+        return False
 
     def open_gripper(self, gripper_length: Optional[int] = None) -> float:
         """Opens the gripper"""
         self.set_gripper_open(gripper_length=gripper_length)
         self.send_robot_command("gripper 1")
-        return self.get_gripper_length()
+        return self.get_gripper_position()
 
     def close_gripper(self, gripper_length: Optional[int] = None) -> float:
         """Closes the gripper"""
         self.set_gripper_close(gripper_length=gripper_length)
         self.send_robot_command("gripper 2")
-        return self.get_gripper_length()
+        return self.get_gripper_position()
 
     def set_plate_rotation(
         self, joint_states: list[float], rotation_degree: float = 0
@@ -589,7 +597,7 @@ class PF400(KINEMATICS):
         elif gripper_open:
             target_joint_angles[4] = self.gripper_open
         else:
-            target_joint_angles[4] = self.get_gripper_length()
+            target_joint_angles[4] = self.get_gripper_position()
 
         move_command = (
             "movej" + " " + str(profile) + " " + " ".join(map(str, target_joint_angles))
@@ -852,18 +860,25 @@ class PF400(KINEMATICS):
     def _handle_approach_return(self, approach: LocationArgument) -> None:
         """
         Handle returning from an approach location, whether single or multiple.
+        Uses straight motion profile for the first approach location (closest to target),
+        and fast motion profile for remaining approach locations.
         """
         if isinstance(approach.representation[0], list):
-            for location in reversed(approach.representation):
+            for index, location in enumerate(reversed(approach.representation)):
+                motion_profile = (
+                    self.straight_motion_profile
+                    if index == 0
+                    else self.fast_motion_profile
+                )
                 self.move_joint(
                     target_joint_angles=location,
-                    profile=self.fast_motion_profile,
+                    profile=motion_profile,
                 )
             self.move_all_joints_neutral(location)
         else:
             self.move_joint(
                 target_joint_angles=approach.representation,
-                profile=self.fast_motion_profile,
+                profile=self.straight_motion_profile,
             )
             self.move_all_joints_neutral(approach.representation)
 

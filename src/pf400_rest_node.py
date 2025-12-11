@@ -3,6 +3,7 @@
 
 from typing import Annotated, Optional
 
+from madsci.common.types.action_types import ActionFailed
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
 from madsci.common.types.resource_types import Asset, Slot
@@ -186,24 +187,30 @@ class PF400Node(RestNode):
         target_approach_height_offset: Optional[
             Annotated[float, "Add target approach height offset"]
         ] = None,
-    ) -> None:
+    ) -> Optional[ActionFailed]:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
-                raise Exception("Resource manager: Plate does not exist at source!")
+                return ActionFailed(
+                    errors=[
+                        f"Plate does not exist at source location! Resource_id:{source.resource_id}."
+                    ]
+                )
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if (
                 target_resource.quantity != 0
                 and target_resource.resource_id != source_resource.resource_id
             ):
-                raise Exception(
-                    "Resource manager: Target is occupied by another plate!"
+                return ActionFailed(
+                    errors=[
+                        f"Target is occupied by another plate! Resource_id:{target.resource_id}."
+                    ]
                 )
 
-        self.pf400_interface.transfer(
+        transfer_result = self.pf400_interface.transfer(
             source=source,
             target=target,
             source_approach=source_approach if source_approach else None,
@@ -215,6 +222,12 @@ class PF400Node(RestNode):
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
         )
+        if not transfer_result:
+            return ActionFailed(
+                errors=[f"Failed to transfer plate from {source} to {target}."]
+            )
+
+        return None
 
     @action(name="pick_plate", description="Pick a plate from a source location")
     def pick_plate(
@@ -230,12 +243,16 @@ class PF400Node(RestNode):
         approach_height_offset: Optional[
             Annotated[float, "Add approach height offset"]
         ] = None,
-    ) -> None:
+    ) -> Optional[ActionFailed]:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
-                raise Exception("Resource manager: Plate does not exist at source!")
+                return ActionFailed(
+                    errors=[
+                        f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                    ]
+                )
 
         # set plate width for source
         if source_plate_rotation.lower() == "wide":
@@ -245,9 +262,11 @@ class PF400Node(RestNode):
             plate_source_rotation = 0
             self.pf400_interface.grip_wide = False
         else:
-            raise ValueError(
-                f"Invalid source plate rotation: {source_plate_rotation}. "
-                "Expected 'wide', 'narrow', or ''."
+            return ActionFailed(
+                errors=[
+                    f"Invalid source plate rotation: {source_plate_rotation}. "
+                    "Expected 'wide', 'narrow', or ''."
+                ]
             )
 
         source.representation = self.pf400_interface.check_incorrect_plate_orientation(
@@ -261,7 +280,10 @@ class PF400Node(RestNode):
             approach_height_offset=approach_height_offset,
         )
         if not pick_result:
-            raise Exception(f"Failed to pick plate from location {source}.")
+            return ActionFailed(
+                errors=[f"Failed to pick plate from location {source}."]
+            )
+        return None
 
     @action(
         name="place_plate",
@@ -280,14 +302,16 @@ class PF400Node(RestNode):
         approach_height_offset: Optional[
             Annotated[float, "Add approach height offset"]
         ] = None,
-    ) -> None:
+    ) -> Optional[ActionFailed]:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
-                raise Exception(
-                    "Resource manager: Target is occupied by another plate!"
+                return ActionFailed(
+                    errors=[
+                        "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                    ]
                 )
 
         if target_plate_rotation.lower() == "wide":
@@ -297,21 +321,27 @@ class PF400Node(RestNode):
             plate_target_rotation = 0
             self.pf400_interface.grip_wide = False
         else:
-            raise ValueError(
-                f"Invalid target plate rotation: {target_plate_rotation}. "
-                "Expected 'wide', 'narrow', or ''."
+            return ActionFailed(
+                errors=[
+                    f"Invalid target plate rotation: {target_plate_rotation}. "
+                    "Expected 'wide', 'narrow', or ''."
+                ]
             )
 
         target.representation = self.pf400_interface.check_incorrect_plate_orientation(
             target.representation, plate_target_rotation
         )
 
-        self.pf400_interface.place_plate(
+        place_result = self.pf400_interface.place_plate(
             target=target,
             target_approach=target_approach if target_approach else None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )
+        if not place_result:
+            return ActionFailed("Transfer failed: plate not released properly.")
+
+        return None
 
     @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
@@ -335,18 +365,20 @@ class PF400Node(RestNode):
         approach_height_offset: Optional[
             Annotated[float, "Add approach height offset"]
         ] = None,
-    ) -> None:
+    ) -> Optional[ActionFailed]:
         """Remove a lid from a plate located at location ."""
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
-                raise Exception("Resource manager: Plate does not exist at source!")
+                return ActionFailed(
+                    "Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                )
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
-                raise Exception(
-                    "Resource manager: Target is occupied by another plate!"
+                return ActionFailed(
+                    "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
                 )
 
         # Extract id of plate resource at source
@@ -382,6 +414,7 @@ class PF400Node(RestNode):
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )
+        return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
     def replace_lid(
@@ -405,17 +438,21 @@ class PF400Node(RestNode):
         approach_height_offset: Optional[
             Annotated[float, "Add approach height offset"]
         ] = None,
-    ) -> None:
+    ) -> Optional[ActionFailed]:
         """A doc string, but not the actual description of the action."""
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
-                raise Exception("Resource manager: Lid does not exist at source!")
+                return ActionFailed(
+                    "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
+                )
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity == 0:
-                raise Exception("Resource manager: No plate on target!")
+                return ActionFailed(
+                    "Resource manager: No plate on target! Resource_id:{target.resource_id}."
+                )
 
         # Create temporary lid slot from template
         lid_resource = self.resource_client.create_resource_from_template(
@@ -438,6 +475,8 @@ class PF400Node(RestNode):
         )
 
         self.resource_client.remove_resource(lid_resource.resource_id)
+
+        return None
 
     def pause(self) -> None:
         """Pause the node."""

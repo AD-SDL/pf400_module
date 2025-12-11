@@ -460,7 +460,7 @@ class PF400(KINEMATICS):
             f"Unexpected response from GraspPlate command: {grab_plate_status[1]}."
         )
 
-    def release_plate(self, width: int = 130, speed: int = 100) -> str:
+    def release_plate(self, width: int = 130, speed: int = 100) -> bool:
         """
         Description:
                 Release the plate
@@ -473,7 +473,21 @@ class PF400(KINEMATICS):
         if width is None:
             width = self.gripper_open
 
-        return self.send_robot_command("ReleasePlate " + str(width) + " " + str(speed))
+        release_plate_status = self.send_robot_command(
+            "ReleasePlate " + str(width) + " " + str(speed)
+        ).split(" ")
+
+        if release_plate_status[1] == "0":
+            return False
+        if release_plate_status[1] == "-1":
+            return True
+
+        self.logger.log_error(
+            f"Unexpected response from ReleasePlate: {release_plate_status[1]}"
+        )
+        raise Pf400ResponseError(
+            f"Unexpected response from ReleasePlate command: {release_plate_status[1]}."
+        )
 
     def open_gripper(self, gripper_length: Optional[int] = None) -> float:
         """Opens the gripper"""
@@ -940,7 +954,7 @@ class PF400(KINEMATICS):
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
         open_width: Optional[int] = None,
-    ) -> None:
+    ) -> bool:
         """
         Place a plate in the target location
         """
@@ -961,10 +975,11 @@ class PF400(KINEMATICS):
             else target.representation
         )
         self.move_joint(target_position, self.slow_motion_profile)
-        self.release_plate(width=open_width)
+        release_succeeded = self.release_plate(width=open_width)
 
         if (
             self.resource_client
+            and release_succeeded
             and len(
                 self.resource_client.get_resource(self.gripper_resource_id).children
             )
@@ -990,6 +1005,8 @@ class PF400(KINEMATICS):
         else:
             self.move_all_joints_neutral(target.representation)
 
+        return release_succeeded
+
     def transfer(
         self,
         source: LocationArgument,
@@ -1002,7 +1019,7 @@ class PF400(KINEMATICS):
         grab_offset: Optional[float] = None,
         source_approach_height_offset: Optional[float] = None,
         target_approach_height_offset: Optional[float] = None,
-    ) -> None:
+    ) -> bool:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
                 Parameters:
@@ -1021,6 +1038,8 @@ class PF400(KINEMATICS):
         """
         source = copy.deepcopy(source)
         target = copy.deepcopy(target)
+
+        # Validate rotation arguments
         for rotation_arg in [source_plate_rotation, target_plate_rotation]:
             if rotation_arg.lower() not in ["wide", "narrow", ""]:
                 raise ValueError(
@@ -1028,14 +1047,9 @@ class PF400(KINEMATICS):
                     "Expected 'wide', 'narrow', or ''."
                 )
 
-        # set plate width for source
-        if source_plate_rotation.lower() == "wide":
-            plate_source_rotation = 90
-            self.grip_wide = True
-
-        elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
-            plate_source_rotation = 0
-            self.grip_wide = False
+        # Determine source rotation (0 or 90 degrees)
+        plate_source_rotation = 90 if source_plate_rotation.lower() == "wide" else 0
+        self.grip_wide = source_plate_rotation.lower() == "wide"
 
         source.representation = self.check_incorrect_plate_orientation(
             source.representation, plate_source_rotation
@@ -1051,36 +1065,31 @@ class PF400(KINEMATICS):
         if not pick_result:
             self.move_all_joints_neutral()
             sleep(5)
-            raise Exception("Transfer failed: no plate detected after picking.")
+            self.logger.error("Transfer failed: no plate detected after picking.")
+            return False
 
-        # set plate width for target
-        if target_plate_rotation.lower() == "wide":
-            plate_target_rotation = 90
-            self.grip_wide = True
-
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
-            plate_target_rotation = 0
-            self.grip_wide = False
-
+        # Determine target rotation (0 or 90 degrees)
+        plate_target_rotation = 90 if target_plate_rotation.lower() == "wide" else 0
+        self.grip_wide = target_plate_rotation.lower() == "wide"
         target.representation = self.check_incorrect_plate_orientation(
             target.representation, plate_target_rotation
         )
 
-        if plate_source_rotation == 90 and plate_target_rotation == 0:
-            # Need a transition from 90 degree to 0 degree
+        # Rotate plate if needed
+        rotation_needed = plate_target_rotation - plate_source_rotation
+        if rotation_needed != 0:
             self.rotate_plate_on_deck(
-                rotation_degree=-plate_source_rotation, rotation_deck=rotation_deck
+                rotation_degree=rotation_needed, rotation_deck=rotation_deck
             )
 
-        elif plate_source_rotation == 0 and plate_target_rotation == 90:
-            # Need a transition from 0 degree to 90 degree
-            self.rotate_plate_on_deck(
-                rotation_degree=plate_target_rotation, rotation_deck=rotation_deck
-            )
-
-        self.place_plate(
+        place_result = self.place_plate(
             target=target,
             target_approach=target_approach,
             grab_offset=grab_offset,
             approach_height_offset=target_approach_height_offset,
         )
+        if not place_result:
+            self.logger.error("Transfer failed: plate not released properly.")
+            return False
+
+        return True

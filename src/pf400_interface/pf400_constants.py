@@ -29,7 +29,7 @@ MOTION_PROFILES = [
         "straight": 0,
     },
     {
-        "speed": 30,
+        "speed": 70,
         "speed2": 0,
         "acceleration": 50,
         "deceleration": 50,

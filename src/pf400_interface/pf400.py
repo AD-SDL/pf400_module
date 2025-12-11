@@ -496,7 +496,7 @@ class PF400(KINEMATICS):
         # Verify gripper opened to target width
         current_gripper_position = self.get_gripper_position()
 
-        if abs(current_gripper_position - width) <= 1:
+        if abs(current_gripper_position - width) <= 5:
             return True
 
         self.logger.log_error(

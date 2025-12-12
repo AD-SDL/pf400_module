@@ -387,7 +387,7 @@ class PF400(KINEMATICS):
     def set_profile(self, profile_dict: Optional[dict] = None) -> str:
         """
         Description: Sets and saves the motion profiles (defined in robot data) to the robot.
-                                If user defines a custom profile, this profile will saved onto motion profile 3 on the robot
+                                If user defines a custom profile, this profile will saved onto motion profile 4 on the robot
         Parameters:
                         - profile_dict: Custom motion profile
         """

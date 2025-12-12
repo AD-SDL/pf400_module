@@ -49,7 +49,7 @@ class PF400(KINEMATICS):
         0.0,
         0.0,
     ]
-
+    default_lid_height = 7.0
     movement_state = 0
 
     robot_connection = None
@@ -718,7 +718,7 @@ class PF400(KINEMATICS):
         self,
         source: LocationArgument,
         target: LocationArgument,
-        lid_height: float = 7.0,
+        lid_height: Optional[float] = None,
         source_approach: LocationArgument = None,
         target_approach: LocationArgument = None,
         source_plate_rotation: str = "",
@@ -727,6 +727,9 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
     ) -> None:
         """Remove the lid from the plate"""
+        if not lid_height:
+            lid_height = self.default_lid_height
+
         source.representation = copy.deepcopy(source.representation)
         source.representation[0] += lid_height
 
@@ -745,7 +748,7 @@ class PF400(KINEMATICS):
         self,
         source: LocationArgument,
         target: LocationArgument,
-        lid_height: float = 7.0,
+        lid_height: Optional[float] = None,
         source_approach: LocationArgument = None,
         target_approach: LocationArgument = None,
         source_plate_rotation: str = "",
@@ -754,6 +757,9 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
     ) -> None:
         """Replace the lid on the plate"""
+        if lid_height is None:
+            lid_height = self.default_lid_height
+
         target.representation = copy.deepcopy(target.representation)
         target.representation[0] += lid_height
 

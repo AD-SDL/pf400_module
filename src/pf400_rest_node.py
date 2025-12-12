@@ -160,6 +160,53 @@ class PF400Node(RestNode):
                     "current_joint_angles": current_location,
                 }
 
+    def _parse_location_representation(
+        self, location: LocationArgument
+    ) -> tuple[LocationArgument, Optional[LocationArgument], Optional[str]]:
+        """
+        Parse a LocationArgument that may have a dictionary representation.
+
+        Expected dictionary structure:
+        {
+            "location": [x, y, z, rx, ry, rz],  # 6-digit list
+            "approach": [x, y, z, rx, ry, rz] or [[...], [...]]  # single or multiple approach locations
+            "plate_rotation": "wide" or "narrow"  # optional plate rotation
+        }
+
+        Returns:
+            tuple: (location_arg_with_list_repr, approach_location_arg or None, plate_rotation or None)
+        """
+        if not isinstance(location.representation, dict):
+            return location, None, None
+
+        repr_dict = location.representation
+
+        if "location" not in repr_dict:
+            raise ValueError(
+                "LocationArgument representation dictionary must contain 'location' key"
+            )
+
+        location_repr = repr_dict["location"]
+        approach_repr = repr_dict.get("approach", None)
+        plate_rotation = repr_dict.get("plate_rotation", None)
+
+        parsed_location = LocationArgument(
+            representation=location_repr,
+            resource_id=location.resource_id,
+            location_name=location.location_name,
+            reservation=location.reservation,
+        )
+
+        parsed_approach = None
+        if approach_repr is not None:
+            parsed_approach = LocationArgument(
+                representation=approach_repr,
+                resource_id=None,
+                location_name=None,
+            )
+
+        return parsed_location, parsed_approach, plate_rotation
+
     @action(
         name="transfer", description="Transfer a plate from one location to another"
     )
@@ -167,28 +214,12 @@ class PF400Node(RestNode):
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
-        source_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        target_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        source_plate_rotation: Annotated[
-            str, "Orientation of the plate at the source, wide or narrow"
-        ] = "",
-        target_plate_rotation: Annotated[
-            str, "Final orientation of the plate at the target, wide or narrow"
-        ] = "",
         rotation_deck: Optional[LocationArgument] = None,
-        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        source_approach_height_offset: Optional[
-            Annotated[float, "Add source approach height offset"]
-        ] = None,
-        target_approach_height_offset: Optional[
-            Annotated[float, "Add target approach height offset"]
-        ] = None,
     ) -> Optional[ActionFailed]:
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
+
+        grab_height_offset = None
+        approach_height_offset = None
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
@@ -198,6 +229,16 @@ class PF400Node(RestNode):
                         f"Plate does not exist at source location! Resource_id:{source.resource_id}."
                     ]
                 )
+            if source_resource.children:
+                plate_resource = source_resource.children[-1]
+                if plate_resource.attributes:
+                    grab_height_offset = plate_resource.attributes.get(
+                        "grab_height_offset", None
+                    )
+                    approach_height_offset = plate_resource.attributes.get(
+                        "approach_height_offset", None
+                    )
+
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if (
@@ -209,18 +250,33 @@ class PF400Node(RestNode):
                         f"Target is occupied by another plate! Resource_id:{target.resource_id}."
                     ]
                 )
+        try:
+            parsed_source, source_approach, source_rotation_from_dict = (
+                self._parse_location_representation(source)
+            )
+            parsed_target, target_approach, target_rotation_from_dict = (
+                self._parse_location_representation(target)
+            )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
+            )
 
         transfer_result = self.pf400_interface.transfer(
-            source=source,
-            target=target,
-            source_approach=source_approach if source_approach else None,
-            target_approach=target_approach if target_approach else None,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-            rotation_deck=rotation_deck if rotation_deck else None,
-            grab_offset=grab_offset,
-            source_approach_height_offset=source_approach_height_offset,
-            target_approach_height_offset=target_approach_height_offset,
+            source=parsed_source,
+            target=parsed_target,
+            source_approach=source_approach,
+            target_approach=target_approach,
+            source_plate_rotation=source_rotation_from_dict
+            if source_rotation_from_dict is not None
+            else "",
+            target_plate_rotation=target_rotation_from_dict
+            if target_rotation_from_dict is not None
+            else "",
+            rotation_deck=rotation_deck,
+            grab_offset=grab_height_offset,
+            source_approach_height_offset=approach_height_offset,
+            target_approach_height_offset=approach_height_offset,
         )
         if not transfer_result:
             return ActionFailed(
@@ -233,18 +289,11 @@ class PF400Node(RestNode):
     def pick_plate(
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
-        source_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        source_plate_rotation: Annotated[
-            str, "Orientation of the plate at the source, wide or narrow"
-        ] = "",
-        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
-        ] = None,
     ) -> Optional[ActionFailed]:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
+        grab_height_offset = None
+        approach_height_offset = None
+
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
@@ -253,35 +302,59 @@ class PF400Node(RestNode):
                         f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
                     ]
                 )
+            if source_resource.children:
+                plate_resource = source_resource.children[-1]
+                if plate_resource.attributes:
+                    grab_height_offset = plate_resource.attributes.get(
+                        "grab_height_offset", None
+                    )
+                    approach_height_offset = plate_resource.attributes.get(
+                        "approach_height_offset", None
+                    )
+
+        try:
+            parsed_source, source_approach, source_rotation_from_dict = (
+                self._parse_location_representation(source)
+            )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
+            )
+
+        source_rotation = (
+            source_rotation_from_dict if source_rotation_from_dict is not None else ""
+        )
 
         # set plate width for source
-        if source_plate_rotation.lower() == "wide":
+        if source_rotation.lower() == "wide":
             plate_source_rotation = 90
             self.pf400_interface.grip_wide = True
-        elif source_plate_rotation.lower() == "narrow" or source_plate_rotation == "":
+        elif source_rotation.lower() == "narrow" or source_rotation == "":
             plate_source_rotation = 0
             self.pf400_interface.grip_wide = False
         else:
             return ActionFailed(
                 errors=[
-                    f"Invalid source plate rotation: {source_plate_rotation}. "
+                    f"Invalid source plate rotation: {source_rotation}. "
                     "Expected 'wide', 'narrow', or ''."
                 ]
             )
 
-        source.representation = self.pf400_interface.check_incorrect_plate_orientation(
-            source.representation, plate_source_rotation
+        parsed_source.representation = (
+            self.pf400_interface.check_incorrect_plate_orientation(
+                parsed_source.representation, plate_source_rotation
+            )
         )
 
         pick_result = self.pf400_interface.pick_plate(
-            source=source,
-            source_approach=source_approach if source_approach else None,
-            grab_offset=grab_offset,
+            source=parsed_source,
+            source_approach=source_approach,
+            grab_offset=grab_height_offset,
             approach_height_offset=approach_height_offset,
         )
         if not pick_result:
             return ActionFailed(
-                errors=[f"Failed to pick plate from location {source}."]
+                errors=[f"Failed to pick plate from location {parsed_source}."]
             )
         return None
 
@@ -292,16 +365,6 @@ class PF400Node(RestNode):
     def place_plate(
         self,
         target: Annotated[LocationArgument, "Location to place a plate to"],
-        target_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        target_plate_rotation: Annotated[
-            str, "Final orientation of the plate at the target, wide or narrow"
-        ] = "",
-        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
-        ] = None,
     ) -> Optional[ActionFailed]:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
@@ -313,17 +376,43 @@ class PF400Node(RestNode):
                         "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
                     ]
                 )
+        if self.gripper_resource.resource_id:
+            gripper_resource = self.resource_client.get_resource(
+                self.gripper_resource.resource_id
+            )
+            if gripper_resource.quantity > 0 and gripper_resource.children:
+                plate_in_gripper = gripper_resource.children[-1]
+                if plate_in_gripper.attributes:
+                    grab_height_offset = plate_in_gripper.attributes.get(
+                        "grab_height_offset", None
+                    )
+                    approach_height_offset = plate_in_gripper.attributes.get(
+                        "approach_height_offset", None
+                    )
 
-        if target_plate_rotation.lower() == "wide":
+        try:
+            parsed_target, target_approach, target_rotation_from_dict = (
+                self._parse_location_representation(target)
+            )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
+            )
+
+        target_rotation = (
+            target_rotation_from_dict if target_rotation_from_dict is not None else ""
+        )
+
+        if target_rotation.lower() == "wide":
             plate_target_rotation = 90
             self.pf400_interface.grip_wide = True
-        elif target_plate_rotation.lower() == "narrow" or target_plate_rotation == "":
+        elif target_rotation.lower() == "narrow" or target_rotation == "":
             plate_target_rotation = 0
             self.pf400_interface.grip_wide = False
         else:
             return ActionFailed(
                 errors=[
-                    f"Invalid target plate rotation: {target_plate_rotation}. "
+                    f"Invalid target plate rotation: {target_rotation}. "
                     "Expected 'wide', 'narrow', or ''."
                 ]
             )
@@ -333,9 +422,9 @@ class PF400Node(RestNode):
         )
 
         place_result = self.pf400_interface.place_plate(
-            target=target,
-            target_approach=target_approach if target_approach else None,
-            grab_offset=grab_offset,
+            target=parsed_target,
+            target_approach=target_approach,
+            grab_offset=grab_height_offset,
             approach_height_offset=approach_height_offset,
         )
         if not place_result:
@@ -344,76 +433,113 @@ class PF400Node(RestNode):
         return None
 
     @action(name="remove_lid", description="Remove a lid from a plate")
-    def remove_lid(
+    def remove_lid(  # noqa: C901
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
-        source_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        target_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        source_plate_rotation: Annotated[
-            str, "Orientation of the plate at the source, wide or narrow"
-        ] = "",
-        target_plate_rotation: Annotated[
-            str, "Final orientation of the plate at the target, wide or narrow"
-        ] = "",
-        lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
-        ] = None,
     ) -> Optional[ActionFailed]:
-        """Remove a lid from a plate located at location ."""
+        """Remove a lid from a plate located at location."""
+
+        grab_height_offset = None
+        approach_height_offset = None
+        resource_lid_height = None
+        plate_resource = None
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
                 return ActionFailed(
-                    "Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                    errors=[
+                        f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                    ]
                 )
+
+            if source_resource.children:
+                plate_resource = source_resource.children[-1]
+                if plate_resource.attributes:
+                    has_lid = plate_resource.attributes.get("has_lid", None)
+
+                    if has_lid is None:
+                        self.logger.log_warning(
+                            "Continuing without resource validation for lids - 'has_lid' attribute not found in resource"
+                        )
+                    elif has_lid is False:
+                        return ActionFailed(
+                            errors=[
+                                f"Resource manager: Plate at source does not have a lid! Resource_id:{source.resource_id}."
+                            ]
+                        )
+
+                    grab_height_offset = plate_resource.attributes.get(
+                        "grab_height_offset", None
+                    )
+                    approach_height_offset = plate_resource.attributes.get(
+                        "approach_height_offset", None
+                    )
+                    resource_lid_height = plate_resource.attributes.get(
+                        "lid_height", None
+                    )
+
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
                 return ActionFailed(
-                    "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                    errors=[
+                        f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                    ]
                 )
 
-        # Extract id of plate resource at source
-        plate_resource_id = self.resource_client.get_resource(
-            source.resource_id
-        ).child.resource_id
-
-        # Create temporary lid slot from template
         lid_resource = self.resource_client.create_resource_from_template(
             template_name="pf400_lid_slot",
             resource_name="pf400_lid_slot",
             add_to_database=True,
         )
 
-        # Create lid asset from template
         lid = self.resource_client.create_resource_from_template(
             template_name="plate_lid",
-            resource_name=f"Lid_from_{plate_resource_id}",
+            resource_name=f"Lid_from_{plate_resource.resource_id}",
             add_to_database=True,
         )
 
         lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
-        source.resource_id = lid_resource.resource_id
+
+        try:
+            parsed_source, source_approach, source_rotation_from_dict = (
+                self._parse_location_representation(source)
+            )
+            parsed_target, target_approach, target_rotation_from_dict = (
+                self._parse_location_representation(target)
+            )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
+            )
+
+        final_source_rotation = (
+            source_rotation_from_dict if source_rotation_from_dict is not None else ""
+        )
+        final_target_rotation = (
+            target_rotation_from_dict if target_rotation_from_dict is not None else ""
+        )
+
+        parsed_source.resource_id = lid_resource.resource_id
 
         self.pf400_interface.remove_lid(
-            source=source,
-            target=target,
-            lid_height=lid_height,
+            source=parsed_source,
+            target=parsed_target,
+            lid_height=resource_lid_height,
             source_approach=source_approach,
             target_approach=target_approach,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-            grab_offset=grab_offset,
+            source_plate_rotation=final_source_rotation,
+            target_plate_rotation=final_target_rotation,
+            grab_offset=grab_height_offset,
             approach_height_offset=approach_height_offset,
         )
+
+        if plate_resource and plate_resource.attributes:
+            plate_resource.attributes["has_lid"] = False
+            self.resource_client.update_resource(plate_resource)
+
         return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
@@ -421,25 +547,11 @@ class PF400Node(RestNode):
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
-        source_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        target_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        source_plate_rotation: Annotated[
-            str, "Orientation of the plate at the source, wide or narrow"
-        ] = "",
-        target_plate_rotation: Annotated[
-            str, "Final orientation of the plate at the target, wide or narrow"
-        ] = "",
-        lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
-        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
-        ] = None,
     ) -> Optional[ActionFailed]:
         """A doc string, but not the actual description of the action."""
+        grab_height_offset = None
+        approach_height_offset = None
+        resource_lid_height = None
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
@@ -447,11 +559,24 @@ class PF400Node(RestNode):
                 return ActionFailed(
                     "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
                 )
+            if source_resource.children:
+                lid_resource_child = source_resource.children[-1]
+                if lid_resource_child.attributes:
+                    grab_height_offset = lid_resource_child.attributes.get(
+                        "grab_height_offset", None
+                    )
+                    approach_height_offset = lid_resource_child.attributes.get(
+                        "approach_height_offset", None
+                    )
+                    resource_lid_height = lid_resource_child.attributes.get(
+                        "lid_height", None
+                    )
+
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity == 0:
                 return ActionFailed(
-                    "Resource manager: No plate on target! Resource_id:{target.resource_id}."
+                    f"Resource manager: No plate on target! Resource_id:{target.resource_id}."
                 )
 
         # Create temporary lid slot from template
@@ -460,21 +585,44 @@ class PF400Node(RestNode):
             resource_name="pf400_lid_slot",
             add_to_database=True,
         )
-        target.resource_id = lid_resource.resource_id
+
+        try:
+            parsed_source, source_approach, source_rotation_from_dict = (
+                self._parse_location_representation(source)
+            )
+            parsed_target, target_approach, target_rotation_from_dict = (
+                self._parse_location_representation(target)
+            )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
+            )
+
+        parsed_target.resource_id = lid_resource.resource_id
 
         self.pf400_interface.replace_lid(
-            source=source,
-            target=target,
-            lid_height=lid_height,
+            source=parsed_source,
+            target=parsed_target,
+            lid_height=resource_lid_height,
             source_approach=source_approach,
             target_approach=target_approach,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-            grab_offset=grab_offset,
+            source_plate_rotation=source_rotation_from_dict
+            if source_rotation_from_dict is not None
+            else "",
+            target_plate_rotation=target_rotation_from_dict
+            if target_rotation_from_dict is not None
+            else "",
+            grab_offset=grab_height_offset,
             approach_height_offset=approach_height_offset,
         )
 
         self.resource_client.remove_resource(lid_resource.resource_id)
+
+        if target.resource_id and target_resource.children:
+            plate_resource = target_resource.children[-1]
+            if plate_resource.attributes:
+                plate_resource.attributes["has_lid"] = True
+                self.resource_client.update_resource(plate_resource)
 
         return None
 

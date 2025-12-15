@@ -387,7 +387,7 @@ class PF400(KINEMATICS):
     def set_profile(self, profile_dict: Optional[dict] = None) -> str:
         """
         Description: Sets and saves the motion profiles (defined in robot data) to the robot.
-                                If user defines a custom profile, this profile will saved onto motion profile 3 on the robot
+                                If user defines a custom profile, this profile will saved onto motion profile 4 on the robot
         Parameters:
                         - profile_dict: Custom motion profile
         """
@@ -934,11 +934,13 @@ class PF400(KINEMATICS):
 
         if source_approach:
             self._handle_approach_location(source_approach)
+            approach_motion_profile = self.straight_motion_profile
         else:
             self.move_all_joints_neutral(source.representation)
+            approach_motion_profile = self.fast_motion_profile
 
         self.move_joint(
-            target_joint_angles=above_position, profile=self.straight_motion_profile
+            target_joint_angles=above_position, profile=approach_motion_profile
         )
 
         target_position = (
@@ -948,7 +950,7 @@ class PF400(KINEMATICS):
         )
         self.move_joint(
             target_joint_angles=target_position,
-            profile=self.straight_motion_profile,
+            profile=approach_motion_profile,
             gripper_open=True,
         )
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
@@ -962,7 +964,7 @@ class PF400(KINEMATICS):
             )
 
         self.move_in_one_axis(
-            profile=self.straight_motion_profile,
+            profile=self.slow_motion_profile,
             axis_z=self.default_approach_height + approach_height_offset
             if approach_height_offset
             else self.default_approach_height,
@@ -992,17 +994,19 @@ class PF400(KINEMATICS):
 
         if target_approach:
             self._handle_approach_location(target_approach)
+            approach_motion_profile = self.straight_motion_profile
         else:
             self.move_all_joints_neutral(target.representation)
+            approach_motion_profile = self.slow_motion_profile
 
-        self.move_joint(above_position, self.straight_motion_profile)
+        self.move_joint(above_position, approach_motion_profile)
 
         target_position = (
             self._apply_grab_offset(target.representation, grab_offset)
             if grab_offset
             else target.representation
         )
-        self.move_joint(target_position, self.straight_motion_profile)
+        self.move_joint(target_position, approach_motion_profile)
         release_succeeded = self.release_plate(width=open_width)
 
         if (
@@ -1022,7 +1026,7 @@ class PF400(KINEMATICS):
                 )
 
         self.move_in_one_axis(
-            profile=self.straight_motion_profile,
+            profile=self.fast_motion_profile,
             axis_z=self.default_approach_height + approach_height_offset
             if approach_height_offset
             else self.default_approach_height,

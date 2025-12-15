@@ -162,22 +162,30 @@ class PF400Node(RestNode):
 
     def _parse_location_representation(
         self, location: LocationArgument
-    ) -> tuple[LocationArgument, Optional[LocationArgument], Optional[str]]:
+    ) -> tuple[
+        LocationArgument,
+        Optional[LocationArgument],
+        Optional[str],
+        Optional[float],
+        Optional[float],
+    ]:
         """
         Parse a LocationArgument that may have a dictionary representation.
 
         Expected dictionary structure:
         {
-            "location": [x, y, z, rx, ry, rz],  # 6-digit list
-            "approach": [x, y, z, rx, ry, rz] or [[...], [...]]  # single or multiple approach locations
+            "location": 6-digit list,
+            "approach": single or multiple approach locations,
             "plate_rotation": "wide" or "narrow"  # optional plate rotation
+            "approach_height_offset": float  # optional approach height offset
+            "height_limit": float  # optional height limit for validation
         }
 
         Returns:
-            tuple: (location_arg_with_list_repr, approach_location_arg or None, plate_rotation or None)
+            tuple: (location_arg_with_list_repr, approach_location_arg or None, plate_rotation or None, approach_height_offset or None, height_limit or None)
         """
         if not isinstance(location.representation, dict):
-            return location, None, None
+            return location, None, None, None, None
 
         repr_dict = location.representation
 
@@ -189,6 +197,8 @@ class PF400Node(RestNode):
         location_repr = repr_dict["location"]
         approach_repr = repr_dict.get("approach", None)
         plate_rotation = repr_dict.get("plate_rotation", None)
+        approach_height_offset = repr_dict.get("approach_height_offset", None)
+        height_limit = repr_dict.get("height_limit", None)
 
         parsed_location = LocationArgument(
             representation=location_repr,
@@ -205,7 +215,13 @@ class PF400Node(RestNode):
                 location_name=None,
             )
 
-        return parsed_location, parsed_approach, plate_rotation
+        return (
+            parsed_location,
+            parsed_approach,
+            plate_rotation,
+            approach_height_offset,
+            height_limit,
+        )
 
     @action(
         name="transfer", description="Transfer a plate from one location to another"
@@ -219,7 +235,6 @@ class PF400Node(RestNode):
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 
         grab_height_offset = None
-        approach_height_offset = None
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
@@ -235,9 +250,6 @@ class PF400Node(RestNode):
                     grab_height_offset = plate_resource.attributes.get(
                         "grab_height_offset", None
                     )
-                    approach_height_offset = plate_resource.attributes.get(
-                        "approach_height_offset", None
-                    )
 
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
@@ -251,12 +263,20 @@ class PF400Node(RestNode):
                     ]
                 )
         try:
-            parsed_source, source_approach, source_rotation_from_dict = (
-                self._parse_location_representation(source)
-            )
-            parsed_target, target_approach, target_rotation_from_dict = (
-                self._parse_location_representation(target)
-            )
+            (
+                parsed_source,
+                source_approach,
+                source_rotation_from_dict,
+                source_approach_height_offset,
+                source_height_limit,
+            ) = self._parse_location_representation(source)
+            (
+                parsed_target,
+                target_approach,
+                target_rotation_from_dict,
+                target_approach_height_offset,
+                target_height_limit,
+            ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
@@ -267,16 +287,14 @@ class PF400Node(RestNode):
             target=parsed_target,
             source_approach=source_approach,
             target_approach=target_approach,
-            source_plate_rotation=source_rotation_from_dict
-            if source_rotation_from_dict is not None
-            else "",
-            target_plate_rotation=target_rotation_from_dict
-            if target_rotation_from_dict is not None
-            else "",
+            source_plate_rotation=source_rotation_from_dict,
+            target_plate_rotation=target_rotation_from_dict,
             rotation_deck=rotation_deck,
             grab_offset=grab_height_offset,
-            source_approach_height_offset=approach_height_offset,
-            target_approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
+            source_height_limit=source_height_limit,
+            target_height_limit=target_height_limit,
         )
         if not transfer_result:
             return ActionFailed(
@@ -292,7 +310,6 @@ class PF400Node(RestNode):
     ) -> Optional[ActionFailed]:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         grab_height_offset = None
-        approach_height_offset = None
 
         if source.resource_id:
             source_resource = self.resource_client.get_resource(source.resource_id)
@@ -308,37 +325,28 @@ class PF400Node(RestNode):
                     grab_height_offset = plate_resource.attributes.get(
                         "grab_height_offset", None
                     )
-                    approach_height_offset = plate_resource.attributes.get(
-                        "approach_height_offset", None
-                    )
 
         try:
-            parsed_source, source_approach, source_rotation_from_dict = (
-                self._parse_location_representation(source)
-            )
+            (
+                parsed_source,
+                source_approach,
+                source_rotation_from_dict,
+                source_approach_height_offset,
+                source_height_limit,
+            ) = self._parse_location_representation(source)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        source_rotation = (
-            source_rotation_from_dict if source_rotation_from_dict is not None else ""
+        plate_source_rotation = (
+            90
+            if source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
+            else 0
         )
-
-        # set plate width for source
-        if source_rotation.lower() == "wide":
-            plate_source_rotation = 90
-            self.pf400_interface.grip_wide = True
-        elif source_rotation.lower() == "narrow" or source_rotation == "":
-            plate_source_rotation = 0
-            self.pf400_interface.grip_wide = False
-        else:
-            return ActionFailed(
-                errors=[
-                    f"Invalid source plate rotation: {source_rotation}. "
-                    "Expected 'wide', 'narrow', or ''."
-                ]
-            )
+        self.grip_wide = (
+            source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
+        )
 
         parsed_source.representation = (
             self.pf400_interface.check_incorrect_plate_orientation(
@@ -350,11 +358,12 @@ class PF400Node(RestNode):
             source=parsed_source,
             source_approach=source_approach,
             grab_offset=grab_height_offset,
-            approach_height_offset=approach_height_offset,
+            approach_height_offset=source_approach_height_offset,
+            height_limit=source_height_limit,
         )
         if not pick_result:
             return ActionFailed(
-                errors=[f"Failed to pick plate from location {parsed_source}."]
+                errors=[f"Failed to pick plate from location {source}."]
             )
         return None
 
@@ -368,12 +377,14 @@ class PF400Node(RestNode):
     ) -> Optional[ActionFailed]:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
+        grab_height_offset = None
+
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
                 return ActionFailed(
                     errors=[
-                        "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                        f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
                     ]
                 )
         if self.gripper_resource.resource_id:
@@ -386,49 +397,46 @@ class PF400Node(RestNode):
                     grab_height_offset = plate_in_gripper.attributes.get(
                         "grab_height_offset", None
                     )
-                    approach_height_offset = plate_in_gripper.attributes.get(
-                        "approach_height_offset", None
-                    )
 
         try:
-            parsed_target, target_approach, target_rotation_from_dict = (
-                self._parse_location_representation(target)
-            )
+            (
+                parsed_target,
+                target_approach,
+                target_rotation_from_dict,
+                target_approach_height_offset,
+                target_height_limit,
+            ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        target_rotation = (
-            target_rotation_from_dict if target_rotation_from_dict is not None else ""
+        plate_target_rotation = (
+            90
+            if target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
+            else 0
+        )
+        self.grip_wide = (
+            target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
         )
 
-        if target_rotation.lower() == "wide":
-            plate_target_rotation = 90
-            self.pf400_interface.grip_wide = True
-        elif target_rotation.lower() == "narrow" or target_rotation == "":
-            plate_target_rotation = 0
-            self.pf400_interface.grip_wide = False
-        else:
-            return ActionFailed(
-                errors=[
-                    f"Invalid target plate rotation: {target_rotation}. "
-                    "Expected 'wide', 'narrow', or ''."
-                ]
+        parsed_target.representation = (
+            self.pf400_interface.check_incorrect_plate_orientation(
+                parsed_target.representation, plate_target_rotation
             )
-
-        target.representation = self.pf400_interface.check_incorrect_plate_orientation(
-            target.representation, plate_target_rotation
         )
 
         place_result = self.pf400_interface.place_plate(
             target=parsed_target,
             target_approach=target_approach,
             grab_offset=grab_height_offset,
-            approach_height_offset=approach_height_offset,
+            approach_height_offset=target_approach_height_offset,
+            height_limit=target_height_limit,
         )
         if not place_result:
-            return ActionFailed("Transfer failed: plate not released properly.")
+            return ActionFailed(
+                errors=["Transfer failed: plate not released properly."]
+            )
 
         return None
 
@@ -441,7 +449,6 @@ class PF400Node(RestNode):
         """Remove a lid from a plate located at location."""
 
         grab_height_offset = None
-        approach_height_offset = None
         resource_lid_height = None
         plate_resource = None
 
@@ -473,9 +480,6 @@ class PF400Node(RestNode):
                     grab_height_offset = plate_resource.attributes.get(
                         "grab_height_offset", None
                     )
-                    approach_height_offset = plate_resource.attributes.get(
-                        "approach_height_offset", None
-                    )
                     resource_lid_height = plate_resource.attributes.get(
                         "lid_height", None
                     )
@@ -504,37 +508,44 @@ class PF400Node(RestNode):
         lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
 
         try:
-            parsed_source, source_approach, source_rotation_from_dict = (
-                self._parse_location_representation(source)
-            )
-            parsed_target, target_approach, target_rotation_from_dict = (
-                self._parse_location_representation(target)
-            )
+            (
+                parsed_source,
+                source_approach,
+                source_rotation_from_dict,
+                source_approach_height_offset,
+                source_height_limit,
+            ) = self._parse_location_representation(source)
+            (
+                parsed_target,
+                target_approach,
+                target_rotation_from_dict,
+                target_approach_height_offset,
+                target_height_limit,
+            ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        final_source_rotation = (
-            source_rotation_from_dict if source_rotation_from_dict is not None else ""
-        )
-        final_target_rotation = (
-            target_rotation_from_dict if target_rotation_from_dict is not None else ""
-        )
-
         parsed_source.resource_id = lid_resource.resource_id
 
-        self.pf400_interface.remove_lid(
+        remove_lid_result = self.pf400_interface.remove_lid(
             source=parsed_source,
             target=parsed_target,
             lid_height=resource_lid_height,
             source_approach=source_approach,
             target_approach=target_approach,
-            source_plate_rotation=final_source_rotation,
-            target_plate_rotation=final_target_rotation,
+            source_plate_rotation=source_rotation_from_dict,
+            target_plate_rotation=target_rotation_from_dict,
             grab_offset=grab_height_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
+            source_height_limit=source_height_limit,
+            target_height_limit=target_height_limit,
         )
+
+        if not remove_lid_result:
+            return ActionFailed(errors=["Failed to remove lid."])
 
         if plate_resource and plate_resource.attributes:
             plate_resource.attributes["has_lid"] = False
@@ -543,14 +554,13 @@ class PF400Node(RestNode):
         return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
-    def replace_lid(
+    def replace_lid(  # noqa: C901
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
     ) -> Optional[ActionFailed]:
         """A doc string, but not the actual description of the action."""
         grab_height_offset = None
-        approach_height_offset = None
         resource_lid_height = None
 
         if source.resource_id:
@@ -564,9 +574,6 @@ class PF400Node(RestNode):
                 if lid_resource_child.attributes:
                     grab_height_offset = lid_resource_child.attributes.get(
                         "grab_height_offset", None
-                    )
-                    approach_height_offset = lid_resource_child.attributes.get(
-                        "approach_height_offset", None
                     )
                     resource_lid_height = lid_resource_child.attributes.get(
                         "lid_height", None
@@ -587,12 +594,20 @@ class PF400Node(RestNode):
         )
 
         try:
-            parsed_source, source_approach, source_rotation_from_dict = (
-                self._parse_location_representation(source)
-            )
-            parsed_target, target_approach, target_rotation_from_dict = (
-                self._parse_location_representation(target)
-            )
+            (
+                parsed_source,
+                source_approach,
+                source_rotation_from_dict,
+                source_approach_height_offset,
+                source_height_limit,
+            ) = self._parse_location_representation(source)
+            (
+                parsed_target,
+                target_approach,
+                target_rotation_from_dict,
+                target_approach_height_offset,
+                target_height_limit,
+            ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
@@ -600,21 +615,22 @@ class PF400Node(RestNode):
 
         parsed_target.resource_id = lid_resource.resource_id
 
-        self.pf400_interface.replace_lid(
+        replace_lid_result = self.pf400_interface.replace_lid(
             source=parsed_source,
             target=parsed_target,
             lid_height=resource_lid_height,
             source_approach=source_approach,
             target_approach=target_approach,
-            source_plate_rotation=source_rotation_from_dict
-            if source_rotation_from_dict is not None
-            else "",
-            target_plate_rotation=target_rotation_from_dict
-            if target_rotation_from_dict is not None
-            else "",
+            source_plate_rotation=source_rotation_from_dict,
+            target_plate_rotation=target_rotation_from_dict,
             grab_offset=grab_height_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
+            source_height_limit=source_height_limit,
+            target_height_limit=target_height_limit,
         )
+        if not replace_lid_result:
+            return ActionFailed(errors=["Failed to replace lid."])
 
         self.resource_client.remove_resource(lid_resource.resource_id)
 

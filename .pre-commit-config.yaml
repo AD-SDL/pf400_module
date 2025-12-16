@@ -22,5 +22,7 @@ repos:
       # Run the linter.
       - id: ruff
         args: [--fix]
+        exclude: '\.ipynb$' # Exclude Jupyter Notebooks from linting.
       # Run the formatter.
       - id: ruff-format
+        exclude: '\.ipynb$' # Exclude Jupyter Notebooks from all hooks.

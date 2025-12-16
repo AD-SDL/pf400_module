@@ -28,6 +28,16 @@ MOTION_PROFILES = [
         "inrange": 0,
         "straight": 0,
     },
+    {
+        "speed": 70,
+        "speed2": 0,
+        "acceleration": 50,
+        "deceleration": 50,
+        "accelramp": 0.1,
+        "decelramp": 0.1,
+        "inrange": 0,
+        "straight": -1,
+    },
 ]
 
 ERROR_CODES = {

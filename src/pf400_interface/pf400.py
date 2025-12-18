@@ -40,6 +40,7 @@ class PF400(KINEMATICS):
     safe_left_boundary = -350.0
     safe_right_boundary = 350.0
 
+    gripper_clearance_height = 110.0
     default_approach_height = 15.0
     default_approach_vector: typing.ClassVar[list] = [
         default_approach_height,
@@ -909,10 +910,12 @@ class PF400(KINEMATICS):
         """
         Calculate the position above a target with optional height offset.
         """
-        above_offset = copy.deepcopy(self.default_approach_vector)
+        above_offset = (
+            [self.default_approach_height, 0, 0, 0, 0, 0]
+            if approach_height_offset is None
+            else [approach_height_offset, 0, 0, 0, 0, 0]
+        )
 
-        if approach_height_offset:
-            above_offset[0] += approach_height_offset
         if grab_height_offset:
             above_offset[0] += grab_height_offset
 
@@ -944,7 +947,11 @@ class PF400(KINEMATICS):
             source.representation, approach_height_offset, grab_offset
         )
         if height_limit is not None:
-            calculated_height = above_position[0]
+            calculated_height = (
+                above_position[0]
+                + self.gripper_clearance_height
+                - source.representation[0]
+            )
             if calculated_height >= height_limit:
                 self.logger.log_error(
                     f"Height limit validation failed: calculated above position "
@@ -1015,7 +1022,11 @@ class PF400(KINEMATICS):
             target.representation, approach_height_offset, grab_offset
         )
         if height_limit is not None:
-            calculated_height = above_position[0]
+            calculated_height = (
+                above_position[0]
+                + self.gripper_clearance_height
+                - target.representation[0]
+            )
             if calculated_height >= height_limit:
                 self.logger.log_error(
                     f"Height limit validation failed: calculated above position "

@@ -235,33 +235,37 @@ class PF400Node(RestNode):
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 
         grab_height_offset = None
-
-        if source.resource_id:
-            source_resource = self.resource_client.get_resource(source.resource_id)
-            if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors=[
-                        f"Plate does not exist at source location! Resource_id:{source.resource_id}."
-                    ]
-                )
-            if source_resource.children:
-                plate_resource = source_resource.children[-1]
-                if plate_resource.attributes:
-                    grab_height_offset = plate_resource.attributes.get(
-                        "grab_height_offset", None
+        try:
+            if source.resource_id:
+                source_resource = self.resource_client.get_resource(source.resource_id)
+                if source_resource.quantity == 0:
+                    return ActionFailed(
+                        errors=[
+                            f"Plate does not exist at source location! Resource_id:{source.resource_id}."
+                        ]
                     )
+                if source_resource.children:
+                    plate_resource = source_resource.children[-1]
+                    if plate_resource.attributes:
+                        grab_height_offset = plate_resource.attributes.get(
+                            "grab_height_offset", None
+                        )
 
-        if target.resource_id:
-            target_resource = self.resource_client.get_resource(target.resource_id)
-            if (
-                target_resource.quantity != 0
-                and target_resource.resource_id != source_resource.resource_id
-            ):
-                return ActionFailed(
-                    errors=[
-                        f"Target is occupied by another plate! Resource_id:{target.resource_id}."
-                    ]
-                )
+            if target.resource_id:
+                target_resource = self.resource_client.get_resource(target.resource_id)
+                if (
+                    target_resource.quantity != 0
+                    and target_resource.resource_id != source_resource.resource_id
+                ):
+                    return ActionFailed(
+                        errors=[
+                            f"Target is occupied by another plate! Resource_id:{target.resource_id}."
+                        ]
+                    )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Resource manager error during transfer validation: {e}"]
+            )
         try:
             (
                 parsed_source,
@@ -277,6 +281,16 @@ class PF400Node(RestNode):
                 target_approach_height_offset,
                 target_height_limit,
             ) = self._parse_location_representation(target)
+            if rotation_deck is not None:
+                (
+                    parsed_rotation,
+                    _,
+                    _,
+                    _,
+                    _,
+                ) = self._parse_location_representation(rotation_deck)
+            else:
+                parsed_rotation = None
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
@@ -289,7 +303,7 @@ class PF400Node(RestNode):
             target_approach=target_approach,
             source_plate_rotation=source_rotation_from_dict,
             target_plate_rotation=target_rotation_from_dict,
-            rotation_deck=rotation_deck,
+            rotation_deck=parsed_rotation,
             grab_offset=grab_height_offset,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
@@ -310,21 +324,25 @@ class PF400Node(RestNode):
     ) -> Optional[ActionFailed]:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         grab_height_offset = None
-
-        if source.resource_id:
-            source_resource = self.resource_client.get_resource(source.resource_id)
-            if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors=[
-                        f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
-                    ]
-                )
-            if source_resource.children:
-                plate_resource = source_resource.children[-1]
-                if plate_resource.attributes:
-                    grab_height_offset = plate_resource.attributes.get(
-                        "grab_height_offset", None
+        try:
+            if source.resource_id:
+                source_resource = self.resource_client.get_resource(source.resource_id)
+                if source_resource.quantity == 0:
+                    return ActionFailed(
+                        errors=[
+                            f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                        ]
                     )
+                if source_resource.children:
+                    plate_resource = source_resource.children[-1]
+                    if plate_resource.attributes:
+                        grab_height_offset = plate_resource.attributes.get(
+                            "grab_height_offset", None
+                        )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Resource manager error during pick validation: {e}"]
+            )
 
         try:
             (
@@ -344,9 +362,10 @@ class PF400Node(RestNode):
             if source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
             else 0
         )
-        self.grip_wide = (
+        self.pf400_interface.grip_wide = (
             source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
         )
+        print(f"{plate_source_rotation=}")
 
         parsed_source.representation = (
             self.pf400_interface.check_incorrect_plate_orientation(
@@ -378,25 +397,29 @@ class PF400Node(RestNode):
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
         grab_height_offset = None
-
-        if target.resource_id:
-            target_resource = self.resource_client.get_resource(target.resource_id)
-            if target_resource.quantity != 0:
-                return ActionFailed(
-                    errors=[
-                        f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
-                    ]
-                )
-        if self.gripper_resource.resource_id:
-            gripper_resource = self.resource_client.get_resource(
-                self.gripper_resource.resource_id
-            )
-            if gripper_resource.quantity > 0 and gripper_resource.children:
-                plate_in_gripper = gripper_resource.children[-1]
-                if plate_in_gripper.attributes:
-                    grab_height_offset = plate_in_gripper.attributes.get(
-                        "grab_height_offset", None
+        try:
+            if target.resource_id:
+                target_resource = self.resource_client.get_resource(target.resource_id)
+                if target_resource.quantity != 0:
+                    return ActionFailed(
+                        errors=[
+                            f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                        ]
                     )
+            if self.gripper_resource.resource_id:
+                gripper_resource = self.resource_client.get_resource(
+                    self.gripper_resource.resource_id
+                )
+                if gripper_resource.quantity > 0 and gripper_resource.children:
+                    plate_in_gripper = gripper_resource.children[-1]
+                    if plate_in_gripper.attributes:
+                        grab_height_offset = plate_in_gripper.attributes.get(
+                            "grab_height_offset", None
+                        )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Resource manager error during pick validation: {e}"]
+            )
 
         try:
             (
@@ -416,9 +439,10 @@ class PF400Node(RestNode):
             if target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
             else 0
         )
-        self.grip_wide = (
+        self.pf400_interface.grip_wide = (
             target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
         )
+        print(f"{plate_target_rotation=}")
 
         parsed_target.representation = (
             self.pf400_interface.check_incorrect_plate_orientation(
@@ -451,61 +475,66 @@ class PF400Node(RestNode):
         grab_height_offset = None
         resource_lid_height = None
         plate_resource = None
-
-        if source.resource_id:
-            source_resource = self.resource_client.get_resource(source.resource_id)
-            if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors=[
-                        f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
-                    ]
-                )
-
-            if source_resource.children:
-                plate_resource = source_resource.children[-1]
-                if plate_resource.attributes:
-                    has_lid = plate_resource.attributes.get("has_lid", None)
-
-                    if has_lid is None:
-                        self.logger.log_warning(
-                            "Continuing without resource validation for lids - 'has_lid' attribute not found in resource"
-                        )
-                    elif has_lid is False:
-                        return ActionFailed(
-                            errors=[
-                                f"Resource manager: Plate at source does not have a lid! Resource_id:{source.resource_id}."
-                            ]
-                        )
-
-                    grab_height_offset = plate_resource.attributes.get(
-                        "grab_height_offset", None
-                    )
-                    resource_lid_height = plate_resource.attributes.get(
-                        "lid_height", None
+        try:
+            if source.resource_id:
+                source_resource = self.resource_client.get_resource(source.resource_id)
+                if source_resource.quantity == 0:
+                    return ActionFailed(
+                        errors=[
+                            f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                        ]
                     )
 
-        if target.resource_id:
-            target_resource = self.resource_client.get_resource(target.resource_id)
-            if target_resource.quantity != 0:
-                return ActionFailed(
-                    errors=[
-                        f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
-                    ]
-                )
+                if source_resource.children:
+                    plate_resource = source_resource.children[-1]
+                    if plate_resource.attributes:
+                        has_lid = plate_resource.attributes.get("has_lid", None)
 
-        lid_resource = self.resource_client.create_resource_from_template(
-            template_name="pf400_lid_slot",
-            resource_name="pf400_lid_slot",
-            add_to_database=True,
-        )
+                        if has_lid is None:
+                            self.logger.log_warning(
+                                "Continuing without resource validation for lids - 'has_lid' attribute not found in resource"
+                            )
+                        elif has_lid is False:
+                            return ActionFailed(
+                                errors=[
+                                    f"Resource manager: Plate at source does not have a lid! Resource_id:{source.resource_id}."
+                                ]
+                            )
 
-        lid = self.resource_client.create_resource_from_template(
-            template_name="plate_lid",
-            resource_name=f"Lid_from_{plate_resource.resource_id}",
-            add_to_database=True,
-        )
+                        grab_height_offset = plate_resource.attributes.get(
+                            "grab_height_offset", None
+                        )
+                        resource_lid_height = plate_resource.attributes.get(
+                            "lid_height", None
+                        )
 
-        lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
+            if target.resource_id:
+                target_resource = self.resource_client.get_resource(target.resource_id)
+                if target_resource.quantity != 0:
+                    return ActionFailed(
+                        errors=[
+                            f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                        ]
+                    )
+
+            lid_resource = self.resource_client.create_resource_from_template(
+                template_name="pf400_lid_slot",
+                resource_name="pf400_lid_slot",
+                add_to_database=True,
+            )
+
+            lid = self.resource_client.create_resource_from_template(
+                template_name="plate_lid",
+                resource_name=f"Lid_from_{plate_resource.resource_id}",
+                add_to_database=True,
+            )
+
+            lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
+
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Resource manager error during remove lid validation: {e}"]
+            )
 
         try:
             (
@@ -562,36 +591,40 @@ class PF400Node(RestNode):
         """A doc string, but not the actual description of the action."""
         grab_height_offset = None
         resource_lid_height = None
-
-        if source.resource_id:
-            source_resource = self.resource_client.get_resource(source.resource_id)
-            if source_resource.quantity == 0:
-                return ActionFailed(
-                    "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
-                )
-            if source_resource.children:
-                lid_resource_child = source_resource.children[-1]
-                if lid_resource_child.attributes:
-                    grab_height_offset = lid_resource_child.attributes.get(
-                        "grab_height_offset", None
+        try:
+            if source.resource_id:
+                source_resource = self.resource_client.get_resource(source.resource_id)
+                if source_resource.quantity == 0:
+                    return ActionFailed(
+                        "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
                     )
-                    resource_lid_height = lid_resource_child.attributes.get(
-                        "lid_height", None
+                if source_resource.children:
+                    lid_resource_child = source_resource.children[-1]
+                    if lid_resource_child.attributes:
+                        grab_height_offset = lid_resource_child.attributes.get(
+                            "grab_height_offset", None
+                        )
+                        resource_lid_height = lid_resource_child.attributes.get(
+                            "lid_height", None
+                        )
+
+            if target.resource_id:
+                target_resource = self.resource_client.get_resource(target.resource_id)
+                if target_resource.quantity == 0:
+                    return ActionFailed(
+                        f"Resource manager: No plate on target! Resource_id:{target.resource_id}."
                     )
 
-        if target.resource_id:
-            target_resource = self.resource_client.get_resource(target.resource_id)
-            if target_resource.quantity == 0:
-                return ActionFailed(
-                    f"Resource manager: No plate on target! Resource_id:{target.resource_id}."
-                )
-
-        # Create temporary lid slot from template
-        lid_resource = self.resource_client.create_resource_from_template(
-            template_name="pf400_lid_slot",
-            resource_name="pf400_lid_slot",
-            add_to_database=True,
-        )
+            # Create temporary lid slot from template
+            lid_resource = self.resource_client.create_resource_from_template(
+                template_name="pf400_lid_slot",
+                resource_name="pf400_lid_slot",
+                add_to_database=True,
+            )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Resource manager error during replace lid validation: {e}"]
+            )
 
         try:
             (

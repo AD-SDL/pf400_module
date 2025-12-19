@@ -199,6 +199,7 @@ class PF400Node(RestNode):
         plate_rotation = repr_dict.get("plate_rotation", None)
         approach_height_offset = repr_dict.get("approach_height_offset", None)
         height_limit = repr_dict.get("height_limit", None)
+        press_depth = repr_dict.get("press_depth", None)
 
         parsed_location = LocationArgument(
             representation=location_repr,
@@ -221,6 +222,7 @@ class PF400Node(RestNode):
             plate_rotation,
             approach_height_offset,
             height_limit,
+            press_depth,
         )
 
     @action(
@@ -269,6 +271,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
+                source_press_depth,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -276,6 +279,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
+                target_press_depth,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -295,6 +299,8 @@ class PF400Node(RestNode):
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
         if not transfer_result:
             return ActionFailed(
@@ -333,6 +339,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
+                press_depth,
             ) = self._parse_location_representation(source)
         except Exception as e:
             return ActionFailed(
@@ -360,6 +367,7 @@ class PF400Node(RestNode):
             grab_offset=grab_height_offset,
             approach_height_offset=source_approach_height_offset,
             height_limit=source_height_limit,
+            press_depth=press_depth,
         )
         if not pick_result:
             return ActionFailed(
@@ -405,6 +413,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
+                press_depth,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -432,6 +441,7 @@ class PF400Node(RestNode):
             grab_offset=grab_height_offset,
             approach_height_offset=target_approach_height_offset,
             height_limit=target_height_limit,
+            press_depth=press_depth,
         )
         if not place_result:
             return ActionFailed(
@@ -514,6 +524,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
+                source_press_depth,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -521,6 +532,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
+                target_press_depth,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -542,6 +554,8 @@ class PF400Node(RestNode):
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
 
         if not remove_lid_result:
@@ -600,6 +614,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
+                source_press_depth,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -607,6 +622,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
+                target_press_depth,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -628,6 +644,8 @@ class PF400Node(RestNode):
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
         if not replace_lid_result:
             return ActionFailed(errors=["Failed to replace lid."])

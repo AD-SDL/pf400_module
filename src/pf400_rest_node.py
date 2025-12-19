@@ -185,7 +185,7 @@ class PF400Node(RestNode):
             tuple: (location_arg_with_list_repr, approach_location_arg or None, plate_rotation or None, approach_height_offset or None, height_limit or None)
         """
         if not isinstance(location.representation, dict):
-            return location, None, None, None, None
+            return location, None, None, None, None, None
 
         repr_dict = location.representation
 
@@ -288,6 +288,7 @@ class PF400Node(RestNode):
             if rotation_deck is not None:
                 (
                     parsed_rotation,
+                    _,
                     _,
                     _,
                     _,

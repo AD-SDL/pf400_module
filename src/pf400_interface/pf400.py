@@ -884,7 +884,9 @@ class PF400(KINEMATICS):
                 profile=self.fast_motion_profile,
             )
 
-    def _handle_approach_return(self, approach: LocationArgument) -> None:
+    def _handle_approach_return(
+        self, approach: LocationArgument, default_motion: Optional[str] = None
+    ) -> None:
         """
         Handle returning from an approach location, whether single or multiple.
         Uses straight motion profile for the first approach location (closest to target),
@@ -892,11 +894,14 @@ class PF400(KINEMATICS):
         """
         if isinstance(approach.representation[0], list):
             for index, location in enumerate(reversed(approach.representation)):
-                motion_profile = (
-                    self.straight_motion_profile
-                    if index == 0
-                    else self.fast_motion_profile
-                )
+                if index == 0:
+                    motion_profile = self.straight_motion_profile
+                else:
+                    motion_profile = (
+                        default_motion
+                        if default_motion is not None
+                        else self.fast_motion_profile
+                    )
                 self.move_joint(
                     target_joint_angles=location,
                     profile=motion_profile,
@@ -1013,7 +1018,9 @@ class PF400(KINEMATICS):
         )
 
         if source_approach:
-            self._handle_approach_return(source_approach)
+            self._handle_approach_return(
+                approach=source_approach, default_motion=self.slow_motion_profile
+            )
         else:
             self.move_all_joints_neutral(source.representation)
 
@@ -1093,7 +1100,9 @@ class PF400(KINEMATICS):
         )
 
         if target_approach:
-            self._handle_approach_return(target_approach)
+            self._handle_approach_return(
+                approach=target_approach, default_motion=self.fast_motion_profile
+            )
         else:
             self.move_all_joints_neutral(target.representation)
 

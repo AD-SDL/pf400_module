@@ -728,6 +728,8 @@ class PF400(KINEMATICS):
         target_approach_height_offset: Optional[float] = None,
         source_height_limit: Optional[float] = None,
         target_height_limit: Optional[float] = None,
+        source_press_depth: Optional[float] = None,
+        target_press_depth: Optional[float] = None,
     ) -> bool:
         """Remove the lid from the plate"""
         if not lid_height:
@@ -748,6 +750,8 @@ class PF400(KINEMATICS):
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
 
     def replace_lid(
@@ -764,6 +768,8 @@ class PF400(KINEMATICS):
         target_approach_height_offset: Optional[float] = None,
         source_height_limit: Optional[float] = None,
         target_height_limit: Optional[float] = None,
+        source_press_depth: Optional[float] = None,
+        target_press_depth: Optional[float] = None,
     ) -> bool:
         """Replace the lid on the plate"""
         if lid_height is None:
@@ -784,6 +790,8 @@ class PF400(KINEMATICS):
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
 
     def rotate_plate_on_deck(
@@ -934,12 +942,17 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
         height_limit: Optional[float] = None,
         grip_width: Optional[int] = None,
+        press_depth: Optional[float] = None,
     ) -> bool:
         """
         Pick a plate from the source location, optionally using an approach location.
 
         Returns True if the plate was successfully grabbed, False otherwise.
         """
+        if press_depth is not None:
+            source.representation = copy.deepcopy(source.representation)
+            source.representation[0] -= press_depth
+
         above_position = self._calculate_above_position(
             source.representation, approach_height_offset, grab_offset
         )
@@ -1007,10 +1020,15 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
         height_limit: Optional[float] = None,
         open_width: Optional[int] = None,
+        press_depth: Optional[float] = None,
     ) -> bool:
         """
         Place a plate in the target location
         """
+        if press_depth is not None:
+            target.representation = copy.deepcopy(target.representation)
+            target.representation[0] -= press_depth
+
         above_position = self._calculate_above_position(
             target.representation, approach_height_offset, grab_offset
         )
@@ -1084,6 +1102,8 @@ class PF400(KINEMATICS):
         target_approach_height_offset: Optional[float] = None,
         source_height_limit: Optional[float] = None,
         target_height_limit: Optional[float] = None,
+        source_press_depth: Optional[float] = None,
+        target_press_depth: Optional[float] = None,
     ) -> bool:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
@@ -1100,6 +1120,10 @@ class PF400(KINEMATICS):
                         - target_approach_height_offset: Add target approach height offset
                         - source_height_limit: Maximum height limit for source pick
                         - target_height_limit: Maximum height limit for target place
+                        - source_press_depth: Depth to press down when picking from source
+                        - target_press_depth: Depth to press down when placing to target
+                Returns:
+                        True if transfer was successful, False otherwise.
 
                 Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
         """
@@ -1137,6 +1161,7 @@ class PF400(KINEMATICS):
             grab_offset=grab_offset,
             approach_height_offset=source_approach_height_offset,
             height_limit=source_height_limit,
+            press_depth=source_press_depth,
         )
 
         if not pick_result:
@@ -1171,6 +1196,7 @@ class PF400(KINEMATICS):
             grab_offset=grab_offset,
             approach_height_offset=target_approach_height_offset,
             height_limit=target_height_limit,
+            press_depth=target_press_depth,
         )
         if not place_result:
             self.logger.error("Transfer failed: plate not released properly.")

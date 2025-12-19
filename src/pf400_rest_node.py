@@ -362,8 +362,11 @@ class PF400Node(RestNode):
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
         grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
+        source_approach_height_offset: Optional[
+            Annotated[float, "Add source approach height offset"]
+        ] = None,
+        target_approach_height_offset: Optional[
+            Annotated[float, "Add target approach height offset"]
         ] = None,
     ) -> Optional[ActionFailed]:
         """Remove a lid from a plate located at location ."""
@@ -412,7 +415,8 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
         )
         return None
 
@@ -435,8 +439,11 @@ class PF400Node(RestNode):
         ] = "",
         lid_height: Annotated[float, "height of the lid, in steps"] = 7.0,
         grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
+        source_approach_height_offset: Optional[
+            Annotated[float, "Add source approach height offset"]
+        ] = None,
+        target_approach_height_offset: Optional[
+            Annotated[float, "Add target approach height offset"]
         ] = None,
     ) -> Optional[ActionFailed]:
         """A doc string, but not the actual description of the action."""
@@ -471,7 +478,8 @@ class PF400Node(RestNode):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
         )
 
         self.resource_client.remove_resource(lid_resource.resource_id)

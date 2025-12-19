@@ -724,9 +724,11 @@ class PF400(KINEMATICS):
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
         grab_offset: Optional[float] = None,
-        approach_height_offset: Optional[float] = None,
+        source_approach_height_offset: Optional[float] = None,
+        target_approach_height_offset: Optional[float] = None,
     ) -> None:
         """Remove the lid from the plate"""
+
         source.representation = copy.deepcopy(source.representation)
         source.representation[0] += lid_height
 
@@ -738,7 +740,8 @@ class PF400(KINEMATICS):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
         )
 
     def replace_lid(
@@ -751,7 +754,8 @@ class PF400(KINEMATICS):
         source_plate_rotation: str = "",
         target_plate_rotation: str = "",
         grab_offset: Optional[float] = None,
-        approach_height_offset: Optional[float] = None,
+        source_approach_height_offset: Optional[float] = None,
+        target_approach_height_offset: Optional[float] = None,
     ) -> None:
         """Replace the lid on the plate"""
         target.representation = copy.deepcopy(target.representation)
@@ -765,7 +769,8 @@ class PF400(KINEMATICS):
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
         )
 
     def rotate_plate_on_deck(

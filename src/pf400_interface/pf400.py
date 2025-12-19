@@ -1162,6 +1162,20 @@ class PF400(KINEMATICS):
             source_plate_rotation and source_plate_rotation.lower() == "wide"
         )
 
+        # Determine target rotation (0 or 90 degrees)
+        plate_target_rotation = (
+            90
+            if target_plate_rotation and target_plate_rotation.lower() == "wide"
+            else 0
+        )
+
+        rotation_needed = plate_target_rotation - plate_source_rotation
+        if rotation_needed != 0 and rotation_deck is None:
+            self.logger.log_error(
+                f"Rotation required ({rotation_needed} degrees) but rotation_deck was not provided."
+            )
+            return False
+
         source.representation = self.check_incorrect_plate_orientation(
             source.representation, plate_source_rotation
         )
@@ -1181,12 +1195,6 @@ class PF400(KINEMATICS):
             self.logger.error("Transfer failed: no plate detected after picking.")
             return False
 
-        # Determine target rotation (0 or 90 degrees)
-        plate_target_rotation = (
-            90
-            if target_plate_rotation and target_plate_rotation.lower() == "wide"
-            else 0
-        )
         self.grip_wide = (
             target_plate_rotation and target_plate_rotation.lower() == "wide"
         )
@@ -1195,7 +1203,6 @@ class PF400(KINEMATICS):
         )
 
         # Rotate plate if needed
-        rotation_needed = plate_target_rotation - plate_source_rotation
         if rotation_needed != 0:
             self.rotate_plate_on_deck(
                 rotation_degree=rotation_needed, rotation_deck=rotation_deck

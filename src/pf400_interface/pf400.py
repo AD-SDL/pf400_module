@@ -565,7 +565,7 @@ class PF400(KINEMATICS):
         )
         # Checking yaw angle
         if goal_rotation != 0 and cartesian_goal[3] > -10 and cartesian_goal[3] < 10:
-            goal_location = self.set_plate_rotation(goal_location, -goal_rotation)
+            goal_location = self.set_plate_rotation(goal_location, goal_rotation)
 
         return goal_location
 

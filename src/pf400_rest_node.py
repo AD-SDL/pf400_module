@@ -3,6 +3,7 @@
 
 from typing import Annotated, Optional
 
+from madsci.common.ownership import get_current_ownership_info
 from madsci.common.types.action_types import ActionFailed
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
@@ -54,13 +55,13 @@ class PF400Node(RestNode):
             description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
             required_overrides=["resource_name"],
             tags=["pf400", "gripper", "slot"],
-            created_by=self.node_definition.node_id,
+            created_by=get_current_ownership_info().node_id,
             version="1.0.0",
         )
 
         self.gripper_resource = self.resource_client.create_resource_from_template(
             template_name="pf400_gripper",
-            resource_name=f"{self.node_definition.node_name}.gripper",
+            resource_name=f"{self.node_info.node_name}.gripper",
             add_to_database=True,
         )
         self.logger.log_info(
@@ -84,7 +85,7 @@ class PF400Node(RestNode):
             description="Template for temporary lid storage slot. Used when removing/replacing lids from plates.",
             required_overrides=["resource_name"],
             tags=["pf400", "lid", "slot", "temporary"],
-            created_by=self.node_definition.node_id,
+            created_by=get_current_ownership_info().node_id,
             version="1.0.0",
         )
 
@@ -106,7 +107,7 @@ class PF400Node(RestNode):
             description="Template for plate lids. Used to track lids during lid operations.",
             required_overrides=["resource_name"],
             tags=["lid", "plate", "asset"],
-            created_by=self.node_definition.node_id,
+            created_by=get_current_ownership_info().node_id,
             version="1.0.0",
         )
 
@@ -213,11 +214,11 @@ class PF400Node(RestNode):
         transfer_result = self.pf400_interface.transfer(
             source=source,
             target=target,
-            source_approach=source_approach if source_approach else None,
-            target_approach=target_approach if target_approach else None,
+            source_approach=source_approach or None,
+            target_approach=target_approach or None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
-            rotation_deck=rotation_deck if rotation_deck else None,
+            rotation_deck=rotation_deck or None,
             grab_offset=grab_offset,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
@@ -275,7 +276,7 @@ class PF400Node(RestNode):
 
         pick_result = self.pf400_interface.pick_plate(
             source=source,
-            source_approach=source_approach if source_approach else None,
+            source_approach=source_approach or None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )
@@ -334,7 +335,7 @@ class PF400Node(RestNode):
 
         place_result = self.pf400_interface.place_plate(
             target=target,
-            target_approach=target_approach if target_approach else None,
+            target_approach=target_approach or None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )

@@ -1,0 +1,3 @@
+node_name: test_pf400
+node_description: MADSci node for controlling PF400, plate handler robot
+node_module_name: pf400

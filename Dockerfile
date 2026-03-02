@@ -8,15 +8,17 @@ LABEL org.opencontainers.image.licenses=MIT
 # Module specific logic goes below here #
 #########################################
 
-RUN mkdir -p pf400_module
+ARG USER_ID=9999
+ARG GROUP_ID=9999
 
-COPY ./src pf400_module/src
-COPY ./README.md pf400_module/README.md
-COPY ./pyproject.toml pf400_module/pyproject.toml
+COPY ./src /home/madsci/pf400_module/src
+COPY ./README.md /home/madsci/pf400_module/README.md
+COPY ./pyproject.toml /home/madsci/pf400_module/pyproject.toml
 
 RUN --mount=type=cache,target=/root/.cache \
-    pip install -e ./pf400_module
+    uv pip install --python ${MADSCI_VENV}/bin/python -e /home/madsci/pf400_module && \
+    chown -R ${USER_ID}:${GROUP_ID} /home/madsci/pf400_module
 
-CMD ["python", "pf400_module/scripts/pf400_rest_node.py"]
+CMD ["python", "-m", "pf400_rest_node", "--node_definition", "definitions/pf400.node.yaml"]
 
 #########################################

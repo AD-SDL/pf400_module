@@ -2,8 +2,6 @@
 
 Implementation of a MADSci Node Module for integrating a Brooks Automation PreciseFlex 400 (PF400).
 
-See `definitions/pf400.node.yaml` for an example node definition file, and `definitions/pf400.node.info.yaml` for a description of the capabilities of the node.
-
 ## Installation and Usage
 
 ### Python
@@ -17,11 +15,23 @@ source .venv/bin/activate
 # .venv\Scripts\activate
 # Install the module and dependencies in the venv
 pip install .
-# Start the node
-python -m pf400_rest_node --host=<HOSTNAME> --port <PORT> --pf400_ip <IP> --pf400_port <PORT>
+# Create a settings file (see Configuration below), then start the node
+python -m pf400_rest_node
 ```
 
-You can use `0.0.0.0` as the hostname to connect from any device on the local network, or `127.0.0.1` to limit it only to local connections.
+### Configuration
+
+Settings are loaded automatically via MADSci's walk-up file discovery. Create a `node.settings.yaml` in your working directory (or any parent up to the `.madsci/` sentinel):
+
+```yaml
+node_name: pf400
+node_url: http://0.0.0.0:2000
+pf400_ip: 192.168.1.100
+pf400_port: 10100
+pf400_status_port: 10000
+```
+
+All settings can also be provided as environment variables (e.g. `PF400_IP`, `NODE_URL`). The node's stable ID is stored in `.madsci/registry.json` and reused across restarts.
 
 ### Docker
 

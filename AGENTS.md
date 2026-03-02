@@ -9,11 +9,11 @@ MADSci node module for the Brooks Automation PreciseFlex 400 (PF400) robot arm. 
 ## Installation and Running
 
 ```bash
-# Install (use pip, not PDM)
-pip install .
+# Install
+pdm install
 
 # Configure (see Configuration section below), then run
-python -m pf400_rest_node
+pdm run python -m pf400_rest_node
 
 # Run via Docker
 docker compose up

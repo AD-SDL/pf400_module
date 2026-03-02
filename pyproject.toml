@@ -27,4 +27,17 @@ dev = [
     "ipykernel>=6.29.5",
     "ruff>=0.12.0",
     "pre-commit>=4.3.0",
+    "pydantic-settings-export>=1.0.2",
 ]
+
+[tool.pydantic_settings_export]
+project_dir = "."
+default_settings = [
+    "pf400_rest_node:PF400NodeConfig",
+]
+
+[[tool.pydantic_settings_export.generators.markdown]]
+paths = ["docs/Configuration.md"]
+
+[[tool.pydantic_settings_export.generators.dotenv]]
+paths = [".env.example"]

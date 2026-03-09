@@ -3,6 +3,7 @@
 
 from typing import Annotated, Optional
 
+from madsci.common.ownership import get_current_ownership_info
 from madsci.common.types.action_types import ActionFailed
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
@@ -54,13 +55,13 @@ class PF400Node(RestNode):
             description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
             required_overrides=["resource_name"],
             tags=["pf400", "gripper", "slot"],
-            created_by=self.node_definition.node_id,
+            created_by=get_current_ownership_info().node_id,
             version="1.0.0",
         )
 
         self.gripper_resource = self.resource_client.create_resource_from_template(
             template_name="pf400_gripper",
-            resource_name=f"{self.node_definition.node_name}.gripper",
+            resource_name=f"{self.node_info.node_name}.gripper",
             add_to_database=True,
         )
         self.logger.log_info(
@@ -84,7 +85,7 @@ class PF400Node(RestNode):
             description="Template for temporary lid storage slot. Used when removing/replacing lids from plates.",
             required_overrides=["resource_name"],
             tags=["pf400", "lid", "slot", "temporary"],
-            created_by=self.node_definition.node_id,
+            created_by=get_current_ownership_info().node_id,
             version="1.0.0",
         )
 
@@ -106,7 +107,7 @@ class PF400Node(RestNode):
             description="Template for plate lids. Used to track lids during lid operations.",
             required_overrides=["resource_name"],
             tags=["lid", "plate", "asset"],
-            created_by=self.node_definition.node_id,
+            created_by=get_current_ownership_info().node_id,
             version="1.0.0",
         )
 
@@ -213,11 +214,11 @@ class PF400Node(RestNode):
         transfer_result = self.pf400_interface.transfer(
             source=source,
             target=target,
-            source_approach=source_approach if source_approach else None,
-            target_approach=target_approach if target_approach else None,
+            source_approach=source_approach or None,
+            target_approach=target_approach or None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
-            rotation_deck=rotation_deck if rotation_deck else None,
+            rotation_deck=rotation_deck or None,
             grab_offset=grab_offset,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
@@ -275,7 +276,7 @@ class PF400Node(RestNode):
 
         pick_result = self.pf400_interface.pick_plate(
             source=source,
-            source_approach=source_approach if source_approach else None,
+            source_approach=source_approach or None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )
@@ -334,7 +335,7 @@ class PF400Node(RestNode):
 
         place_result = self.pf400_interface.place_plate(
             target=target,
-            target_approach=target_approach if target_approach else None,
+            target_approach=target_approach or None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )
@@ -342,6 +343,45 @@ class PF400Node(RestNode):
             return ActionFailed("Transfer failed: plate not released properly.")
 
         return None
+
+    @action(
+        name="move_to_location",
+        description="Move to a location for testing/calibration (gripper open, no grip)",
+    )
+    def move_to_location(
+        self,
+        target: Annotated[LocationArgument, "Location to move to"],
+        target_approach: Annotated[
+            Optional[LocationArgument], "Location to approach from"
+        ] = None,
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
+    ) -> None:
+        """Move to a location using the same approach/descend sequence as pick/place but with gripper open and no grip/release. Stays at the target for inspection. Use move_neutral to retract."""
+        self.pf400_interface.move_to_location(
+            target=target,
+            target_approach=target_approach or None,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
+        )
+
+    @action(
+        name="move_neutral",
+        description="Retract the arm to neutral position",
+    )
+    def move_neutral(
+        self,
+        height_offset: Optional[
+            Annotated[
+                float,
+                "Height to retract before moving to neutral (defaults to default_approach_height)",
+            ]
+        ] = None,
+    ) -> None:
+        """Retract upward and move to neutral position. Use after move_to_location to retract the arm."""
+        self.pf400_interface.move_neutral(height_offset=height_offset)
 
     @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
@@ -503,20 +543,6 @@ class PF400Node(RestNode):
         result = super().reset()
         self.logger.log("Node reset.")
         return result
-
-    def safety_stop(self) -> None:
-        """Stop the node."""
-        self.logger.log("Stopping node...")
-        self.node_status.stopped = True
-        self.logger.log("Node stopped.")
-        return True
-
-    def cancel(self) -> None:
-        """Cancel the node."""
-        self.logger.log("Canceling node...")
-        self.node_status.cancelled = True
-        self.logger.log("Node cancelled.")
-        return True
 
 
 if __name__ == "__main__":

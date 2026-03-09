@@ -1,0 +1,24 @@
+{
+  "$schema": "https://raw.githubusercontent.com/jetify-com/devbox/0.16.0/.schema/devbox.schema.json",
+  "packages": [
+    "pdm@latest",
+    "just@latest",
+    "uv@latest",
+    "ruff@latest",
+    "pre-commit@latest",
+    "python@3.12"
+  ],
+  "env": {
+    "PDM_USE_UV": "True"
+  },
+  "shell": {
+    "init_hook": [
+      ". $VENV_DIR/bin/activate"
+    ],
+    "scripts": {
+      "test": [
+        "echo \"Error: no test specified\" && exit 1"
+      ]
+    }
+  }
+}

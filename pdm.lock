@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:fd74e01c0aa90edb96464d66e43f1df3e85ecb316327a3395fa43c5f234dc398"
+content_hash = "sha256:27982f65982f80f0c56310d580de55bd6ffd42f27c42e41004e1e38a4cb0ce7f"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.13"
@@ -590,7 +590,7 @@ files = [
 
 [[package]]
 name = "madsci-client"
-version = "0.7.0rc1"
+version = "0.7.0"
 summary = ""
 dependencies = [
     "click",
@@ -603,13 +603,13 @@ dependencies = [
     "trogon",
 ]
 files = [
-    {file = "madsci_client-0.7.0rc1-py3-none-any.whl", hash = "sha256:043193f976b691b1dada2b2f31782338157a95fbf0c541a18f35585f266fda62"},
-    {file = "madsci_client-0.7.0rc1.tar.gz", hash = "sha256:c2a9fd1cf470b1d24f3f0372f309b55d953cda1335471e9cb342ec35eb3d9e2a"},
+    {file = "madsci_client-0.7.0-py3-none-any.whl", hash = "sha256:aea70545929af0c07b46fcd35f639fc728be3cab78cd2049d5dfe7d8244f79d9"},
+    {file = "madsci_client-0.7.0.tar.gz", hash = "sha256:d707383f607da7e16ea2e7a5ba42e6af6bc0b9beb355e8811f2a4e4cef21739b"},
 ]
 
 [[package]]
 name = "madsci-common"
-version = "0.7.0rc1"
+version = "0.7.0"
 summary = ""
 dependencies = [
     "aenum",
@@ -638,13 +638,13 @@ dependencies = [
     "uvicorn[standard]",
 ]
 files = [
-    {file = "madsci_common-0.7.0rc1-py3-none-any.whl", hash = "sha256:6fd3f71f2105c6861d0f81175a9b99991b5c64b7c7920e2ca585c2170bff1069"},
-    {file = "madsci_common-0.7.0rc1.tar.gz", hash = "sha256:541d2b9da128c6fc67d9c3ba1a8a191900a6bafa24791ff3d6d2452576f84d3d"},
+    {file = "madsci_common-0.7.0-py3-none-any.whl", hash = "sha256:4eb988c97709d55baa07d24a708e42567de6c75f9713b54e188bff000903adf8"},
+    {file = "madsci_common-0.7.0.tar.gz", hash = "sha256:0bf3f155c3de19b85090ef2928ef4eb157405f096484fe7c27b5cc45a16daab6"},
 ]
 
 [[package]]
 name = "madsci-node-module"
-version = "0.7.0rc1"
+version = "0.7.0"
 summary = ""
 dependencies = [
     "madsci-client",
@@ -652,8 +652,8 @@ dependencies = [
     "regex",
 ]
 files = [
-    {file = "madsci_node_module-0.7.0rc1-py3-none-any.whl", hash = "sha256:a7b82acd7ab1edbe5d5c1f517d26a5d0c7b53b2c643603bd3afd22a21a3a6921"},
-    {file = "madsci_node_module-0.7.0rc1.tar.gz", hash = "sha256:01d1c7cd5ec91e98e5c66b725d897417bda85a961479d64346a05a35a0d7e70e"},
+    {file = "madsci_node_module-0.7.0-py3-none-any.whl", hash = "sha256:744cc1cbf9e4eb698f4709f93039439d693788c9a4ce5d9bf0f022b2784c1a43"},
+    {file = "madsci_node_module-0.7.0.tar.gz", hash = "sha256:1bdbf319c56de287e97feb605bc05308195323318db3a22f73081b4ddf21bc67"},
 ]
 
 [[package]]

@@ -1033,6 +1033,76 @@ class PF400(KINEMATICS):
 
         return release_succeeded
 
+    def move_to_location(
+        self,
+        target: LocationArgument,
+        target_approach: LocationArgument = None,
+        grab_offset: Optional[float] = None,
+        approach_height_offset: Optional[float] = None,
+    ) -> None:
+        """
+        Move to a target location for testing/calibration purposes.
+
+        Follows the same approach and descend sequence as pick_plate, but keeps the
+        gripper open (unless holding a plate) and does not grip/release or change
+        resource state. Stays at the target position so the user can inspect and
+        adjust calibration. Use move_all_joints_neutral() to retract afterward.
+        """
+        above_position = self._calculate_above_position(
+            target.representation, approach_height_offset, grab_offset
+        )
+
+        # Check if the gripper is currently holding a plate
+        holding_plate = (
+            self.resource_client
+            and len(
+                self.resource_client.get_resource(self.gripper_resource_id).children
+            )
+            > 0
+        )
+
+        # Only open gripper if not holding a plate (prevent dropping labware)
+        if not holding_plate:
+            self.open_gripper()
+
+        if target_approach:
+            self._handle_approach_location(target_approach)
+            approach_motion_profile = self.straight_motion_profile
+        else:
+            self.move_all_joints_neutral(target.representation)
+            approach_motion_profile = self.fast_motion_profile
+
+        self.move_joint(
+            target_joint_angles=above_position, profile=approach_motion_profile
+        )
+
+        target_position = (
+            self._apply_grab_offset(target.representation, grab_offset)
+            if grab_offset
+            else target.representation
+        )
+        self.move_joint(
+            target_joint_angles=target_position,
+            profile=approach_motion_profile,
+            gripper_open=not holding_plate,
+        )
+
+    def move_neutral(self, height_offset: Optional[float] = None) -> None:
+        """
+        Retract upward and move to neutral position.
+
+        Retracts the arm upward by height_offset (defaults to default_approach_height)
+        before moving to neutral, mirroring the retract step in pick_plate/place_plate.
+        """
+        retract_height = (
+            height_offset if height_offset is not None else self.default_approach_height
+        )
+        self.move_in_one_axis(
+            profile=self.slow_motion_profile,
+            axis_z=retract_height,
+        )
+        self.move_all_joints_neutral()
+
     def transfer(
         self,
         source: LocationArgument,

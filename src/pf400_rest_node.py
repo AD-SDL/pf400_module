@@ -344,6 +344,45 @@ class PF400Node(RestNode):
 
         return None
 
+    @action(
+        name="move_to_location",
+        description="Move to a location for testing/calibration (gripper open, no grip)",
+    )
+    def move_to_location(
+        self,
+        target: Annotated[LocationArgument, "Location to move to"],
+        target_approach: Annotated[
+            Optional[LocationArgument], "Location to approach from"
+        ] = None,
+        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
+        approach_height_offset: Optional[
+            Annotated[float, "Add approach height offset"]
+        ] = None,
+    ) -> None:
+        """Move to a location using the same approach/descend sequence as pick/place but with gripper open and no grip/release. Stays at the target for inspection. Use move_neutral to retract."""
+        self.pf400_interface.move_to_location(
+            target=target,
+            target_approach=target_approach or None,
+            grab_offset=grab_offset,
+            approach_height_offset=approach_height_offset,
+        )
+
+    @action(
+        name="move_neutral",
+        description="Retract the arm to neutral position",
+    )
+    def move_neutral(
+        self,
+        height_offset: Optional[
+            Annotated[
+                float,
+                "Height to retract before moving to neutral (defaults to default_approach_height)",
+            ]
+        ] = None,
+    ) -> None:
+        """Retract upward and move to neutral position. Use after move_to_location to retract the arm."""
+        self.pf400_interface.move_neutral(height_offset=height_offset)
+
     @action(name="remove_lid", description="Remove a lid from a plate")
     def remove_lid(
         self,
@@ -504,20 +543,6 @@ class PF400Node(RestNode):
         result = super().reset()
         self.logger.log("Node reset.")
         return result
-
-    def safety_stop(self) -> None:
-        """Stop the node."""
-        self.logger.log("Stopping node...")
-        self.node_status.stopped = True
-        self.logger.log("Node stopped.")
-        return True
-
-    def cancel(self) -> None:
-        """Cancel the node."""
-        self.logger.log("Canceling node...")
-        self.node_status.cancelled = True
-        self.logger.log("Node cancelled.")
-        return True
 
 
 if __name__ == "__main__":

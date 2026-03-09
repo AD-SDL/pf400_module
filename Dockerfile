@@ -19,6 +19,6 @@ RUN --mount=type=cache,target=/root/.cache \
     uv pip install --python ${MADSCI_VENV}/bin/python -e /home/madsci/pf400_module && \
     chown -R ${USER_ID}:${GROUP_ID} /home/madsci/pf400_module
 
-CMD ["python", "-m", "pf400_rest_node", "--node_definition", "definitions/pf400.node.yaml"]
+CMD ["python", "-m", "pf400_rest_node"]
 
 #########################################

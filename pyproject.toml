@@ -41,3 +41,10 @@ paths = ["docs/Configuration.md"]
 
 [[tool.pydantic_settings_export.generators.dotenv]]
 paths = [".env.example"]
+
+[tool.pdm]
+distribution = true
+
+[build-system]
+requires = ["pdm-backend"]
+build-backend = "pdm.backend"

@@ -22,6 +22,8 @@ class PF400NodeConfig(RestNodeConfig):
     """Port to connect to the PF400 robot, default is 10100"""
     pf400_status_port: int = 10000
     """Port to connect to the PF400 status server, default is 10000"""
+    rate_limit_requests: int = 500
+    """Rate limit for requests to the PF400 robot, default is 100 ms"""
 
 
 class PF400Node(RestNode):
@@ -339,7 +341,9 @@ class PF400Node(RestNode):
             approach_height_offset=approach_height_offset,
         )
         if not place_result:
-            return ActionFailed("Transfer failed: plate not released properly.")
+            return ActionFailed(
+                errors=["Transfer failed: plate not released properly."]
+            )
 
         return None
 
@@ -375,13 +379,17 @@ class PF400Node(RestNode):
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
                 return ActionFailed(
-                    "Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                    errors=[
+                        "Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                    ]
                 )
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity != 0:
                 return ActionFailed(
-                    "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                    errors=[
+                        "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                    ]
                 )
 
         # Extract id of plate resource at source
@@ -452,13 +460,17 @@ class PF400Node(RestNode):
             source_resource = self.resource_client.get_resource(source.resource_id)
             if source_resource.quantity == 0:
                 return ActionFailed(
-                    "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
+                    errors=[
+                        "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
+                    ]
                 )
         if target.resource_id:
             target_resource = self.resource_client.get_resource(target.resource_id)
             if target_resource.quantity == 0:
                 return ActionFailed(
-                    "Resource manager: No plate on target! Resource_id:{target.resource_id}."
+                    errors=[
+                        "Resource manager: No plate on target! Resource_id:{target.resource_id}."
+                    ]
                 )
 
         # Create temporary lid slot from template

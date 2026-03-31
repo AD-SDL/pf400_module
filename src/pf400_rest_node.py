@@ -11,6 +11,7 @@ from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 
 from pf400_interface.pf400 import PF400
+from pf400_interface.resource_helpers import LidResult, LidSlotResult
 
 
 class PF400NodeConfig(RestNodeConfig):
@@ -312,7 +313,7 @@ class PF400Node(RestNode):
             if target_resource.quantity != 0:
                 return ActionFailed(
                     errors=[
-                        "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                        f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
                     ]
                 )
 
@@ -380,7 +381,7 @@ class PF400Node(RestNode):
             if source_resource.quantity == 0:
                 return ActionFailed(
                     errors=[
-                        "Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                        f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
                     ]
                 )
         if target.resource_id:
@@ -388,44 +389,82 @@ class PF400Node(RestNode):
             if target_resource.quantity != 0:
                 return ActionFailed(
                     errors=[
-                        "Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
+                        f"Resource manager: Target is occupied by another plate! Resource_id:{target.resource_id}."
                     ]
                 )
 
         # Extract id of plate resource at source
-        plate_resource_id = self.resource_client.get_resource(
-            source.resource_id
-        ).child.resource_id
+        source_resource = self.resource_client.get_resource(source.resource_id)
+        plate_resource = source_resource.child
+        plate_resource_id = plate_resource.resource_id
 
-        # Create temporary lid slot from template
-        lid_resource = self.resource_client.create_resource_from_template(
-            template_name="pf400_lid_slot",
-            resource_name="pf400_lid_slot",
-            add_to_database=True,
-        )
+        # Check for plate resource format compliance
+        # Is there a lid slot? Is there a lid in that lid slot?
+        lid_resource = None
+        lid_slot_resource = None
+        if "lid_slot" in plate_resource.children:
+            lid_slot_child_value = plate_resource.children["lid_slot"]
+            if isinstance(lid_slot_child_value, Slot):
+                if len(lid_slot_child_value.children) == 1:
+                    lid_slot_resource = lid_slot_child_value
+                    lid_resource = lid_slot_child_value.child  # collect lid resource
+                    self.logger.log_info(
+                        f"Identified lid resource {lid_resource.resource_id} for removal."
+                    )
+                else:
+                    return ActionFailed(
+                        errors=[
+                            f"No lid resource exists in the lid slot. {lid_slot_child_value}"
+                        ]
+                    )
+            else:
+                return ActionFailed(
+                    errors=[
+                        f"Lid slot child value is not of type Slot. {lid_slot_child_value=}"
+                    ]
+                )
+        else:
+            # The plate resource does not have a compliant format. Create a new lid from scratch
+            #  Create temporary lid slot from template
+            self.logger.log_warning(
+                "No lid_slot exists on plate resource at source indicating a non-compliant labware resource definition was used. Creating a lid from scratch."
+            )
+            lid_slot_resource = self.resource_client.create_resource_from_template(
+                template_name="pf400_lid_slot",
+                resource_name="pf400_lid_slot",
+                add_to_database=True,
+            )
+            # Create lid asset from template
+            lid_resource = self.resource_client.create_resource_from_template(
+                template_name="plate_lid",
+                resource_name=f"Lid_from_{plate_resource_id}",
+                add_to_database=True,
+            )
+            # put newly created lid in newly created lid slot
+            self.resource_client.push(resource=lid_slot_resource, child=lid_resource)
 
-        # Create lid asset from template
-        lid = self.resource_client.create_resource_from_template(
-            template_name="plate_lid",
-            resource_name=f"Lid_from_{plate_resource_id}",
-            add_to_database=True,
-        )
+        if lid_slot_resource is not None and target_resource is not None:
+            source.resource_id = lid_slot_resource.resource_id  # critical!
+            self.pf400_interface.remove_lid(
+                source=source,
+                target=target,
+                lid_height=lid_height,
+                source_approach=source_approach,
+                target_approach=target_approach,
+                source_plate_rotation=source_plate_rotation,
+                target_plate_rotation=target_plate_rotation,
+                grab_offset=grab_offset,
+                source_approach_height_offset=source_approach_height_offset,
+                target_approach_height_offset=target_approach_height_offset,
+            )
 
-        lid_resource = self.resource_client.push(resource=lid_resource, child=lid)
-        source.resource_id = lid_resource.resource_id
+        else:
+            return ActionFailed(
+                errors=[
+                    f"lid_resource or target_resource is None. \n{lid_resource=} \n{target_resource=}"
+                ]
+            )
 
-        self.pf400_interface.remove_lid(
-            source=source,
-            target=target,
-            lid_height=lid_height,
-            source_approach=source_approach,
-            target_approach=target_approach,
-            source_plate_rotation=source_plate_rotation,
-            target_plate_rotation=target_plate_rotation,
-            grab_offset=grab_offset,
-            source_approach_height_offset=source_approach_height_offset,
-            target_approach_height_offset=target_approach_height_offset,
-        )
         return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
@@ -456,30 +495,30 @@ class PF400Node(RestNode):
     ) -> Optional[ActionFailed]:
         """A doc string, but not the actual description of the action."""
 
-        if source.resource_id:
-            source_resource = self.resource_client.get_resource(source.resource_id)
-            if source_resource.quantity == 0:
-                return ActionFailed(
-                    errors=[
-                        "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
-                    ]
-                )
-        if target.resource_id:
-            target_resource = self.resource_client.get_resource(target.resource_id)
-            if target_resource.quantity == 0:
-                return ActionFailed(
-                    errors=[
-                        "Resource manager: No plate on target! Resource_id:{target.resource_id}."
-                    ]
-                )
+        lid_resource = None
+        lid_slot_resource = None
 
-        # Create temporary lid slot from template
-        lid_resource = self.resource_client.create_resource_from_template(
-            template_name="pf400_lid_slot",
-            resource_name="pf400_lid_slot",
-            add_to_database=True,
+        # Collect lid from source, checking for lid resource conformity to standard.
+        lid_resource, source_ok, err = self._get_lid_from_source(source=source)
+        if err:
+            return err
+
+        # Collect lid slot resource from target, checking for plate resource conformity to standard.
+        lid_slot_resource, target_ok, target_resource, err = (
+            self._get_lid_slot_from_target(target)
         )
-        target.resource_id = lid_resource.resource_id
+        if err:
+            return err
+
+        conforms_to_standard = source_ok and target_ok
+
+        # Return action failed if we failed to collect any variables.
+        if not (lid_resource and lid_slot_resource and target_resource):
+            return ActionFailed(
+                errors=[f"{lid_slot_resource=}, {lid_resource=}, {target_resource=}"]
+            )
+
+        target.resource_id = lid_slot_resource.resource_id  # critical!
 
         self.pf400_interface.replace_lid(
             source=source,
@@ -494,9 +533,72 @@ class PF400Node(RestNode):
             target_approach_height_offset=target_approach_height_offset,
         )
 
-        self.resource_client.remove_resource(lid_resource.resource_id)
+        if not conforms_to_standard:
+            self.resource_client.remove_resource(lid_resource.resource_id)
 
         return None
+
+    def _get_lid_from_source(self, source: LocationArgument) -> LidResult:
+        """Retreives the lid from the source location. Called from replace_lid."""
+
+        if not source.resource_id:
+            return None, True, None
+        source_resource = self.resource_client.get_resource(source.resource_id)
+        if not source_resource.children:
+            return (
+                None,
+                True,
+                ActionFailed(errors=["No lid resource exists at source location."]),
+            )
+        child = source_resource.children[-1]
+        if "lid" not in child.attributes:
+            self.logger.log_warning(
+                f"Resource Manager: Lid resource found does not conform to standard. {child}"
+            )
+            return child, False, None
+        if not child.attributes["lid"]:
+            return (
+                None,
+                True,
+                ActionFailed(errors=['Resource Manager: "lid" attribute is False.']),
+            )
+        return LidResult(child, True, None)
+
+    def _get_lid_slot_from_target(self, target: LocationArgument) -> LidSlotResult:
+        """Retreives the lid slot from the plate on the target location. Called from replace_lid."""
+
+        if not target.resource_id:
+            return None, True, None, None
+        target_resource = self.resource_client.get_resource(target.resource_id)
+        if not target_resource.children:
+            return (
+                None,
+                True,
+                target_resource,
+                ActionFailed(
+                    errors=[
+                        f"No plate resource exists at the target location {target.name}."
+                    ]
+                ),
+            )
+        plate = target_resource.children[-1]
+        if "lid_slot" not in plate.children:
+            self.logger.log_warning("Target plate has no lid slot. Creating one.")
+            lid_slot = self.resource_client.create_resource_from_template(
+                template_name="pf400_lid_slot",
+                resource_name="pf400_lid_slot",
+                add_to_database=True,
+            )
+            return lid_slot, False, target_resource, None
+        lid_slot = plate.children["lid_slot"]
+        if lid_slot.children:
+            return (
+                None,
+                True,
+                target_resource,
+                ActionFailed(errors=["A lid already exists on the target plate."]),
+            )
+        return LidSlotResult(lid_slot, True, target_resource, None)
 
     def pause(self) -> None:
         """Pause the node."""

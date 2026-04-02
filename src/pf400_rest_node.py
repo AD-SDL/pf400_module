@@ -499,16 +499,19 @@ class PF400Node(RestNode):
         lid_slot_resource = None
 
         # Collect lid from source, checking for lid resource conformity to standard.
-        lid_resource, source_ok, err = self._get_lid_from_source(source=source)
-        if err:
-            return err
+        source_result = self._get_lid_from_source(source=source)
+        if source_result.error is not None:
+            return source_result.error
+        lid_resource = source_result.lid
+        source_ok = source_result.conforms
 
         # Collect lid slot resource from target, checking for plate resource conformity to standard.
-        lid_slot_resource, target_ok, target_resource, err = (
-            self._get_lid_slot_from_target(target)
-        )
-        if err:
-            return err
+        target_result = self._get_lid_slot_from_target(target)
+        if target_result.error is not None:
+            return target_result.error
+        lid_slot_resource = target_result.lid_slot
+        target_ok = target_result.conforms
+        target_resource = target_result.target_resource
 
         conforms_to_standard = source_ok and target_ok
 
@@ -545,24 +548,29 @@ class PF400Node(RestNode):
             return None, True, None
         source_resource = self.resource_client.get_resource(source.resource_id)
         if not source_resource.children:
-            return (
-                None,
-                True,
-                ActionFailed(errors=["No lid resource exists at source location."]),
+            return LidResult(
+                lid=None,
+                conforms=True,
+                error=ActionFailed(
+                    errors=["No lid resource exists at source location."]
+                ),
             )
         child = source_resource.children[-1]
         if "lid" not in child.attributes:
             self.logger.log_warning(
                 f"Resource Manager: Lid resource found does not conform to standard. {child}"
             )
-            return child, False, None
+            return LidResult(lid=child, conforms=False, error=None)
+
         if not child.attributes["lid"]:
-            return (
-                None,
-                True,
-                ActionFailed(errors=['Resource Manager: "lid" attribute is False.']),
+            return LidResult(
+                lid=None,
+                conforms=True,
+                error=ActionFailed(
+                    errors=['Resource Manager: "lid" attribute is False.']
+                ),
             )
-        return LidResult(child, True, None)
+        return LidResult(lid=child, conforms=True, error=None)
 
     def _get_lid_slot_from_target(self, target: LocationArgument) -> LidSlotResult:
         """Retreives the lid slot from the plate on the target location. Called from replace_lid."""
@@ -571,11 +579,11 @@ class PF400Node(RestNode):
             return None, True, None, None
         target_resource = self.resource_client.get_resource(target.resource_id)
         if not target_resource.children:
-            return (
-                None,
-                True,
-                target_resource,
-                ActionFailed(
+            return LidSlotResult(
+                lid_slot=None,
+                conforms=True,
+                target_resource=target_resource,
+                error=ActionFailed(
                     errors=[
                         f"No plate resource exists at the target location {target.name}."
                     ]
@@ -592,13 +600,20 @@ class PF400Node(RestNode):
             return lid_slot, False, target_resource, None
         lid_slot = plate.children["lid_slot"]
         if lid_slot.children:
-            return (
-                None,
-                True,
-                target_resource,
-                ActionFailed(errors=["A lid already exists on the target plate."]),
+            return LidSlotResult(
+                lid_slot=None,
+                conforms=True,
+                target_resource=target_resource,
+                error=ActionFailed(
+                    errors=["A lid already exists on the target plate."]
+                ),
             )
-        return LidSlotResult(lid_slot, True, target_resource, None)
+        return LidSlotResult(
+            lid_slot=lid_slot,
+            conforms=True,
+            target_resource=target_resource,
+            error=None,
+        )
 
     def pause(self) -> None:
         """Pause the node."""

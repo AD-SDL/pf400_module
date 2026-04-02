@@ -3,7 +3,7 @@
 from typing import Optional
 
 from madsci.common.types.action_types import ActionFailed
-from madsci.common.types.resource_types import Resource
+from madsci.common.types.resource_types import Resource, Slot
 from pydantic import BaseModel
 
 
@@ -19,6 +19,6 @@ class LidSlotResult(BaseModel):
     """Pydantic model for defining the response from pf400 REST node _get_lid_slot_from_target function."""
 
     lid_slot: Optional[Resource] = None
-    target_resource: Optional[Resource] = None
+    target_resource: Optional[Slot] = None
     conforms: bool
     error: Optional[ActionFailed] = None

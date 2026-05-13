@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Driver code for the PF400 robot arm."""
+"""Interface code for the PF400 robot arm."""
 
 import copy
 import telnetlib
@@ -20,11 +20,10 @@ from pf400_interface.pf400_errors import (
     Pf400ConnectionError,
     Pf400ResponseError,
 )
-from pf400_interface.pf400_kinematics import KINEMATICS
 
 
-class PF400(KINEMATICS):
-    """Main Driver Class for the PF400 Robot Arm."""
+class PF400:
+    """Main Interface Class for the PF400 Robot Arm."""
 
     slow_motion_profile = 1
     fast_motion_profile = 2
@@ -79,9 +78,7 @@ class PF400(KINEMATICS):
             - Programs are sent to the 10x00 port (first robot port: 10100).
             - A program sent to robot will be executed immediately unless there is a prior operation running on the robot.
             - If a second motion command is sent while the referenced robot is moving, the second command is blocked and will not reply until the first motion is complete.
-
         """
-        super().__init__()  # PF400 kinematics
         self.logger = logger or EventClient()
         self.host = host
         self.port = port
@@ -92,12 +89,9 @@ class PF400(KINEMATICS):
         self.gripper_resource_id = gripper_resource_id
         self.command_lock = Lock()
         self.status_lock = Lock()
-        # Initialize robot
         self.connect()
-        self.configure_robot()
-        # Plate variables
+        self._configure_robot()
 
-        # Initialize neutral_joints as an instance attribute
         self.neutral_joints = [
             400.0,
             1.400,
@@ -109,14 +103,9 @@ class PF400(KINEMATICS):
 
         self.set_gripper_open()
         self.set_gripper_close()
-        self.logger.warn(
-            "HARD CODED ROTATION LOCATION IS DEPRECATED, USE rotation_deck WITH TRANSFER METHOD INSTEAD"
-        )
 
     def connect(self) -> None:
-        """
-        Description: Create a streaming socket to send string commands to the robot using telnetlib3.
-        """
+        """Create a streaming socket to send string commands to the robot using telnetlib."""
         try:
             self.robot_connection = telnetlib.Telnet(self.host, self.port, 5)  # noqa: S312
             self.status_connection = telnetlib.Telnet(self.host, self.status_port, 5)  # noqa: S312
@@ -125,11 +114,11 @@ class PF400(KINEMATICS):
                 err_message=f"Failed to connect using telnetlib: {e}"
             ) from e
 
-    def configure_robot(self) -> None:
+    def _configure_robot(self) -> None:
         """Configures the robot by setting the mode and selecting the robot ID."""
-        self.send_robot_command(f"mode {self.mode}")
+        self.send_command(f"mode {self.mode}")
         self.send_status_command(f"mode {self.mode}")
-        self.send_robot_command(f"selectRobot {self.robot_id}")
+        self.send_command(f"selectRobot {self.robot_id}")
         self.send_status_command(f"selectRobot {self.robot_id}")
 
     def disconnect(self) -> None:
@@ -141,7 +130,7 @@ class PF400(KINEMATICS):
             self.status_connection.close()
             self.status_connection = None
 
-    def send_robot_command(self, command: str) -> str:
+    def send_command(self, command: str) -> str:
         """
         Sends a command to the robot and return the response.
 
@@ -156,8 +145,7 @@ class PF400(KINEMATICS):
         Returns:
             str: The response received from the robot.
 
-
-                    Raises:
+        Raises:
             Pf400ConnectionError: If no connection to the robot can be established.
             Pf400CommandError: If an AttributeError occurs during command execution.
         """
@@ -172,10 +160,10 @@ class PF400(KINEMATICS):
                     .rstrip("\r\n")
                 )
                 if response != "" and response in ERROR_CODES:
-                    self.handle_error_output(response)
+                    self._handle_error_output(response)
                 if response in OUTPUT_CODES:
                     self.logger.log_debug(response)
-                self.await_movement_completion()
+                self._await_movement_completion()
                 return response
             except AttributeError as e:
                 raise Pf400CommandError(err_message="Attribute Error") from e
@@ -183,10 +171,6 @@ class PF400(KINEMATICS):
     def send_status_command(self, command: str) -> str:
         """
         Sends a status command to the PF400 device and returns the response.
-
-        This method ensures thread-safe access using a lock, establishes a connection if needed,
-        writes the command to the status writer, and reads the response. It handles error and output
-        codes appropriately, logging or raising exceptions as necessary.
 
         Args:
             command (str): The command string to send to the PF400 device.
@@ -209,98 +193,70 @@ class PF400(KINEMATICS):
                     .rstrip("\r\n")
                 )
                 if response != "" and response in ERROR_CODES:
-                    self.handle_error_output(response)
+                    self._handle_error_output(response)
                 if response in OUTPUT_CODES:
                     self.logger.log_debug(response)
                 return response
             except AttributeError as e:
                 raise Pf400CommandError(err_message="Attribute Error") from e
 
-    def handle_error_output(self, output: str) -> None:
-        """
-        Description: Handles the error message output
-        """
+    def _parse_response(self, response: str) -> list[float]:
+        """Parse a TCS response string into a list of floats, stripping the leading status code."""
+        parts = response.split(" ")
+        return [float(x) for x in parts[1:]]
+
+    def _handle_error_output(self, output: str) -> None:
+        """Handles the error message output."""
         response = Pf400ResponseError.from_error_code(output)
         self.logger.log_error(response)
         raise response
 
     def enable_power(self) -> str:
-        """
-        Description: Enables the power on the robot
-        """
-        return self.send_robot_command("hp 1 -1")
+        """Enables the power on the robot."""
+        return self.send_command("hp 1 -1")
 
     def disable_power(self) -> str:
-        """
-        Description: Disables the power on the robot
-        """
-        return self.send_robot_command("hp 0")
+        """Disables the power on the robot."""
+        return self.send_command("hp 0")
 
-    def split_response(self, response: str) -> list[str]:
-        """
-        Description: Splits the response string into a list of strings.
-        Parameters:
-            - response: The response string to be split.
-        Returns: A list of strings.
-        """
+    def _split_response(self, response: str) -> list[str]:
+        """Splits the response string into a list of strings."""
         return response.split(" ") if response else []
 
     def check_powered(self) -> bool:
-        """
-        Description: Checks whether the robot power is on or off.
-        Returns: bool indicating whether the robot is powered on.
-        """
-        self.power_state = self.split_response(self.send_status_command("hp"))[1]
+        """Checks whether the robot power is on or off."""
+        self.power_state = self._split_response(self.send_status_command("hp"))[1]
         return self.power_state == "1"
 
     def check_attached(self) -> bool:
-        """
-        Description: Checks whether the robot is attached or not.
-        Returns: bool indicating whether the robot is attached.
-        """
-        self.attach_state = self.split_response(self.send_robot_command("attach"))[1]
+        """Checks whether the robot is attached or not."""
+        self.attach_state = self._split_response(self.send_command("attach"))[1]
         return self.attach_state == "1"
 
     def check_homed(self) -> bool:
-        """
-        Description: Checks whether the robot is homed or not.
-        Returns: bool indicating whether the robot is homed.
-        """
-        self.home_state = self.split_response(self.send_status_command("pd 2800"))[1]
+        """Checks whether the robot is homed or not."""
+        self.home_state = self._split_response(self.send_status_command("pd 2800"))[1]
         return self.home_state == "1"
 
     def check_system_state(self) -> str:
-        """
-        Description: Checks the global system state code
-        Returns: The system state code as a string.
-        """
-        self.system_state = self.send_robot_command("sysState")
+        """Checks the global system state code."""
+        self.system_state = self.send_command("sysState")
         return self.system_state
 
     def attach_robot(self) -> str:
-        """
-        Description: Attach to the robot to enable motion commands.
-        """
-        return self.send_robot_command("attach 1")
+        """Attach to the robot to enable motion commands."""
+        return self.send_command("attach 1")
 
     def detach_robot(self) -> str:
-        """
-        Description: Detach from the robot to disable motion commands.
-        """
-        return self.send_robot_command("attach 0")
+        """Detach from the robot to disable motion commands."""
+        return self.send_command("attach 0")
 
     def home_robot(self) -> str:
-        """
-        Description: Homes robot joints. Homing takes around 15 seconds.
-        """
-
-        return self.send_robot_command("home")
+        """Homes robot joints. Homing takes around 15 seconds."""
+        return self.send_command("home")
 
     def initialize_robot(self) -> None:
-        """
-        Description: Initializes the robot by calling enable_power, attach_robot, home_robot, set_profile functions and checks the robot state to find out if the initialization was successful
-        """
-
+        """Initializes the robot by calling enable_power, attach_robot, home_robot, set_profile functions."""
         self.check_state()
         retry_count = 0
         while self.power_state != "1" and retry_count < 5:
@@ -327,70 +283,55 @@ class PF400(KINEMATICS):
         self.get_robot_movement_state()
 
     def get_robot_movement_state(self) -> int:
-        """Checks the movement state of the robot
-        States: 0 = Power off
-                1 = Stopped
-                2 = Acceleration
-                3 = Deceleration
+        """Checks the movement state of the robot.
+
+        States: 0 = Power off, 1 = Stopped, 2 = Acceleration, 3 = Deceleration
         """
         movement_state = self.send_status_command("state")
         self.movement_state = int(float(movement_state.split(" ")[1]))
         return self.movement_state
 
-    def await_movement_completion(self) -> None:
-        """Waits until the robot has finished moving"""
+    def _await_movement_completion(self) -> None:
+        """Waits until the robot has finished moving."""
         while True:
             if self.get_robot_movement_state() <= 1:
                 return
             time.sleep(0.1)
 
     def check_state(self) -> int:
-        """
-        Description: Checks the various state values of the robot and returns False if any of the states are not initialized correctly.
-        """
-
+        """Checks the various state values of the robot."""
         try:
             is_powered = self.check_powered()
             is_attached = self.check_attached()
             is_homed = self.check_homed()
             system_state = self.check_system_state()
-            system_state_ok = self.split_response(system_state)[1] == "21"
+            system_state_ok = self._split_response(system_state)[1] == "21"
             return is_powered and is_attached and is_homed and system_state_ok
         except Exception as e:
             self.logger.log_info(f"Exception during state check: {e}")
             return False
 
     def get_joint_states(self) -> list[float]:
-        """
-        Description: Locates the robot and returns the joint locations for all 6 joints.
-        """
-        states = self.send_robot_command("wherej")
+        """Locates the robot and returns the joint locations for all 6 joints."""
+        states = self.send_command("wherej")
         joints = states.split(" ")
         joints = joints[1:]
         return [float(x) for x in joints]
 
     def get_cartesian_coordinates(self) -> list[float]:
-        """
-        Description: This function finds the current cartesian coordinates and angles of the robot.
-                Return: A float array with x/y/z yaw/pitch/roll
-        """
-        coordinates = self.send_robot_command("whereC")
+        """Returns the current Cartesian coordinates of the robot as [X, Y, Z, yaw, pitch, roll]."""
+        coordinates = self.send_command("whereC")
         coordinates_list = coordinates.split(" ")
         coordinates_list = coordinates_list[1:-1]
         return [float(x) for x in coordinates_list]
 
-    def get_gripper_position(self) -> float:
+    def get_gripper_state(self) -> float:
         """Returns the current position of the gripper."""
         joint_angles = self.get_joint_states()
         return joint_angles[4]
 
     def set_profile(self, profile_dict: Optional[dict] = None) -> str:
-        """
-        Description: Sets and saves the motion profiles (defined in robot data) to the robot.
-                                If user defines a custom profile, this profile will saved onto motion profile 4 on the robot
-        Parameters:
-                        - profile_dict: Custom motion profile
-        """
+        """Sets and saves the motion profiles to the robot."""
         if profile_dict is None:
             profile1 = "Profile 1"
             for value in MOTION_PROFILES[0].values():
@@ -401,16 +342,14 @@ class PF400(KINEMATICS):
             profile3 = "Profile 3"
             for value in MOTION_PROFILES[2].values():
                 profile3 += " " + str(value)
-
-            self.send_robot_command(profile1)
-            self.send_robot_command(profile2)
-            out_msg = self.send_robot_command(profile3)
-
+            self.send_command(profile1)
+            self.send_command(profile2)
+            out_msg = self.send_command(profile3)
         elif len(profile_dict) == 8:
             profile4 = "Profile 4"
             for value in profile_dict.values():
                 profile4 += " " + str(value)
-            out_msg = self.send_robot_command(profile4)
+            out_msg = self.send_command(profile4)
         else:
             raise Exception(
                 f"Motion profile takes 8 arguments, {len(profile_dict)} where given"
@@ -429,33 +368,21 @@ class PF400(KINEMATICS):
 
     def set_gripper_open(self, gripper_length: Optional[int] = None) -> None:
         """Configure the definition of gripper open."""
-        self.send_robot_command(f"GripOpenPos {gripper_length or self.gripper_open}")
+        self.send_command(f"GripOpenPos {gripper_length or self.gripper_open}")
 
     def set_gripper_close(self, gripper_length: Optional[int] = None) -> None:
         """Configure the definition of gripper close."""
-        self.send_robot_command(f"GripClosePos {gripper_length or self.gripper_close}")
+        self.send_command(f"GripClosePos {gripper_length or self.gripper_close}")
 
     def grab_plate(
         self, width: Optional[int] = None, speed: int = 100, force: int = 10
     ) -> bool:
-        """
-        Description:
-                Grabs the plate by applying additional force
-        Parameters:
-            - width: Plate width, in mm. Should be accurate to within about 1 mm.
-            - speed: Percent speed to open fingers.  1 to 100.
-            - Force: Maximum gripper squeeze force, in Nt.
-                A positive value indicates the fingers must close to grasp.
-                A negative value indicates the fingers must open to grasp.
-        Returns:
-            True if the plate was successfully grabbed, False otherwise.
-        """
+        """Grabs the plate by applying additional force."""
         if width is None:
             width = self.gripper_close
-        grab_plate_status = self.send_robot_command(
+        grab_plate_status = self.send_command(
             f"GraspPlate {width} {speed} {force}"
         ).split(" ")
-
         if grab_plate_status[1] == "0":
             return False
         if grab_plate_status[1] == "-1":
@@ -468,23 +395,12 @@ class PF400(KINEMATICS):
         )
 
     def release_plate(self, width: Optional[int] = None, speed: int = 100) -> bool:
-        """
-        Description:
-                Release the plate
-        Parameters:
-                - width: Open width, in mm. Larger than the widest corners of the plates.
-                        If None, uses the default gripper_open value based on grip_wide setting.
-                - speed: Percent speed to open fingers.  1 to 100.
-        Returns:
-            True if the gripper successfully opened to the target width, False otherwise.
-        """
+        """Release the plate."""
         if width is None:
             width = self.gripper_open
-
-        release_plate_status = self.send_robot_command(
-            f"ReleasePlate {width} {speed}"
-        ).split(" ")
-
+        release_plate_status = self.send_command(f"ReleasePlate {width} {speed}").split(
+            " "
+        )
         if release_plate_status[0] != "0":
             self.logger.log_error(
                 f"Unexpected response from ReleasePlate: {release_plate_status[0]}"
@@ -492,80 +408,145 @@ class PF400(KINEMATICS):
             raise Pf400ResponseError(
                 f"Unexpected response from ReleasePlate command: {release_plate_status[0]}."
             )
-
-        # Verify gripper opened to target width
-        current_gripper_position = self.get_gripper_position()
-
+        current_gripper_position = self.get_gripper_state()
         if abs(current_gripper_position - width) <= 5:
             return True
-
         self.logger.log_error(
             f"Gripper failed to open to target width. Expected: {width}, Got: {current_gripper_position}"
         )
         return False
 
     def open_gripper(self, gripper_length: Optional[int] = None) -> float:
-        """Opens the gripper"""
+        """Opens the gripper."""
         self.set_gripper_open(gripper_length=gripper_length)
-        self.send_robot_command("gripper 1")
-        return self.get_gripper_position()
+        self.send_command("gripper 1")
+        return self.get_gripper_state()
 
     def close_gripper(self, gripper_length: Optional[int] = None) -> float:
-        """Closes the gripper"""
+        """Closes the gripper."""
         self.set_gripper_close(gripper_length=gripper_length)
-        self.send_robot_command("gripper 2")
-        return self.get_gripper_position()
+        self.send_command("gripper 2")
+        return self.get_gripper_state()
 
-    def set_plate_rotation(
-        self, joint_states: list[float], rotation_degree: float = 0
+    # -------------------------------------------------------------------------
+    # Kinematics -- implemented via custom TCS server commands (Custom.gpl)
+    # -------------------------------------------------------------------------
+
+    def joint_to_cart(self, joint_states: list[float]) -> list[float]:
+        """Forward kinematics (FK): convert joint angles to Cartesian coordinates.
+
+        Calls the JointToCart custom TCS command which uses the robot's internal
+        KineSol method. The rail offset is handled automatically inside the command.
+
+        Args:
+            joint_states: 6 joint values [j1, j2, j3, j4, j5, rail]
+
+        Returns:
+            Cartesian coordinates as [X, Y, Z, yaw, pitch, roll]
+        """
+        j1, j2, j3, j4, j5, rail = joint_states
+        response = self.send_command(f"JointToCart {j1} {j2} {j3} {j4} {j5} {rail}")
+        return self._parse_response(response)
+
+    def cart_to_joint(
+        self, cartesian_coordinates: list[float], rail: float
     ) -> list[float]:
+        """Inverse kinematics (IK): convert Cartesian coordinates to joint angles.
+
+        Calls the CartToJoint custom TCS command which uses the robot's internal
+        KineSol method. The rail position must be passed explicitly so the command
+        can subtract it from X before running IK, then return it as j6.
+
+        Args:
+            cartesian_coordinates: [X, Y, Z, yaw, pitch, roll] in world coordinates
+            rail: Rail position in mm (j6 from wherej)
+
+        Returns:
+            Joint angles as [j1, j2, j3, j4, j5, rail]
         """
-        Description:
-        Parameters:
-                - joint_states:
-                - rotation_degree:
-        Note: If the rotation requires changing the "Quadrant" on the coordinate plane,
-                        inverse kinematics calculation will be calculated wrong!
-        """
-        cartesian_coordinates, phi_angle, rail_pos = self.forward_kinematics(
-            joint_states
+        x, y, z, yaw, pitch, roll = cartesian_coordinates
+        response = self.send_command(
+            f"CartToJoint {x} {y} {z} {yaw} {pitch} {roll} {rail}"
         )
-        # Fixing the orientation offset here
-        if rotation_degree == -90:  # Yaw 90 to 0 degrees:
-            cartesian_coordinates[1] += 4
-            cartesian_coordinates[0] += 29
-        elif rotation_degree == 90:
-            cartesian_coordinates[1] -= 4
-            cartesian_coordinates[0] -= 29
+        return self._parse_response(response)
 
-        if cartesian_coordinates[1] < 0:
-            # Location is on the right side of the robot
-            cartesian_coordinates[3] += rotation_degree
-        elif cartesian_coordinates[1] > 0 and joint_states[1]:
-            cartesian_coordinates[3] -= rotation_degree
+    def rotate_yaw(self, joint_states: list[float], rotation_deg: float) -> list[float]:
+        """Rotate the end effector yaw at a given joint location.
 
-        return self.inverse_kinematics(cartesian_coordinates, phi_angle, rail_pos)
+        Calls the RotateLoc custom TCS command which internally runs FK, applies
+        the yaw rotation, then runs IK to return the new joint angles. Use this
+        to switch between narrow and wide microplate orientations without saving
+        duplicate locations.
+
+        Args:
+            joint_states: 6 joint values [j1, j2, j3, j4, j5, rail]
+            rotation_deg: Yaw rotation to apply in degrees, typically 90 or -90
+
+        Returns:
+            New joint angles as [j1, j2, j3, j4, j5, rail]
+        """
+        j1, j2, j3, j4, j5, rail = joint_states
+        response = self.send_command(
+            f"RotateLoc {j1} {j2} {j3} {j4} {j5} {rail} {rotation_deg}"
+        )
+        return self._parse_response(response)
+
+    def move_with_rotation(
+        self,
+        joint_states: list[float],
+        rotation_deg: float,
+        profile: int = 2,
+    ) -> str:
+        """Move the end effector to a location with a yaw rotation applied.
+
+        Computes the rotated Cartesian location using FK and the given rotation,
+        then moves to it using MoveC (straight line Cartesian motion). This avoids
+        IK ambiguity by letting the robot's internal motion controller handle the
+        joint configuration along the straight line path.
+
+        Args:
+            joint_states: 6 joint values [j1, j2, j3, j4, j5, rail]
+            rotation_deg: Yaw rotation to apply in degrees, typically 90 or -90
+            profile: Motion profile index, defaults to fast profile (2)
+
+        Returns:
+            Robot response string
+        """
+        cart = self.joint_to_cart(joint_states)
+        cart[3] += rotation_deg
+        # Normalize yaw to -180 to 180
+        if cart[3] > 180:
+            cart[3] -= 360
+        elif cart[3] < -180:
+            cart[3] += 360
+        return self.move_cartesian(cart, profile=profile)
+
+    # -------------------------------------------------------------------------
+    # Motion
+    # -------------------------------------------------------------------------
 
     def check_incorrect_plate_orientation(
-        self, goal_location: list[float], goal_rotation: list[float]
+        self, goal_location: list[float], goal_rotation: float
     ) -> list[float]:
+        """Fix plate rotation on the goal location if recorded with incorrect orientation.
+
+        Args:
+            goal_location: 6 joint values for the goal location
+            goal_rotation: Expected rotation angle in degrees (0 or 90)
+
+        Returns:
+            Corrected joint angles if orientation was wrong, otherwise unchanged.
         """
-        Description: Fixes plate rotation on the goal location if it was recorded with an incorrect orientation.
-        Parameters:
-            - goal_location
-            - goal_rotation
-        Return:
-            goal_location:
-                - New goal location if the incorrect orientation was found.
-                - Same goal location if there orientation was correct.
-        """
-        # This will fix plate rotation on the goal location if it was recorded with an incorrect orientation
-        cartesian_goal, _phi_source, _rail_source = self.forward_kinematics(
-            goal_location
-        )
-        # Checking yaw angle
-        if goal_rotation != 0 and cartesian_goal[3] > -10 and cartesian_goal[3] < 10:
-            goal_location = self.set_plate_rotation(goal_location, goal_rotation)
+        if goal_rotation == 0:
+            return goal_location
+
+        cart = self.joint_to_cart(goal_location)
+        yaw = cart[3]
+
+        # If yaw is close to 0 but rotation is expected, the location was saved
+        # with the wrong orientation and needs to be corrected
+        if -10 < yaw < 10:
+            return self.rotate_yaw(goal_location, goal_rotation)
 
         return goal_location
 
@@ -576,39 +557,31 @@ class PF400(KINEMATICS):
         gripper_close: bool = False,
         gripper_open: bool = False,
     ) -> str:
-        """
-        Description: Creates the movement commands with the given robot_location, profile, gripper closed and gripper open info
-        Parameters:
-                        - target: Which location the PF400 will move.
-                        - profile: Motion profile ID.
-                        - gripper_close: If set to TRUE, gripper is closed. If set to FALSE, gripper position will remain same as the previous location.
-                        - gripper_open: If set to TRUE, gripper is opened. If set to FALSE, gripper position will remain same as the previous location.
-        Return: Returns the created movement command in string format
-        """
+        """Move the robot to a joint angle location.
 
-        # Checking unpermitted gripper command
-        # add check gripper here and remove gripper open/close from state
+        Args:
+            target_joint_angles: Target joint angles [j1, j2, j3, j4, j5, rail]
+            profile: Motion profile ID
+            gripper_close: If True, gripper is closed before moving
+            gripper_open: If True, gripper is opened before moving
+        """
         if gripper_close and gripper_open:
             raise Exception("Gripper cannot be open and closed at the same time!")
-
-        # Setting the gripper location to open or close. If there is no gripper position passed in, target_joint_angles will be used.
         if gripper_close:
             target_joint_angles[4] = self.gripper_close
         elif gripper_open:
             target_joint_angles[4] = self.gripper_open
         else:
-            target_joint_angles[4] = self.get_gripper_position()
-
+            target_joint_angles[4] = self.get_gripper_state()
         move_command = (
             "movej" + " " + str(profile) + " " + " ".join(map(str, target_joint_angles))
         )
-
-        return self.send_robot_command(move_command)
+        return self.send_command(move_command)
 
     def move_cartesian(
         self, target_cartesian_coordinates: list[float], profile: int = 2
     ) -> str:
-        """Move the arm to a target location in cartesian coordinates."""
+        """Move the arm to a target location in Cartesian coordinates."""
         move_command = (
             "MoveC"
             + " "
@@ -616,29 +589,16 @@ class PF400(KINEMATICS):
             + " "
             + " ".join(map(str, target_cartesian_coordinates))
         )
-
-        return self.send_robot_command(move_command)
+        return self.send_command(move_command)
 
     def move_in_one_axis(
         self, profile: int = 1, axis_x: int = 0, axis_y: int = 0, axis_z: int = 0
     ) -> str:
-        """
-        Description: Moves the end effector on single axis with a goal movement in millimeters.
-        Parameters:
-                - axis_x : Goal movement on x axis in mm
-                - axis_y : Goal movement on y axis in mm
-                - axis_z : Goal movement on z axis in mm
-        Returns: A string response from the robot indicating the result of the move command.
-        """
-
-        # Find the cartesian coordinates of the target joint states
+        """Move the end effector on a single axis by a given distance in mm."""
         cartesian_coordinates = self.get_cartesian_coordinates()
-
-        # Move end effector on the single axis
         cartesian_coordinates[0] += axis_x
         cartesian_coordinates[1] += axis_y
         cartesian_coordinates[2] += axis_z
-
         move_command = (
             "MoveC"
             + " "
@@ -646,15 +606,11 @@ class PF400(KINEMATICS):
             + " "
             + " ".join(map(str, cartesian_coordinates))
         )
-        return self.send_robot_command(move_command)
+        return self.send_command(move_command)
 
     def move_gripper_safe_zone(self) -> None:
-        """
-        Description: Check if end effector is outside the safe boundaries. If it is, move it on the y axis first to prevent collisions with the module frames.
-        """
-
+        """Check if end effector is outside safe boundaries and move it in if needed."""
         current_cartesian_coordinates = self.get_cartesian_coordinates()
-
         if current_cartesian_coordinates[1] <= self.safe_left_boundary:
             y_distance = self.safe_left_boundary - current_cartesian_coordinates[1]
             self.move_in_one_axis(profile=self.slow_motion_profile, axis_y=y_distance)
@@ -663,55 +619,40 @@ class PF400(KINEMATICS):
             self.move_in_one_axis(profile=self.slow_motion_profile, axis_y=y_distance)
 
     def move_gripper_neutral(self) -> None:
-        """
-        Description: Move end effector to neutral position
-        """
-
+        """Move end effector to neutral position."""
         self.move_gripper_safe_zone()
         gripper_neutral = self.get_joint_states()
         gripper_neutral[3] = self.neutral_joints[3]
-
         self.move_joint(gripper_neutral, self.slow_motion_profile)
 
     def move_arm_neutral(self) -> None:
-        """
-        Description: Move arm to neutral position
-        """
+        """Move arm to neutral position."""
         arm_neutral = self.neutral_joints
         current_location = self.get_joint_states()
         arm_neutral[0] = current_location[0]
         arm_neutral[5] = current_location[5]
-
         self.move_joint(arm_neutral, self.slow_motion_profile)
 
     def move_rails_neutral(
         self, v_rail: Optional[float] = None, h_rail: Optional[float] = None
     ) -> None:
-        """Setting the target location's linear rail position for pf400_neutral"""
-
+        """Move rails to neutral position."""
         current_location = self.get_joint_states()
-
         if not v_rail:
-            v_rail = current_location[0]  # Keep the vertical rail same
+            v_rail = current_location[0]
         if not h_rail:
-            h_rail = current_location[5]  # Keep the horizontal rail same
-
+            h_rail = current_location[5]
         self.neutral_joints[5] = h_rail
         self.move_joint(self.neutral_joints, self.fast_motion_profile)
         self.neutral_joints[0] = v_rail + self.default_approach_height
         self.move_joint(self.neutral_joints, self.slow_motion_profile)
 
     def move_all_joints_neutral(self, target: Optional[list[float]] = None) -> None:
-        """
-        Description: Move all joints to neutral position
-        """
+        """Move all joints to neutral position."""
         if target is None:
             target = self.get_joint_states()
-        # First move end effector to it's nuetral position
         self.move_gripper_neutral()
-        # Setting an arm neutral position without moving the horizontal & vertical rails
         self.move_arm_neutral()
-        # Setting the target location's linear rail position for pf400_neutral
         self.move_rails_neutral(target[0], target[5])
 
     def remove_lid(
@@ -726,10 +667,9 @@ class PF400(KINEMATICS):
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
     ) -> None:
-        """Remove the lid from the plate"""
+        """Remove the lid from the plate."""
         source.representation = copy.deepcopy(source.representation)
         source.representation[0] += lid_height
-
         self.transfer(
             source=source,
             target=target,
@@ -753,10 +693,9 @@ class PF400(KINEMATICS):
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
     ) -> None:
-        """Replace the lid on the plate"""
+        """Replace the lid on the plate."""
         target.representation = copy.deepcopy(target.representation)
         target.representation[0] += lid_height
-
         self.transfer(
             source=source,
             target=target,
@@ -771,17 +710,13 @@ class PF400(KINEMATICS):
     def rotate_plate_on_deck(
         self, rotation_degree: int, rotation_deck: Optional[LocationArgument] = None
     ) -> None:
-        """
-        Description: Uses the rotation deck to rotate the plate between two transfers
-        Parameters: - rotation_degree: Rotation degree.
-        """
+        """Use the rotation deck to rotate the plate between two transfers."""
         if not rotation_deck:
             raise ValueError("Rotation deck location must be provided.")
         target = rotation_deck.representation
 
-        # Fixing the offset on the z axis
         if rotation_degree == -90:
-            target = self.set_plate_rotation(target, -rotation_degree)
+            target = self.rotate_yaw(target, -rotation_degree)
 
         above_position = list(map(add, target, self.default_approach_vector))
 
@@ -807,8 +742,7 @@ class PF400(KINEMATICS):
         )
         self.open_gripper(self.gripper_open_wide)
 
-        # Rotating gripper to grab the plate from other rotation
-        target = self.set_plate_rotation(target, rotation_degree)
+        target = self.rotate_yaw(target, rotation_degree)
         above_position = list(map(add, target, self.default_approach_vector))
         self.move_joint(
             target_joint_angles=above_position, profile=self.slow_motion_profile
@@ -838,11 +772,8 @@ class PF400(KINEMATICS):
         self.move_all_joints_neutral(target)
 
     def _handle_approach_location(self, approach: LocationArgument) -> None:
-        """
-        Handle moving to an approach location, whether single or multiple.
-        """
+        """Handle moving to an approach location, whether single or multiple."""
         if isinstance(approach.representation[0], list):
-            # Multiple approach locations provided
             self.move_all_joints_neutral(approach.representation[0])
             for location in approach.representation:
                 self.move_joint(
@@ -850,7 +781,6 @@ class PF400(KINEMATICS):
                     profile=self.fast_motion_profile,
                 )
         else:
-            # Single approach location provided
             self.move_all_joints_neutral(approach.representation)
             self.move_joint(
                 target_joint_angles=approach.representation,
@@ -858,11 +788,7 @@ class PF400(KINEMATICS):
             )
 
     def _handle_approach_return(self, approach: LocationArgument) -> None:
-        """
-        Handle returning from an approach location, whether single or multiple.
-        Uses straight motion profile for the first approach location (closest to target),
-        and fast motion profile for remaining approach locations.
-        """
+        """Handle returning from an approach location, whether single or multiple."""
         if isinstance(approach.representation[0], list):
             for index, location in enumerate(reversed(approach.representation)):
                 motion_profile = (
@@ -888,22 +814,16 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
         grab_height_offset: Optional[float] = None,
     ) -> list:
-        """
-        Calculate the position above a target with optional height offset.
-        """
+        """Calculate the position above a target with optional height offset."""
         above_offset = copy.deepcopy(self.default_approach_vector)
-
         if approach_height_offset:
             above_offset[0] += approach_height_offset
         if grab_height_offset:
             above_offset[0] += grab_height_offset
-
         return list(map(add, position, above_offset))
 
     def _apply_grab_offset(self, position: list, grab_offset: float) -> list:
-        """
-        Apply grab offset to a position.
-        """
+        """Apply grab offset to a position."""
         position = copy.deepcopy(position)
         position[0] += grab_offset
         return position
@@ -916,11 +836,7 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
         grip_width: Optional[int] = None,
     ) -> bool:
-        """
-        Pick a plate from the source location, optionally using an approach location.
-
-        Returns True if the plate was successfully grabbed, False otherwise.
-        """
+        """Pick a plate from the source location."""
         above_position = self._calculate_above_position(
             source.representation, approach_height_offset, grab_offset
         )
@@ -979,9 +895,7 @@ class PF400(KINEMATICS):
         approach_height_offset: Optional[float] = None,
         open_width: Optional[int] = None,
     ) -> bool:
-        """
-        Place a plate in the target location
-        """
+        """Place a plate in the target location."""
         above_position = self._calculate_above_position(
             target.representation, approach_height_offset, grab_offset
         )
@@ -1040,19 +954,11 @@ class PF400(KINEMATICS):
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
     ) -> None:
-        """
-        Move to a target location for testing/calibration purposes.
-
-        Follows the same approach and descend sequence as pick_plate, but keeps the
-        gripper open (unless holding a plate) and does not grip/release or change
-        resource state. Stays at the target position so the user can inspect and
-        adjust calibration. Use move_all_joints_neutral() to retract afterward.
-        """
+        """Move to a target location for testing/calibration purposes."""
         above_position = self._calculate_above_position(
             target.representation, approach_height_offset, grab_offset
         )
 
-        # Check if the gripper is currently holding a plate
         holding_plate = (
             self.resource_client
             and len(
@@ -1061,7 +967,6 @@ class PF400(KINEMATICS):
             > 0
         )
 
-        # Only open gripper if not holding a plate (prevent dropping labware)
         if not holding_plate:
             self.open_gripper()
 
@@ -1088,12 +993,7 @@ class PF400(KINEMATICS):
         )
 
     def move_neutral(self, height_offset: Optional[float] = None) -> None:
-        """
-        Retract upward and move to neutral position.
-
-        Retracts the arm upward by height_offset (defaults to default_approach_height)
-        before moving to neutral, mirroring the retract step in pick_plate/place_plate.
-        """
+        """Retract upward and move to neutral position."""
         retract_height = (
             height_offset if height_offset is not None else self.default_approach_height
         )
@@ -1116,26 +1016,25 @@ class PF400(KINEMATICS):
         source_approach_height_offset: Optional[float] = None,
         target_approach_height_offset: Optional[float] = None,
     ) -> bool:
-        """
-        Description: Plate transfer function that performs series of movements to pick and place the plates
-                Parameters:
-                        - source: Source location
-                        - target: Target location
-                        - source_approach: Approach location for source
-                        - target_approach: Approach location for target
-                        - source_plate_rotation: narrow or wide
-                        - target_plate_rotation: narrow or wide
-                        - rotation_deck: Location for plate rotation deck
-                        - grab_offset: Add grab height offset
-                        - source_approach_height_offset: Add source approach height offset
-                        - target_approach_height_offset: Add target approach height offset
+        """Plate transfer function that performs series of movements to pick and place the plates.
 
-                Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
+        Args:
+            source: Source location
+            target: Target location
+            source_approach: Approach location for source
+            target_approach: Approach location for target
+            source_plate_rotation: 'narrow', 'wide', or ''
+            target_plate_rotation: 'narrow', 'wide', or ''
+            rotation_deck: Location for plate rotation deck
+            grab_offset: Add grab height offset
+            source_approach_height_offset: Add source approach height offset
+            target_approach_height_offset: Add target approach height offset
+
+        Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
         """
         source = copy.deepcopy(source)
         target = copy.deepcopy(target)
 
-        # Validate rotation arguments
         for rotation_arg in [source_plate_rotation, target_plate_rotation]:
             if rotation_arg.lower() not in ["wide", "narrow", ""]:
                 raise ValueError(
@@ -1143,7 +1042,6 @@ class PF400(KINEMATICS):
                     "Expected 'wide', 'narrow', or ''."
                 )
 
-        # Determine source rotation (0 or 90 degrees)
         plate_source_rotation = 90 if source_plate_rotation.lower() == "wide" else 0
         self.grip_wide = source_plate_rotation.lower() == "wide"
 
@@ -1164,14 +1062,12 @@ class PF400(KINEMATICS):
             self.logger.error("Transfer failed: no plate detected after picking.")
             return False
 
-        # Determine target rotation (0 or 90 degrees)
         plate_target_rotation = 90 if target_plate_rotation.lower() == "wide" else 0
         self.grip_wide = target_plate_rotation.lower() == "wide"
         target.representation = self.check_incorrect_plate_orientation(
             target.representation, plate_target_rotation
         )
 
-        # Rotate plate if needed
         rotation_needed = plate_target_rotation - plate_source_rotation
         if rotation_needed != 0:
             self.rotate_plate_on_deck(

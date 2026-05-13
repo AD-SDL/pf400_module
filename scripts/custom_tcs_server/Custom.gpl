@@ -1,0 +1,314 @@
+#Region "Module CustomCommands"
+' Copyright (c) 2012 by Precise Automation Inc.  All rights reserved.
+' =======================================================================
+' Permission is granted to customers of Precise Automation to use this
+' software for any purpose, including commercial applications, and to
+' alter it and redistribute it freely, so long as this notice is included
+' with any modified or unmodified version of this software.
+'
+' This software is provided "as is," without warranty of any kind, express or
+' implied.  In no event shall Precise Automation be held liable for any
+' direct, indirect, incidental, special or consequential damages arising
+' out of the use of or inability to use this software.
+' =======================================================================
+
+Module CustomCommands
+
+' Custom commands for RPL Argonne National Laboratory
+'
+' Commands implemented:
+'
+'   JointToCart <j1> <j2> <j3> <j4> <j5> <rail>
+'       Forward kinematics (FK): converts joint angles to a Cartesian location.
+'       Rail offset is added to X so the result matches wherec world coordinates.
+'       Returns: X Y Z yaw pitch roll
+'
+'   CartToJoint <X> <Y> <Z> <yaw> <pitch> <roll> <rail>
+'       Inverse kinematics (IK): converts a Cartesian location to joint angles.
+'       Robot configuration is read from the robot automatically.
+'       Rail is passed explicitly and subtracted from X before IK.
+'       Returns: j1 j2 j3 j4 j5 rail
+'
+'   RotateLoc <j1> <j2> <j3> <j4> <j5> <rail> <rotation_deg>
+'       Rotates the end effector by rotation_deg around the Z axis (yaw) at the
+'       given joint location. Internally runs FK, applies the rotation, then runs
+'       IK to compute the new joint angles. Useful for switching between narrow
+'       and wide microplate orientations without saving duplicate locations.
+'       Returns: j1 j2 j3 j4 j5 rail
+
+    Private Const Version As String = "RPL Custom Module 2.0"
+    Public Custom_global_value As Integer
+    Public Custom_robot_array(N_ROB) As Integer
+
+#End Region
+#Region "Init"
+' Init -- Module Initialization
+
+    Public Sub Init()
+        Custom_global_value = 123
+        Command.AddPlugin(Version, "CustomCommands")
+    End Sub
+
+#End Region
+#Region "Hook_InitCommand"
+' Hook_InitCommand -- Initialization routine called when a command object is created
+
+    Public Sub Hook_InitCommand(ByVal Cmd As Command, ByRef Reply As String)
+
+        If Cmd.Rob.RobNum = 0 Then
+            GoTo _exit                  ' No robot
+        End If
+
+        Custom_robot_array(Cmd.Rob.RobNum) = Cmd.Rob.RobNum + 1000
+
+    _exit:
+        Return
+    End Sub
+
+#End Region
+#Region "Cmd_JointToCart"
+' Cmd_JointToCart -- Convert joint angles to Cartesian location (Forward Kinematics, FK)
+'
+' SYNOPSIS:
+'   JointToCart <j1> <j2> <j3> <j4> <j5> <rail>
+'
+' INPUTS:
+'   j1            Tower Z joint angle in degrees
+'   j2..j5        Remaining arm joint angles in degrees
+'   rail          Rail position in mm (j6)
+'
+' OUTPUTS:
+'   Reply: "0 X Y Z yaw pitch roll" on success
+'          "-error_code, message" on failure
+'
+' NOTE: X includes the rail offset so the result matches wherec world coordinates.
+'
+' EXAMPLE:
+'   wherej  ->  0 176.539 1.4 177.05 537.273 70.803 -967.609
+'   Send:       JointToCart 176.539 1.4 177.05 537.273 70.803 -967.609
+'   Receive:    0 -811.497 24.550 176.539 -4.277 90.000 180.000
+
+    Public Sub Cmd_JointToCart(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim joint_loc As New Location
+        Dim cart_loc  As New Location
+        Dim rail_pos  As Double
+
+        If Cmd.Nparm <> 6 Then
+            Reply = "-1, JointToCart requires 6 parameters: j1 j2 j3 j4 j5 rail"
+            Return
+        End If
+
+        Cmd.StringtoDouble(0)
+
+        ' Build joint angle location from the 5 arm joints
+        joint_loc.Angles( _
+            Cmd.cData(1), _
+            Cmd.cData(2), _
+            Cmd.cData(3), _
+            Cmd.cData(4), _
+            Cmd.cData(5) _
+        )
+
+        rail_pos = Cmd.cData(6)
+
+        ' Select robot so KineSol can use its kinematic model
+        Robot.Selected = Cmd.Rob.RobNum
+
+        ' Forward kinematics: convert joint angles to Cartesian
+        ' mode=1 ignores conversion errors (joint out of range, etc.)
+        cart_loc = joint_loc.KineSol(1)
+
+        ' Add rail offset to X to match wherec world coordinates
+        cart_loc.X = cart_loc.X + rail_pos
+
+        Reply = "0 " & _
+            Format(cart_loc.X,     "0.000") & " " & _
+            Format(cart_loc.Y,     "0.000") & " " & _
+            Format(cart_loc.Z,     "0.000") & " " & _
+            Format(cart_loc.Yaw,   "0.000") & " " & _
+            Format(cart_loc.Pitch, "0.000") & " " & _
+            Format(cart_loc.Roll,  "0.000")
+
+    End Sub
+
+#End Region
+#Region "Cmd_CartToJoint"
+' Cmd_CartToJoint -- Convert Cartesian location to joint angles (Inverse Kinematics, IK)
+'
+' SYNOPSIS:
+'   CartToJoint <X> <Y> <Z> <yaw> <pitch> <roll> <rail>
+'
+' INPUTS:
+'   X Y Z           Cartesian position in mm (world coordinates, including rail offset)
+'   yaw pitch roll  Orientation in degrees
+'   rail            Rail position in mm (j6 from wherej), used to remove rail offset from X
+'
+' NOTE: Robot configuration is read automatically from Robot.Where.Config.
+'       Rail is subtracted from X before IK so the kinematic model works in arm-local space.
+'       Rail is returned unchanged as the last value in the output.
+'
+' OUTPUTS:
+'   Reply: "0 j1 j2 j3 j4 j5 rail" on success
+'          "-error_code, message" on failure
+'
+' EXAMPLE:
+'   wherec  ->  0 434.606 365.118 357.127 -4.839 90 180 1
+'   wherej  ->  0 357.127 13.669 84.86 616.632 70.785 40.839
+'   Send:       CartToJoint 434.606 365.118 357.127 -4.839 90 180 40.839
+'   Receive:    0 357.127 13.669 84.860 616.632 70.785 40.839
+
+    Public Sub Cmd_CartToJoint(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim cart_loc  As New Location
+        Dim joint_loc As New Location
+        Dim rail_pos  As Double
+
+        If Cmd.Nparm <> 7 Then
+            Reply = "-1, CartToJoint requires 7 parameters: X Y Z yaw pitch roll rail"
+            Return
+        End If
+
+        Cmd.StringtoDouble(0)
+
+        rail_pos = Cmd.cData(7)
+
+        ' Build Cartesian location by setting each property individually
+        ' Subtract rail offset from X so KineSol works in arm-local coordinates
+        cart_loc.X     = Cmd.cData(1) - rail_pos
+        cart_loc.Y     = Cmd.cData(2)
+        cart_loc.Z     = Cmd.cData(3)
+        cart_loc.Yaw   = Cmd.cData(4)
+        cart_loc.Pitch = Cmd.cData(5)
+        cart_loc.Roll  = Cmd.cData(6)
+
+        ' Read config from the robot's current position
+        cart_loc.Config = Robot.Where.Config
+
+        ' Select robot so KineSol can use its kinematic model
+        Robot.Selected = Cmd.Rob.RobNum
+
+        ' Build a 5-axis joint hint from the robot's current position
+        ' This is passed to KineSol so the solver stays close to the current
+        ' configuration and avoids jumping to equivalent but distant solutions
+        ' for multi-turn axes like j4. Rail axis is excluded as KineSol only
+        ' works on the 5 arm axes.
+        Dim hint_loc As New Location
+        hint_loc.Angles( _
+            Robot.WhereAngles.Angle(1), _
+            Robot.WhereAngles.Angle(2), _
+            Robot.WhereAngles.Angle(3), _
+            Robot.WhereAngles.Angle(4), _
+            Robot.WhereAngles.Angle(5) _
+        )
+
+        ' Inverse kinematics: convert Cartesian to joint angles
+        ' Pass hint so solver stays close to current configuration
+        joint_loc = cart_loc.KineSol(1, hint_loc)
+
+        Reply = "0 " & _
+            Format(joint_loc.Angle(1), "0.000") & " " & _
+            Format(joint_loc.Angle(2), "0.000") & " " & _
+            Format(joint_loc.Angle(3), "0.000") & " " & _
+            Format(joint_loc.Angle(4), "0.000") & " " & _
+            Format(joint_loc.Angle(5), "0.000") & " " & _
+            Format(rail_pos,           "0.000")
+
+    End Sub
+
+#End Region
+#Region "Cmd_RotateLoc"
+' Cmd_RotateLoc -- Rotate end effector at a joint location by a given angle (FK + IK)
+'
+' Internally this command runs forward kinematics (FK) to convert the joint angles
+' to Cartesian space, applies the rotation to the yaw axis, then runs inverse
+' kinematics (IK) to return the new joint angles. This allows switching between
+' narrow and wide microplate orientations without saving duplicate locations.
+'
+' SYNOPSIS:
+'   RotateLoc <j1> <j2> <j3> <j4> <j5> <rail> <rotation_deg>
+'
+' INPUTS:
+'   j1            Tower Z joint angle in degrees
+'   j2..j5        Remaining arm joint angles in degrees
+'   rail          Rail position in mm (j6)
+'   rotation_deg  Yaw rotation to apply in degrees (e.g. 90 or -90)
+'
+' OUTPUTS:
+'   Reply: "0 j1 j2 j3 j4 j5 rail" on success
+'          "-error_code, message" on failure
+'
+' EXAMPLE:
+'   wherej  ->  0 176.539 1.4 177.05 537.273 70.803 -967.609
+'   Send:       RotateLoc 176.539 1.4 177.05 537.273 70.803 -967.609 90
+'   Receive:    0 176.539 1.400 177.050 447.273 70.803 -967.609
+
+    Public Sub Cmd_RotateLoc(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim joint_loc  As New Location
+        Dim cart_loc   As New Location
+        Dim result_loc As New Location
+        Dim rail_pos   As Double
+        Dim rot_deg    As Double
+        Dim new_yaw    As Double
+
+        If Cmd.Nparm <> 7 Then
+            Reply = "-1, RotateLoc requires 7 parameters: j1 j2 j3 j4 j5 rail rotation_deg"
+            Return
+        End If
+
+        Cmd.StringtoDouble(0)
+
+        ' Build joint angle location from the 5 arm joints
+        joint_loc.Angles( _
+            Cmd.cData(1), _
+            Cmd.cData(2), _
+            Cmd.cData(3), _
+            Cmd.cData(4), _
+            Cmd.cData(5) _
+        )
+
+        rail_pos = Cmd.cData(6)
+        rot_deg  = Cmd.cData(7)
+
+        ' Select robot so KineSol can use its kinematic model
+        Robot.Selected = Cmd.Rob.RobNum
+
+        ' Step 1: Forward kinematics, convert joint angles to Cartesian
+        cart_loc = joint_loc.KineSol(1)
+
+        ' Add rail offset to X to work in world coordinates
+        cart_loc.X = cart_loc.X + rail_pos
+
+        ' Step 2: Apply yaw rotation and normalize to -180 to 180 range
+        new_yaw = cart_loc.Yaw + rot_deg
+        If new_yaw > 180.0 Then
+            new_yaw = new_yaw - 360.0
+        End If
+        If new_yaw < -180.0 Then
+            new_yaw = new_yaw + 360.0
+        End If
+        cart_loc.Yaw = new_yaw
+
+        ' Step 3: Inverse kinematics, convert rotated Cartesian back to joint angles
+        ' Subtract rail offset from X so KineSol works in arm-local coordinates
+        ' Pass input joint angles as hint so solver stays close to original configuration
+        ' This prevents j4 (and other multi-turn axes) from jumping to an equivalent
+        ' but physically distant solution
+        cart_loc.X      = cart_loc.X - rail_pos
+        cart_loc.Config = Robot.Where.Config
+        result_loc = cart_loc.KineSol(1, joint_loc)
+
+        Reply = "0 " & _
+            Format(result_loc.Angle(1), "0.000") & " " & _
+            Format(result_loc.Angle(2), "0.000") & " " & _
+            Format(result_loc.Angle(3), "0.000") & " " & _
+            Format(result_loc.Angle(4), "0.000") & " " & _
+            Format(result_loc.Angle(5), "0.000") & " " & _
+            Format(rail_pos,            "0.000")
+
+    End Sub
+
+#End Region
+
+End Module

@@ -35,8 +35,23 @@ Module CustomCommands
 '       IK to compute the new joint angles. Useful for switching between narrow
 '       and wide microplate orientations without saving duplicate locations.
 '       Returns: j1 j2 j3 j4 j5 rail
+'
+'   EnableCompliance <reduced_pct>
+'       Enables horizontal force compliance on the robot joints (XY plane).
+'       The arm will float/comply to horizontal reaction forces during motion.
+'       reduced_pct (0-100) sets a bias torque as a percentage of the last used
+'       position control torque to prevent axes from drifting or twitching.
+'       0 = fully free (no bias torque), 100 = full holding torque (no compliance).
+'       Typical values: 0-20 for most pick/place operations.
+'       Always call DisableCompliance after the operation is complete.
+'       Returns: 0 on success, error code and message on failure
+'
+'   DisableCompliance
+'       Disables horizontal force compliance and returns joints to normal
+'       position control mode.
+'       Returns: 0 on success, error code and message on failure
 
-    Private Const Version As String = "RPL Custom Module 2.0"
+    Private Const Version As String = "RPL Custom Module 2.1"
     Public Custom_global_value As Integer
     Public Custom_robot_array(N_ROB) As Integer
 
@@ -306,6 +321,88 @@ Module CustomCommands
             Format(result_loc.Angle(4), "0.000") & " " & _
             Format(result_loc.Angle(5), "0.000") & " " & _
             Format(rail_pos,            "0.000")
+
+    End Sub
+
+#Region "Cmd_EnableCompliance"
+' Cmd_EnableCompliance -- Enable horizontal force compliance on robot joints
+'
+' Enables AC_HorizCompliance2 mode which allows the horizontal arm axes to
+' float and comply to reaction forces while other axes continue to be driven
+' normally. Use this before descending into a pick or place location where
+' the plate may be slightly misaligned or stuck.
+'
+' The reduced_pct parameter sets a bias torque as a percentage of the last
+' used position control torque to prevent axes from drifting or twitching
+' when compliance is first enabled:
+'   0   = fully free, no bias torque (maximum compliance)
+'   100 = full holding torque (effectively no compliance)
+'   10-20 is recommended for most pick/place operations
+'
+' Requires the XY Compliance license to be installed on the controller.
+'
+' SYNOPSIS:
+'   EnableCompliance <reduced_pct>
+'
+' INPUTS:
+'   reduced_pct   Bias torque percentage 0-100
+'
+' OUTPUTS:
+'   Reply: "0" on success
+'          "-error_code, message" on failure
+
+    Public Sub Cmd_EnableCompliance(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim exc1        As Exception
+        Dim reduced_pct As Double
+
+        If Cmd.Nparm <> 1 Then
+            Reply = "-1, EnableCompliance requires 1 parameter: reduced_pct (0-100)"
+            Return
+        End If
+
+        Cmd.StringtoDouble(0)
+        reduced_pct = Cmd.cData(1)
+
+        If reduced_pct < 0 Or reduced_pct > 100 Then
+            Reply = "-1, EnableCompliance: reduced_pct must be between 0 and 100"
+            Return
+        End If
+
+        exc1 = AC_HorizCompliance2(Cmd.Rob.RobNum, True, reduced_pct)
+        If exc1.ErrorCode < 0 Then
+            Reply = CStr(exc1.ErrorCode) & ", " & AC_ErrorMessage(exc1)
+        Else
+            Reply = "0"
+        End If
+
+    End Sub
+
+#End Region
+#Region "Cmd_DisableCompliance"
+' Cmd_DisableCompliance -- Disable horizontal force compliance on robot joints
+'
+' Disables AC_HorizCompliance2 mode and returns the horizontal arm axes to
+' normal position control mode. Always call this after EnableCompliance
+' once the pick or place operation is complete.
+'
+' SYNOPSIS:
+'   DisableCompliance
+'
+' OUTPUTS:
+'   Reply: "0" on success
+'          "-error_code, message" on failure
+
+    Public Sub Cmd_DisableCompliance(ByVal Cmd As Command, ByRef Reply As String)
+
+        Dim exc1 As Exception
+
+        exc1 = AC_HorizCompliance2(Cmd.Rob.RobNum, False, 0)
+        If exc1.ErrorCode < 0 Then
+            Reply = CStr(exc1.ErrorCode) & ", " & AC_ErrorMessage(exc1)
+        Else
+            Reply = "0"
+        End If
 
     End Sub
 

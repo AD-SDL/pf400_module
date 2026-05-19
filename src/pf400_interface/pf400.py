@@ -39,6 +39,7 @@ class PF400:
     safe_left_boundary = -350.0
     safe_right_boundary = 350.0
 
+    default_bias_torque_pct: int = 50
     default_approach_height = 15.0
     default_approach_vector: typing.ClassVar[list] = [
         default_approach_height,
@@ -526,7 +527,7 @@ class PF400:
     # Requires XY Compliance license on the controller.
     # -------------------------------------------------------------------------
 
-    def enable_compliance(self, bias_torque_pct: int = 0) -> str:
+    def enable_compliance(self) -> str:
         """Enable horizontal force compliance on the robot joints.
 
         Allows the horizontal arm axes to float and comply to reaction forces
@@ -543,7 +544,7 @@ class PF400:
         Returns:
             Robot response string
         """
-        return self.send_robot_command(f"EnableCompliance {bias_torque_pct}")
+        return self.send_command(f"EnableCompliance {self.default_bias_torque_pct}")
 
     def disable_compliance(self) -> str:
         """Disable horizontal force compliance and return to normal position control.
@@ -554,7 +555,7 @@ class PF400:
         Returns:
             Robot response string
         """
-        return self.send_robot_command("DisableCompliance")
+        return self.send_command("DisableCompliance")
 
     # -------------------------------------------------------------------------
     # Height Detection -- implemented via TCS PARobot Auto Center module
@@ -583,7 +584,7 @@ class PF400:
             Detected Z height in mm (world coordinates)
         """
         mode = 2 if thorough else 1
-        response = self.send_robot_command(
+        response = self.send_command(
             f"HeightDetect {mode} {search_limit_mm} {max_force_n}"
         )
         return float(response.split(" ")[1])
@@ -789,6 +790,7 @@ class PF400:
 
         self.move_all_joints_neutral(target)
         self.move_joint(above_position, self.slow_motion_profile)
+        self.enable_compliance()
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
 
@@ -807,6 +809,7 @@ class PF400:
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
+        self.disable_compliance()
         self.open_gripper(self.gripper_open_wide)
 
         target = self.rotate_yaw(target, rotation_degree)
@@ -814,6 +817,7 @@ class PF400:
         self.move_joint(
             target_joint_angles=above_position, profile=self.slow_motion_profile
         )
+        self.enable_compliance()
         self.move_joint(
             target_joint_angles=target,
             profile=self.slow_motion_profile,
@@ -836,6 +840,7 @@ class PF400:
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
+        self.disable_compliance()
         self.move_all_joints_neutral(target)
 
     def _handle_approach_location(self, approach: LocationArgument) -> None:
@@ -925,6 +930,7 @@ class PF400:
             if grab_offset
             else source.representation
         )
+        self.enable_compliance()
         self.move_joint(
             target_joint_angles=target_position,
             profile=approach_motion_profile,
@@ -946,6 +952,7 @@ class PF400:
             if approach_height_offset
             else self.default_approach_height,
         )
+        self.disable_compliance()
 
         if source_approach:
             self._handle_approach_return(source_approach)
@@ -981,6 +988,7 @@ class PF400:
             if grab_offset
             else target.representation
         )
+        self.enable_compliance()
         self.move_joint(target_position, approach_motion_profile)
         release_succeeded = self.release_plate(width=open_width)
 
@@ -1006,7 +1014,7 @@ class PF400:
             if approach_height_offset
             else self.default_approach_height,
         )
-
+        self.disable_compliance()
         if target_approach:
             self._handle_approach_return(target_approach)
         else:

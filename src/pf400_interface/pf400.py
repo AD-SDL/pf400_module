@@ -522,6 +522,73 @@ class PF400:
         return self.move_cartesian(cart, profile=profile)
 
     # -------------------------------------------------------------------------
+    # Force Compliance -- implemented via custom TCS server commands (Custom.gpl)
+    # Requires XY Compliance license on the controller.
+    # -------------------------------------------------------------------------
+
+    def enable_compliance(self, bias_torque_pct: int = 0) -> str:
+        """Enable horizontal force compliance on the robot joints.
+
+        Allows the horizontal arm axes to float and comply to reaction forces
+        while other axes continue to be driven normally. Use before descending
+        into a pick or place location where the plate may be slightly misaligned
+        or stuck. Always call disable_compliance() after the operation.
+
+        Args:
+            bias_torque_pct: Bias torque as a percentage of last used position control
+                torque (0-100). 0 = fully free (maximum compliance), 100 = full
+                holding torque (no compliance). Typical values: 0-20 for most
+                pick/place operations.
+
+        Returns:
+            Robot response string
+        """
+        return self.send_robot_command(f"EnableCompliance {bias_torque_pct}")
+
+    def disable_compliance(self) -> str:
+        """Disable horizontal force compliance and return to normal position control.
+
+        Always call this after enable_compliance() once the pick or place
+        operation is complete.
+
+        Returns:
+            Robot response string
+        """
+        return self.send_robot_command("DisableCompliance")
+
+    # -------------------------------------------------------------------------
+    # Height Detection -- implemented via TCS PARobot Auto Center module
+    # Requires Z Height Detection license on the controller.
+    # -------------------------------------------------------------------------
+
+    def height_detect(
+        self,
+        search_limit_mm: float = -500,
+        max_force_n: float = -15,
+        thorough: bool = True,
+    ) -> float:
+        """Detect the height of a surface below the gripper using motor force sensing.
+
+        The gripper must be positioned at least 10-20mm above the surface before
+        calling. The robot will descend until it detects contact or reaches the
+        search limit.
+
+        Args:
+            search_limit_mm: Maximum downward search distance in mm, must be negative
+            max_force_n: Maximum contact force in Newtons before stopping, must be negative
+            thorough: If True uses thorough mode (0.3mm accuracy, ~4s slower),
+                else quick mode (0.5mm accuracy, faster)
+
+        Returns:
+            Detected Z height in mm (world coordinates)
+        """
+        mode = 2 if thorough else 1
+        response = self.send_robot_command(
+            f"HeightDetect {mode} {search_limit_mm} {max_force_n}"
+        )
+        return float(response.split(" ")[1])
+
+    # -------------------------------------------------------------------------
     # Motion
     # -------------------------------------------------------------------------
 

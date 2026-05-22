@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:27982f65982f80f0c56310d580de55bd6ffd42f27c42e41004e1e38a4cb0ce7f"
+content_hash = "sha256:96a6046cb2e0d9a80f5c84c18ee037e5503303c61bbf264c98a42f04d65cdef7"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.13"
@@ -513,72 +513,27 @@ files = [
 
 [[package]]
 name = "ipykernel"
-version = "7.2.0"
-summary = ""
+version = "7.1.0"
+requires_python = ">=3.10"
+summary = "IPython Kernel for Jupyter"
 dependencies = [
-    "appnope; sys_platform == \"darwin\"",
-    "comm",
-    "debugpy",
-    "ipython==8.38.0; python_full_version < \"3.11\"",
-    "ipython==9.10.0; python_full_version == \"3.11.*\"",
-    "ipython==9.11.0; python_full_version >= \"3.12\"",
-    "jupyter-client",
-    "jupyter-core",
-    "matplotlib-inline",
-    "nest-asyncio",
-    "packaging",
-    "psutil",
-    "pyzmq",
-    "tornado",
-    "traitlets",
+    "appnope>=0.1.2; platform_system == \"Darwin\"",
+    "comm>=0.1.1",
+    "debugpy>=1.6.5",
+    "ipython>=7.23.1",
+    "jupyter-client>=8.0.0",
+    "jupyter-core!=5.0.*,>=4.12",
+    "matplotlib-inline>=0.1",
+    "nest-asyncio>=1.4",
+    "packaging>=22",
+    "psutil>=5.7",
+    "pyzmq>=25",
+    "tornado>=6.2",
+    "traitlets>=5.4.0",
 ]
 files = [
-    {file = "ipykernel-7.2.0-py3-none-any.whl", hash = "sha256:3bbd4420d2b3cc105cbdf3756bfc04500b1e52f090a90716851f3916c62e1661"},
-    {file = "ipykernel-7.2.0.tar.gz", hash = "sha256:18ed160b6dee2cbb16e5f3575858bc19d8f1fe6046a9a680c708494ce31d909e"},
-]
-
-[[package]]
-name = "ipython"
-version = "8.38.0"
-summary = ""
-dependencies = [
-    "colorama; python_full_version < \"3.11\" and sys_platform == \"win32\"",
-    "decorator; python_full_version < \"3.11\"",
-    "exceptiongroup; python_full_version < \"3.11\"",
-    "jedi; python_full_version < \"3.11\"",
-    "matplotlib-inline; python_full_version < \"3.11\"",
-    "pexpect; python_full_version < \"3.11\" and (sys_platform != \"emscripten\" and sys_platform != \"win32\")",
-    "prompt-toolkit; python_full_version < \"3.11\"",
-    "pygments; python_full_version < \"3.11\"",
-    "stack-data; python_full_version < \"3.11\"",
-    "traitlets; python_full_version < \"3.11\"",
-    "typing-extensions; python_full_version < \"3.11\"",
-]
-files = [
-    {file = "ipython-8.38.0-py3-none-any.whl", hash = "sha256:750162629d800ac65bb3b543a14e7a74b0e88063eac9b92124d4b2aa3f6d8e86"},
-    {file = "ipython-8.38.0.tar.gz", hash = "sha256:9cfea8c903ce0867cc2f23199ed8545eb741f3a69420bfcf3743ad1cec856d39"},
-]
-
-[[package]]
-name = "ipython"
-version = "9.10.0"
-summary = ""
-dependencies = [
-    "colorama; python_full_version == \"3.11.*\" and sys_platform == \"win32\"",
-    "decorator; python_full_version == \"3.11.*\"",
-    "ipython-pygments-lexers; python_full_version == \"3.11.*\"",
-    "jedi; python_full_version == \"3.11.*\"",
-    "matplotlib-inline; python_full_version == \"3.11.*\"",
-    "pexpect; python_full_version == \"3.11.*\" and (sys_platform != \"emscripten\" and sys_platform != \"win32\")",
-    "prompt-toolkit; python_full_version == \"3.11.*\"",
-    "pygments; python_full_version == \"3.11.*\"",
-    "stack-data; python_full_version == \"3.11.*\"",
-    "traitlets; python_full_version == \"3.11.*\"",
-    "typing-extensions; python_full_version == \"3.11.*\"",
-]
-files = [
-    {file = "ipython-9.10.0-py3-none-any.whl", hash = "sha256:c6ab68cc23bba8c7e18e9b932797014cc61ea7fd6f19de180ab9ba73e65ee58d"},
-    {file = "ipython-9.10.0.tar.gz", hash = "sha256:cd9e656be97618a0676d058134cd44e6dc7012c0e5cb36a9ce96a8c904adaf77"},
+    {file = "ipykernel-7.1.0-py3-none-any.whl", hash = "sha256:763b5ec6c5b7776f6a8d7ce09b267693b4e5ce75cb50ae696aaefb3c85e1ea4c"},
+    {file = "ipykernel-7.1.0.tar.gz", hash = "sha256:58a3fc88533d5930c3546dc7eac66c6d288acde4f801e2001e65edc5dc9cf0db"},
 ]
 
 [[package]]
@@ -591,7 +546,7 @@ dependencies = [
     "ipython-pygments-lexers; python_full_version >= \"3.12\"",
     "jedi; python_full_version >= \"3.12\"",
     "matplotlib-inline; python_full_version >= \"3.12\"",
-    "pexpect; python_full_version >= \"3.12\" and (sys_platform != \"emscripten\" and sys_platform != \"win32\")",
+    "pexpect; (sys_platform != \"emscripten\" and sys_platform != \"win32\") and python_full_version >= \"3.12\"",
     "prompt-toolkit; python_full_version >= \"3.12\"",
     "pygments; python_full_version >= \"3.12\"",
     "stack-data; python_full_version >= \"3.12\"",
@@ -669,70 +624,73 @@ files = [
 
 [[package]]
 name = "madsci-client"
-version = "0.7.0"
-summary = ""
+version = "0.8.0"
+requires_python = ">=3.10.0"
+summary = "The Modular Autonomous Discovery for Science (MADSci) Python Clients."
 dependencies = [
-    "click",
-    "httpx",
+    "click>=8.1.7",
+    "httpx>=0.25.0",
     "madsci-common",
-    "minio",
-    "opentelemetry-api",
-    "rich",
-    "structlog",
-    "trogon",
+    "minio>=7.1.0",
+    "opentelemetry-api>=1.20.0",
+    "rich>=13.0.0",
+    "structlog>=24.1.0",
+    "trogon>=0.6.0",
 ]
 files = [
-    {file = "madsci_client-0.7.0-py3-none-any.whl", hash = "sha256:aea70545929af0c07b46fcd35f639fc728be3cab78cd2049d5dfe7d8244f79d9"},
-    {file = "madsci_client-0.7.0.tar.gz", hash = "sha256:d707383f607da7e16ea2e7a5ba42e6af6bc0b9beb355e8811f2a4e4cef21739b"},
+    {file = "madsci_client-0.8.0-py3-none-any.whl", hash = "sha256:a8619e9375d4e2effe7934da8e7a447c43bd9e2be63f90fbd1ec5096b781639e"},
+    {file = "madsci_client-0.8.0.tar.gz", hash = "sha256:db6ce05d5e9cf7d9e85844e1eb825962842784c82424bf2097eb3258a14bf9eb"},
 ]
 
 [[package]]
 name = "madsci-common"
-version = "0.7.0"
-summary = ""
+version = "0.8.0"
+requires_python = ">=3.10.0"
+summary = "The Modular Autonomous Discovery for Science (MADSci) Common Definitions and Utilities."
 dependencies = [
-    "aenum",
-    "classy-fastapi",
-    "click",
-    "fastapi",
-    "httpx",
-    "multiprocess",
-    "opentelemetry-api",
-    "psycopg2-binary",
-    "pydantic",
-    "pydantic-extra-types",
-    "pydantic-settings",
-    "pydantic-settings-export",
-    "pymongo",
-    "python-dotenv",
-    "python-multipart",
-    "python-ulid[pydantic]",
-    "pyyaml",
-    "regex",
-    "requests",
-    "rich",
-    "semver",
-    "simpleeval",
-    "sqlmodel",
-    "uvicorn[standard]",
+    "PyYAML>=6.0.2",
+    "aenum>=3.1.15",
+    "classy-fastapi>=0.7.0",
+    "click>=8.1.0",
+    "fastapi>=0.115.4",
+    "httpx>=0.28.1",
+    "multiprocess>=0.70.17",
+    "opentelemetry-api>=1.20.0",
+    "psycopg2-binary>=2.9.0",
+    "pydantic-extra-types>=2.10.2",
+    "pydantic-settings-export>=1.0.2",
+    "pydantic-settings>=2.9.1",
+    "pydantic>=2.10",
+    "pymongo>=4.10.1",
+    "python-dotenv>=1.0.1",
+    "python-multipart>=0.0.17",
+    "python-ulid[pydantic]>=3.0.0",
+    "regex>=2025.7.34",
+    "requests>=2.32.3",
+    "rich>=13.0.0",
+    "semver>=3.0.4",
+    "simpleeval>=1.0.0",
+    "sqlmodel>=0.0.22",
+    "uvicorn[standard]>=0.32.0",
 ]
 files = [
-    {file = "madsci_common-0.7.0-py3-none-any.whl", hash = "sha256:4eb988c97709d55baa07d24a708e42567de6c75f9713b54e188bff000903adf8"},
-    {file = "madsci_common-0.7.0.tar.gz", hash = "sha256:0bf3f155c3de19b85090ef2928ef4eb157405f096484fe7c27b5cc45a16daab6"},
+    {file = "madsci_common-0.8.0-py3-none-any.whl", hash = "sha256:f87d11b2554d242a33d6666faccd935f95e19d5454ce36a75fc4785e82e1ea6d"},
+    {file = "madsci_common-0.8.0.tar.gz", hash = "sha256:26a4eccbf0194327e3c1fba9464e751346334e919b86a9d029ee4196f9800676"},
 ]
 
 [[package]]
 name = "madsci-node-module"
-version = "0.7.0"
-summary = ""
+version = "0.8.0"
+requires_python = ">=3.10.0"
+summary = "The Modular Autonomous Discovery for Science (MADSci) Node Module Helper Classes."
 dependencies = [
     "madsci-client",
     "madsci-common",
     "regex",
 ]
 files = [
-    {file = "madsci_node_module-0.7.0-py3-none-any.whl", hash = "sha256:744cc1cbf9e4eb698f4709f93039439d693788c9a4ce5d9bf0f022b2784c1a43"},
-    {file = "madsci_node_module-0.7.0.tar.gz", hash = "sha256:1bdbf319c56de287e97feb605bc05308195323318db3a22f73081b4ddf21bc67"},
+    {file = "madsci_node_module-0.8.0-py3-none-any.whl", hash = "sha256:cc014e5ce451d8a9572a41d2c85dcd50776eb2ac93d2d388b61be742c3e257bc"},
+    {file = "madsci_node_module-0.8.0.tar.gz", hash = "sha256:22a1cc577db4730e8b9627652595ef4d3a12f8f09fc4216374e81073eb2e08f0"},
 ]
 
 [[package]]
@@ -1846,7 +1804,7 @@ dependencies = [
     "python-dotenv",
     "pyyaml",
     "uvicorn==0.41.0",
-    "uvloop; platform_python_implementation != \"PyPy\" and (sys_platform != \"cygwin\" and sys_platform != \"win32\")",
+    "uvloop; (sys_platform != \"cygwin\" and sys_platform != \"win32\") and platform_python_implementation != \"PyPy\"",
     "watchfiles",
     "websockets",
 ]

@@ -9,10 +9,10 @@ authors = [
     {name = "Tobias Ginsburg", email = "tginsburg@anl.gov"},
 ]
 dependencies = [
-    "madsci-node-module~=0.7",
+    "madsci-node-module~=0.8.0",
     "pynput>=1.8.1",
-    "madsci-client~=0.7",
-    "madsci-common~=0.7",
+    "madsci-client~=0.8.0",
+    "madsci-common~=0.8.0",
 ]
 requires-python = ">=3.10,<3.13"
 readme = "README.md"

@@ -95,9 +95,9 @@ class PF400:
 
         self.neutral_joints = [
             400.0,
-            1.400,
-            177.101,
-            537.107,
+            1.650,
+            177.662,
+            -179.494,
             self.gripper_close_narrow,
             0.0,
         ]
@@ -784,12 +784,15 @@ class PF400:
         target = rotation_deck.representation
 
         if rotation_degree == -90:
-            target = self.rotate_yaw(target, -rotation_degree)
+            target = self.rotate_yaw(target, rotation_degree)
 
         above_position = list(map(add, target, self.default_approach_vector))
 
         self.move_all_joints_neutral(target)
         self.move_joint(above_position, self.slow_motion_profile)
+        target_position_above_compliance = copy.deepcopy(target)
+        target_position_above_compliance[0] += 1.0
+        self.move_joint(target_position_above_compliance, self.slow_motion_profile)
         self.enable_compliance()
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
@@ -906,7 +909,7 @@ class PF400:
         source_approach: LocationArgument = None,
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
-        grip_width: Optional[int] = None,
+        grip_width: Optional[int] = 122,
     ) -> bool:
         """Pick a plate from the source location."""
         above_position = self._calculate_above_position(
@@ -920,7 +923,6 @@ class PF400:
         else:
             self.move_all_joints_neutral(source.representation)
             approach_motion_profile = self.fast_motion_profile
-
         self.move_joint(
             target_joint_angles=above_position, profile=approach_motion_profile
         )
@@ -930,12 +932,12 @@ class PF400:
             if grab_offset
             else source.representation
         )
-        self.enable_compliance()
         self.move_joint(
             target_joint_angles=target_position,
             profile=approach_motion_profile,
             gripper_open=True,
         )
+        self.enable_compliance()
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
 
         if self.resource_client and grab_succeeded and source.resource_id:
@@ -988,6 +990,9 @@ class PF400:
             if grab_offset
             else target.representation
         )
+        target_position_above_compliance = copy.deepcopy(target_position)
+        target_position_above_compliance[0] += 2.0
+        self.move_joint(target_position_above_compliance)
         self.enable_compliance()
         self.move_joint(target_position, approach_motion_profile)
         release_succeeded = self.release_plate(width=open_width)
@@ -1120,9 +1125,10 @@ class PF400:
         plate_source_rotation = 90 if source_plate_rotation.lower() == "wide" else 0
         self.grip_wide = source_plate_rotation.lower() == "wide"
 
-        source.representation = self.check_incorrect_plate_orientation(
-            source.representation, plate_source_rotation
-        )
+        """
+        Depricating this implementation
+        source.representation = self.check_incorrect_plate_orientation(source.representation, plate_source_rotation)
+        """
 
         pick_result = self.pick_plate(
             source=source,
@@ -1139,9 +1145,13 @@ class PF400:
 
         plate_target_rotation = 90 if target_plate_rotation.lower() == "wide" else 0
         self.grip_wide = target_plate_rotation.lower() == "wide"
+
+        """
+        Depricating this implementation
         target.representation = self.check_incorrect_plate_orientation(
             target.representation, plate_target_rotation
         )
+        """
 
         rotation_needed = plate_target_rotation - plate_source_rotation
         if rotation_needed != 0:

@@ -57,13 +57,13 @@ class PF400Node(RestNode):
             description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
             required_overrides=["resource_name"],
             tags=["pf400", "gripper", "slot"],
-            created_by=self.node_definition.node_id,
+            created_by=self.node_info.node_id,
             version="1.0.0",
         )
 
         self.gripper_resource = self.resource_client.create_resource_from_template(
             template_name="pf400_gripper",
-            resource_name=f"{self.node_definition.node_name}.gripper",
+            resource_name=f"{self.node_info.node_name}.gripper",
             add_to_database=True,
         )
         self.logger.log_info(
@@ -87,7 +87,7 @@ class PF400Node(RestNode):
             description="Template for temporary lid storage slot. Used when removing/replacing lids from plates.",
             required_overrides=["resource_name"],
             tags=["pf400", "lid", "slot", "temporary"],
-            created_by=self.node_definition.node_id,
+            created_by=self.node_info.node_id,
             version="1.0.0",
         )
 
@@ -109,7 +109,7 @@ class PF400Node(RestNode):
             description="Template for plate lids. Used to track lids during lid operations.",
             required_overrides=["resource_name"],
             tags=["lid", "plate", "asset"],
-            created_by=self.node_definition.node_id,
+            created_by=self.node_info.node_id,
             version="1.0.0",
         )
 

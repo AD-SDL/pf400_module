@@ -216,11 +216,11 @@ class PF400Node(RestNode):
         transfer_result = self.pf400_interface.transfer(
             source=source,
             target=target,
-            source_approach=source_approach if source_approach else None,
-            target_approach=target_approach if target_approach else None,
+            source_approach=source_approach or None,
+            target_approach=target_approach or None,
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
-            rotation_deck=rotation_deck if rotation_deck else None,
+            rotation_deck=rotation_deck or None,
             grab_offset=grab_offset,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
@@ -278,7 +278,7 @@ class PF400Node(RestNode):
 
         pick_result = self.pf400_interface.pick_plate(
             source=source,
-            source_approach=source_approach if source_approach else None,
+            source_approach=source_approach or None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )
@@ -337,7 +337,7 @@ class PF400Node(RestNode):
 
         place_result = self.pf400_interface.place_plate(
             target=target,
-            target_approach=target_approach if target_approach else None,
+            target_approach=target_approach or None,
             grab_offset=grab_offset,
             approach_height_offset=approach_height_offset,
         )

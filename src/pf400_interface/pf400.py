@@ -40,6 +40,7 @@ class PF400:
     safe_right_boundary = 350.0
 
     default_bias_torque_pct: int = 50
+    gripper_clearance_height = 110.0
     default_approach_height = 15.0
     default_approach_vector: typing.ClassVar[list] = [
         default_approach_height,
@@ -49,7 +50,7 @@ class PF400:
         0.0,
         0.0,
     ]
-
+    default_lid_height = 7.0
     movement_state = 0
 
     robot_connection = None
@@ -727,18 +728,27 @@ class PF400:
         self,
         source: LocationArgument,
         target: LocationArgument,
-        lid_height: float = 7.0,
+        lid_height: Optional[float] = None,
         source_approach: LocationArgument = None,
         target_approach: LocationArgument = None,
-        source_plate_rotation: str = "",
-        target_plate_rotation: str = "",
+        source_plate_rotation: Optional[str] = None,
+        target_plate_rotation: Optional[str] = None,
         grab_offset: Optional[float] = None,
-        approach_height_offset: Optional[float] = None,
-    ) -> None:
-        """Remove the lid from the plate."""
+        source_approach_height_offset: Optional[float] = None,
+        target_approach_height_offset: Optional[float] = None,
+        source_height_limit: Optional[float] = None,
+        target_height_limit: Optional[float] = None,
+        source_press_depth: Optional[float] = None,
+        target_press_depth: Optional[float] = None,
+    ) -> bool:
+        """Remove the lid from the plate"""
+        if not lid_height:
+            lid_height = self.default_lid_height
+
         source.representation = copy.deepcopy(source.representation)
         source.representation[0] += lid_height
-        self.transfer(
+
+        return self.transfer(
             source=source,
             target=target,
             source_approach=source_approach,
@@ -746,25 +756,39 @@ class PF400:
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
+            source_height_limit=source_height_limit,
+            target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
 
     def replace_lid(
         self,
         source: LocationArgument,
         target: LocationArgument,
-        lid_height: float = 7.0,
+        lid_height: Optional[float] = None,
         source_approach: LocationArgument = None,
         target_approach: LocationArgument = None,
-        source_plate_rotation: str = "",
-        target_plate_rotation: str = "",
+        source_plate_rotation: Optional[str] = None,
+        target_plate_rotation: Optional[str] = None,
         grab_offset: Optional[float] = None,
-        approach_height_offset: Optional[float] = None,
-    ) -> None:
-        """Replace the lid on the plate."""
+        source_approach_height_offset: Optional[float] = None,
+        target_approach_height_offset: Optional[float] = None,
+        source_height_limit: Optional[float] = None,
+        target_height_limit: Optional[float] = None,
+        source_press_depth: Optional[float] = None,
+        target_press_depth: Optional[float] = None,
+    ) -> bool:
+        """Replace the lid on the plate"""
+        if lid_height is None:
+            lid_height = self.default_lid_height
+
         target.representation = copy.deepcopy(target.representation)
         target.representation[0] += lid_height
-        self.transfer(
+
+        return self.transfer(
             source=source,
             target=target,
             source_approach=source_approach,
@@ -772,7 +796,12 @@ class PF400:
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            source_approach_height_offset=source_approach_height_offset,
+            target_approach_height_offset=target_approach_height_offset,
+            source_height_limit=source_height_limit,
+            target_height_limit=target_height_limit,
+            source_press_depth=source_press_depth,
+            target_press_depth=target_press_depth,
         )
 
     def rotate_plate_on_deck(
@@ -862,15 +891,24 @@ class PF400:
                 profile=self.fast_motion_profile,
             )
 
-    def _handle_approach_return(self, approach: LocationArgument) -> None:
-        """Handle returning from an approach location, whether single or multiple."""
+    def _handle_approach_return(
+        self, approach: LocationArgument, default_motion: Optional[str] = None
+    ) -> None:
+        """
+        Handle returning from an approach location, whether single or multiple.
+        Uses straight motion profile for the first approach location (closest to target),
+        and fast motion profile for remaining approach locations.
+        """
         if isinstance(approach.representation[0], list):
             for index, location in enumerate(reversed(approach.representation)):
-                motion_profile = (
-                    self.straight_motion_profile
-                    if index == 0
-                    else self.fast_motion_profile
-                )
+                if index == 0:
+                    motion_profile = self.straight_motion_profile
+                else:
+                    motion_profile = (
+                        default_motion
+                        if default_motion is not None
+                        else self.fast_motion_profile
+                    )
                 self.move_joint(
                     target_joint_angles=location,
                     profile=motion_profile,
@@ -889,10 +927,15 @@ class PF400:
         approach_height_offset: Optional[float] = None,
         grab_height_offset: Optional[float] = None,
     ) -> list:
-        """Calculate the position above a target with optional height offset."""
-        above_offset = copy.deepcopy(self.default_approach_vector)
-        if approach_height_offset:
-            above_offset[0] += approach_height_offset
+        """
+        Calculate the position above a target with optional height offset.
+        """
+        above_offset = (
+            [self.default_approach_height, 0, 0, 0, 0, 0]
+            if approach_height_offset is None
+            else [approach_height_offset, 0, 0, 0, 0, 0]
+        )
+
         if grab_height_offset:
             above_offset[0] += grab_height_offset
         return list(map(add, position, above_offset))
@@ -909,12 +952,35 @@ class PF400:
         source_approach: LocationArgument = None,
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
-        grip_width: Optional[int] = 122,
+        height_limit: Optional[float] = None,
+        grip_width: Optional[int] = None,
+        press_depth: Optional[float] = None,
     ) -> bool:
-        """Pick a plate from the source location."""
+        """
+        Pick a plate from the source location, optionally using an approach location.
+
+        Returns True if the plate was successfully grabbed, False otherwise.
+        """
+        if press_depth is not None:
+            source.representation = copy.deepcopy(source.representation)
+            source.representation[0] -= press_depth
+
         above_position = self._calculate_above_position(
             source.representation, approach_height_offset, grab_offset
         )
+        if height_limit is not None:
+            calculated_height = (
+                above_position[0]
+                + self.gripper_clearance_height
+                - source.representation[0]
+            )
+            if calculated_height >= height_limit:
+                self.logger.log_error(
+                    f"Height limit validation failed: calculated above position "
+                    f"({calculated_height}) exceeds height limit ({height_limit})"
+                )
+                return False
+
         self.open_gripper()
 
         if source_approach:
@@ -957,7 +1023,9 @@ class PF400:
         self.disable_compliance()
 
         if source_approach:
-            self._handle_approach_return(source_approach)
+            self._handle_approach_return(
+                approach=source_approach, default_motion=self.slow_motion_profile
+            )
         else:
             self.move_all_joints_neutral(source.representation)
 
@@ -969,12 +1037,32 @@ class PF400:
         target_approach: LocationArgument = None,
         grab_offset: Optional[float] = None,
         approach_height_offset: Optional[float] = None,
+        height_limit: Optional[float] = None,
         open_width: Optional[int] = None,
+        press_depth: Optional[float] = None,
     ) -> bool:
-        """Place a plate in the target location."""
+        """
+        Place a plate in the target location
+        """
+        if press_depth is not None:
+            target.representation = copy.deepcopy(target.representation)
+            target.representation[0] -= press_depth
+
         above_position = self._calculate_above_position(
             target.representation, approach_height_offset, grab_offset
         )
+        if height_limit is not None:
+            calculated_height = (
+                above_position[0]
+                + self.gripper_clearance_height
+                - target.representation[0]
+            )
+            if calculated_height >= height_limit:
+                self.logger.log_error(
+                    f"Height limit validation failed: calculated above position "
+                    f"({calculated_height}) exceeds height limit ({height_limit})"
+                )
+                return False
 
         if target_approach:
             self._handle_approach_location(target_approach)
@@ -1021,7 +1109,9 @@ class PF400:
         )
         self.disable_compliance()
         if target_approach:
-            self._handle_approach_return(target_approach)
+            self._handle_approach_return(
+                approach=target_approach, default_motion=self.fast_motion_profile
+            )
         else:
             self.move_all_joints_neutral(target.representation)
 
@@ -1095,35 +1185,69 @@ class PF400:
         grab_offset: Optional[float] = None,
         source_approach_height_offset: Optional[float] = None,
         target_approach_height_offset: Optional[float] = None,
+        source_height_limit: Optional[float] = None,
+        target_height_limit: Optional[float] = None,
+        source_press_depth: Optional[float] = None,
+        target_press_depth: Optional[float] = None,
     ) -> bool:
-        """Plate transfer function that performs series of movements to pick and place the plates.
+        """
+        Description: Plate transfer function that performs series of movements to pick and place the plates
+                Parameters:
+                        - source: Source location
+                        - target: Target location
+                        - source_approach: Approach location for source
+                        - target_approach: Approach location for target
+                        - source_plate_rotation: narrow or wide
+                        - target_plate_rotation: narrow or wide
+                        - rotation_deck: Location for plate rotation deck
+                        - grab_offset: Add grab height offset
+                        - source_approach_height_offset: Add source approach height offset
+                        - target_approach_height_offset: Add target approach height offset
+                        - source_height_limit: Maximum height limit for source pick
+                        - target_height_limit: Maximum height limit for target place
+                        - source_press_depth: Depth to press down when picking from source
+                        - target_press_depth: Depth to press down when placing to target
+                Returns:
+                        True if transfer was successful, False otherwise.
 
-        Args:
-            source: Source location
-            target: Target location
-            source_approach: Approach location for source
-            target_approach: Approach location for target
-            source_plate_rotation: 'narrow', 'wide', or ''
-            target_plate_rotation: 'narrow', 'wide', or ''
-            rotation_deck: Location for plate rotation deck
-            grab_offset: Add grab height offset
-            source_approach_height_offset: Add source approach height offset
-            target_approach_height_offset: Add target approach height offset
-
-        Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
+                Note: Plate rotation defines the rotation of the plate on the deck, not the grabbing angle.
         """
         source = copy.deepcopy(source)
         target = copy.deepcopy(target)
 
         for rotation_arg in [source_plate_rotation, target_plate_rotation]:
-            if rotation_arg.lower() not in ["wide", "narrow", ""]:
+            if rotation_arg is not None and rotation_arg.lower() not in [
+                "wide",
+                "narrow",
+            ]:
                 raise ValueError(
                     f"Invalid plate rotation argument: {rotation_arg}. "
-                    "Expected 'wide', 'narrow', or ''."
+                    "Expected None, 'wide', or 'narrow'."
                 )
 
-        plate_source_rotation = 90 if source_plate_rotation.lower() == "wide" else 0
-        self.grip_wide = source_plate_rotation.lower() == "wide"
+        # Determine source rotation (0 or 90 degrees)
+        plate_source_rotation = (
+            90
+            if source_plate_rotation and source_plate_rotation.lower() == "wide"
+            else 0
+        )
+        self.grip_wide = (
+            source_plate_rotation and source_plate_rotation.lower() == "wide"
+        )
+
+        # Determine target rotation (0 or 90 degrees)
+        plate_target_rotation = (
+            90
+            if target_plate_rotation and target_plate_rotation.lower() == "wide"
+            else 0
+        )
+
+        rotation_needed = plate_target_rotation - plate_source_rotation
+        if rotation_needed != 0 and rotation_deck is None:
+            self.logger.log_error(
+                f"Rotation required ({rotation_needed} degrees) but rotation_deck was not provided."
+            )
+            return False
 
         """
         Depricating this implementation
@@ -1135,6 +1259,8 @@ class PF400:
             source_approach=source_approach,
             grab_offset=grab_offset,
             approach_height_offset=source_approach_height_offset,
+            height_limit=source_height_limit,
+            press_depth=source_press_depth,
         )
 
         if not pick_result:
@@ -1143,9 +1269,9 @@ class PF400:
             self.logger.error("Transfer failed: no plate detected after picking.")
             return False
 
-        plate_target_rotation = 90 if target_plate_rotation.lower() == "wide" else 0
-        self.grip_wide = target_plate_rotation.lower() == "wide"
-
+        self.grip_wide = (
+            target_plate_rotation and target_plate_rotation.lower() == "wide"
+        )
         """
         Depricating this implementation
         target.representation = self.check_incorrect_plate_orientation(
@@ -1153,7 +1279,7 @@ class PF400:
         )
         """
 
-        rotation_needed = plate_target_rotation - plate_source_rotation
+        # Rotate plate if needed
         if rotation_needed != 0:
             self.rotate_plate_on_deck(
                 rotation_degree=rotation_needed, rotation_deck=rotation_deck
@@ -1164,6 +1290,8 @@ class PF400:
             target_approach=target_approach,
             grab_offset=grab_offset,
             approach_height_offset=target_approach_height_offset,
+            height_limit=target_height_limit,
+            press_depth=target_press_depth,
         )
         if not place_result:
             self.logger.error("Transfer failed: plate not released properly.")

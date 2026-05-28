@@ -1,0 +1,30 @@
+# Configuration
+
+Here you can find all available configuration options using ENV variables.
+
+## PF400NodeConfig
+
+Configuration for the pf400 node module.
+
+**Environment Prefix**: `NODE_`
+
+| Name                               | Type                     | Default                    | Description                                                                                                                                                            | Example                    |
+|------------------------------------|--------------------------|----------------------------|------------------------------------------------------------------------------------------------------------------------------------------------------------------------|----------------------------|
+| `NODE_STATUS_UPDATE_INTERVAL`      | `number` \| `NoneType`   | `2.0`                      | The interval in seconds at which the node should update its status.                                                                                                    | `2.0`                      |
+| `NODE_STATE_UPDATE_INTERVAL`       | `number` \| `NoneType`   | `2.0`                      | The interval in seconds at which the node should update its state.                                                                                                     | `2.0`                      |
+| `NODE_NODE_NAME`                   | `string` \| `NoneType`   | `null`                     | Name for this node. If not set, defaults to the class name.                                                                                                            | `null`                     |
+| `NODE_NODE_ID`                     | `string` \| `NoneType`   | `null`                     | Unique ID for this node. If not set, a new ULID is generated.                                                                                                          | `null`                     |
+| `NODE_NODE_TYPE`                   | `NodeType` \| `NoneType` | `null`                     | The type of thing this node provides an interface for.                                                                                                                 | `null`                     |
+| `NODE_MODULE_NAME`                 | `string` \| `NoneType`   | `null`                     | Name of the node module implementation.                                                                                                                                | `null`                     |
+| `NODE_MODULE_VERSION`              | `string` \| `NoneType`   | `null`                     | Version of the node module implementation.                                                                                                                             | `null`                     |
+| `NODE_URL` \| `NODE_URL`           | `AnyUrl`                 | `"http://127.0.0.1:2000/"` | The URL used to communicate with the node. This is the base URL for the REST API.                                                                                      | `"http://127.0.0.1:2000/"` |
+| `NODE_UVICORN_KWARGS`              | `object`                 | `{"limit_concurrency":10}` | Configuration for the Uvicorn server that runs the REST API. By default, sets limit_concurrency=10 to protect against connection exhaustion attacks.                   | `{"limit_concurrency":10}` |
+| `NODE_ENABLE_RATE_LIMITING`        | `boolean`                | `true`                     | Enable rate limiting middleware for the REST API.                                                                                                                      | `true`                     |
+| `NODE_RATE_LIMIT_REQUESTS`         | `integer`                | `100`                      | Maximum number of requests allowed per long time window (only used if enable_rate_limiting is True).                                                                   | `100`                      |
+| `NODE_RATE_LIMIT_WINDOW`           | `integer`                | `60`                       | Long time window in seconds for rate limiting (only used if enable_rate_limiting is True).                                                                             | `60`                       |
+| `NODE_RATE_LIMIT_SHORT_REQUESTS`   | `integer` \| `NoneType`  | `50`                       | Maximum number of requests allowed per short time window for burst protection (only used if enable_rate_limiting is True). If None, short window limiting is disabled. | `50`                       |
+| `NODE_RATE_LIMIT_SHORT_WINDOW`     | `integer` \| `NoneType`  | `1`                        | Short time window for burst protection in seconds (only used if enable_rate_limiting is True). If None, short window limiting is disabled.                             | `1`                        |
+| `NODE_RATE_LIMIT_CLEANUP_INTERVAL` | `integer`                | `300`                      | Interval in seconds between cleanup operations to prevent memory leaks (only used if enable_rate_limiting is True).                                                    | `300`                      |
+| `NODE_PF400_IP`                    | `string` \| `NoneType`   | `null`                     |                                                                                                                                                                        | `null`                     |
+| `NODE_PF400_PORT`                  | `integer`                | `10100`                    |                                                                                                                                                                        | `10100`                    |
+| `NODE_PF400_STATUS_PORT`           | `integer`                | `10000`                    |                                                                                                                                                                        | `10000`                    |

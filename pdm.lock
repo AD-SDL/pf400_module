@@ -5,7 +5,7 @@
 groups = ["default", "dev"]
 strategy = []
 lock_version = "4.5.0"
-content_hash = "sha256:eace9e3d52020de94d8d9dd91f8f29a99b0ec91d85fa52b5fc73f38c7ac072e3"
+content_hash = "sha256:27982f65982f80f0c56310d580de55bd6ffd42f27c42e41004e1e38a4cb0ce7f"
 
 [[metadata.targets]]
 requires_python = ">=3.10,<3.13"
@@ -429,7 +429,6 @@ name = "httpcore"
 version = "1.0.9"
 requires_python = ">=3.8"
 summary = "A minimal low-level HTTP client."
-groups = ["default"]
 dependencies = [
     "certifi",
     "h11>=0.16",
@@ -471,24 +470,8 @@ files = [
 [[package]]
 name = "httpx"
 version = "0.28.1"
-summary = ""
-dependencies = [
-    "anyio",
-    "certifi",
-    "httpcore",
-    "idna",
-]
-files = [
-    {file = "httpx-0.28.1-py3-none-any.whl", hash = "sha256:d909fcccc110f8c7faf814ca82a9a4d816bc5a6dbfea25d6591d6985b8ba59ad"},
-    {file = "httpx-0.28.1.tar.gz", hash = "sha256:75e98c5f16b0f35b567856f597f06ff2270a374470a5c2392242528e3e3e42fc"},
-]
-
-[[package]]
-name = "httpx"
-version = "0.28.1"
 requires_python = ">=3.8"
 summary = "The next generation HTTP client."
-groups = ["default"]
 dependencies = [
     "anyio",
     "certifi",
@@ -532,72 +515,27 @@ files = [
 
 [[package]]
 name = "ipykernel"
-version = "7.2.0"
-summary = ""
+version = "7.1.0"
+requires_python = ">=3.10"
+summary = "IPython Kernel for Jupyter"
 dependencies = [
-    "appnope; sys_platform == \"darwin\"",
-    "comm",
-    "debugpy",
-    "ipython==8.38.0; python_full_version < \"3.11\"",
-    "ipython==9.10.0; python_full_version == \"3.11.*\"",
-    "ipython==9.11.0; python_full_version >= \"3.12\"",
-    "jupyter-client",
-    "jupyter-core",
-    "matplotlib-inline",
-    "nest-asyncio",
-    "packaging",
-    "psutil",
-    "pyzmq",
-    "tornado",
-    "traitlets",
+    "appnope>=0.1.2; platform_system == \"Darwin\"",
+    "comm>=0.1.1",
+    "debugpy>=1.6.5",
+    "ipython>=7.23.1",
+    "jupyter-client>=8.0.0",
+    "jupyter-core!=5.0.*,>=4.12",
+    "matplotlib-inline>=0.1",
+    "nest-asyncio>=1.4",
+    "packaging>=22",
+    "psutil>=5.7",
+    "pyzmq>=25",
+    "tornado>=6.2",
+    "traitlets>=5.4.0",
 ]
 files = [
-    {file = "ipykernel-7.2.0-py3-none-any.whl", hash = "sha256:3bbd4420d2b3cc105cbdf3756bfc04500b1e52f090a90716851f3916c62e1661"},
-    {file = "ipykernel-7.2.0.tar.gz", hash = "sha256:18ed160b6dee2cbb16e5f3575858bc19d8f1fe6046a9a680c708494ce31d909e"},
-]
-
-[[package]]
-name = "ipython"
-version = "8.38.0"
-summary = ""
-dependencies = [
-    "colorama; python_full_version < \"3.11\" and sys_platform == \"win32\"",
-    "decorator; python_full_version < \"3.11\"",
-    "exceptiongroup; python_full_version < \"3.11\"",
-    "jedi; python_full_version < \"3.11\"",
-    "matplotlib-inline; python_full_version < \"3.11\"",
-    "pexpect; python_full_version < \"3.11\" and (sys_platform != \"emscripten\" and sys_platform != \"win32\")",
-    "prompt-toolkit; python_full_version < \"3.11\"",
-    "pygments; python_full_version < \"3.11\"",
-    "stack-data; python_full_version < \"3.11\"",
-    "traitlets; python_full_version < \"3.11\"",
-    "typing-extensions; python_full_version < \"3.11\"",
-]
-files = [
-    {file = "ipython-8.38.0-py3-none-any.whl", hash = "sha256:750162629d800ac65bb3b543a14e7a74b0e88063eac9b92124d4b2aa3f6d8e86"},
-    {file = "ipython-8.38.0.tar.gz", hash = "sha256:9cfea8c903ce0867cc2f23199ed8545eb741f3a69420bfcf3743ad1cec856d39"},
-]
-
-[[package]]
-name = "ipython"
-version = "9.10.0"
-summary = ""
-dependencies = [
-    "colorama; python_full_version == \"3.11.*\" and sys_platform == \"win32\"",
-    "decorator; python_full_version == \"3.11.*\"",
-    "ipython-pygments-lexers; python_full_version == \"3.11.*\"",
-    "jedi; python_full_version == \"3.11.*\"",
-    "matplotlib-inline; python_full_version == \"3.11.*\"",
-    "pexpect; python_full_version == \"3.11.*\" and (sys_platform != \"emscripten\" and sys_platform != \"win32\")",
-    "prompt-toolkit; python_full_version == \"3.11.*\"",
-    "pygments; python_full_version == \"3.11.*\"",
-    "stack-data; python_full_version == \"3.11.*\"",
-    "traitlets; python_full_version == \"3.11.*\"",
-    "typing-extensions; python_full_version == \"3.11.*\"",
-]
-files = [
-    {file = "ipython-9.10.0-py3-none-any.whl", hash = "sha256:c6ab68cc23bba8c7e18e9b932797014cc61ea7fd6f19de180ab9ba73e65ee58d"},
-    {file = "ipython-9.10.0.tar.gz", hash = "sha256:cd9e656be97618a0676d058134cd44e6dc7012c0e5cb36a9ce96a8c904adaf77"},
+    {file = "ipykernel-7.1.0-py3-none-any.whl", hash = "sha256:763b5ec6c5b7776f6a8d7ce09b267693b4e5ce75cb50ae696aaefb3c85e1ea4c"},
+    {file = "ipykernel-7.1.0.tar.gz", hash = "sha256:58a3fc88533d5930c3546dc7eac66c6d288acde4f801e2001e65edc5dc9cf0db"},
 ]
 
 [[package]]
@@ -610,7 +548,7 @@ dependencies = [
     "ipython-pygments-lexers; python_full_version >= \"3.12\"",
     "jedi; python_full_version >= \"3.12\"",
     "matplotlib-inline; python_full_version >= \"3.12\"",
-    "pexpect; python_full_version >= \"3.12\" and (sys_platform != \"emscripten\" and sys_platform != \"win32\")",
+    "pexpect; (sys_platform != \"emscripten\" and sys_platform != \"win32\") and python_full_version >= \"3.12\"",
     "prompt-toolkit; python_full_version >= \"3.12\"",
     "pygments; python_full_version >= \"3.12\"",
     "stack-data; python_full_version >= \"3.12\"",
@@ -688,31 +626,29 @@ files = [
 
 [[package]]
 name = "madsci-client"
-version = "0.6.0"
-requires_python = ">=3.9.1"
+version = "0.8.0"
+requires_python = ">=3.10.0"
 summary = "The Modular Autonomous Discovery for Science (MADSci) Python Clients."
-groups = ["default"]
 dependencies = [
-    "click",
-    "httpx",
+    "click>=8.1.7",
+    "httpx>=0.25.0",
     "madsci-common",
-    "minio",
-    "opentelemetry-api",
-    "rich",
-    "structlog",
-    "trogon",
+    "minio>=7.1.0",
+    "opentelemetry-api>=1.20.0",
+    "rich>=13.0.0",
+    "structlog>=24.1.0",
+    "trogon>=0.6.0",
 ]
 files = [
-    {file = "madsci_client-0.6.0-py3-none-any.whl", hash = "sha256:2ad18496f624eac047549d93d030aa37cf5c6f1527d1c2738599c3d0f22d7972"},
-    {file = "madsci_client-0.6.0.tar.gz", hash = "sha256:a0e232b60a5daf3b90b0adc722a035b759b5739006a533c8ca6d7a6e9f230f1b"},
+    {file = "madsci_client-0.8.0-py3-none-any.whl", hash = "sha256:a8619e9375d4e2effe7934da8e7a447c43bd9e2be63f90fbd1ec5096b781639e"},
+    {file = "madsci_client-0.8.0.tar.gz", hash = "sha256:db6ce05d5e9cf7d9e85844e1eb825962842784c82424bf2097eb3258a14bf9eb"},
 ]
 
 [[package]]
 name = "madsci-common"
-version = "0.6.0"
-requires_python = ">=3.9.1"
+version = "0.8.0"
+requires_python = ">=3.10.0"
 summary = "The Modular Autonomous Discovery for Science (MADSci) Common Definitions and Utilities."
-groups = ["default"]
 dependencies = [
     "PyYAML>=6.0.2",
     "aenum>=3.1.15",
@@ -721,6 +657,7 @@ dependencies = [
     "fastapi>=0.115.4",
     "httpx>=0.28.1",
     "multiprocess>=0.70.17",
+    "opentelemetry-api>=1.20.0",
     "psycopg2-binary>=2.9.0",
     "pydantic-extra-types>=2.10.2",
     "pydantic-settings-export>=1.0.2",
@@ -732,29 +669,30 @@ dependencies = [
     "python-ulid[pydantic]>=3.0.0",
     "regex>=2025.7.34",
     "requests>=2.32.3",
+    "rich>=13.0.0",
     "semver>=3.0.4",
+    "simpleeval>=1.0.0",
     "sqlmodel>=0.0.22",
     "uvicorn[standard]>=0.32.0",
 ]
 files = [
-    {file = "madsci_common-0.6.0-py3-none-any.whl", hash = "sha256:8838e08aaa4fa8d863aa33b171189f97ebdfb72ebbd927e718112f518d542cf1"},
-    {file = "madsci_common-0.6.0.tar.gz", hash = "sha256:48a7d6a11a45b085cc4057cf37cc0053baa95f5ea3a8875c5d104dbca3e4307b"},
+    {file = "madsci_common-0.8.0-py3-none-any.whl", hash = "sha256:f87d11b2554d242a33d6666faccd935f95e19d5454ce36a75fc4785e82e1ea6d"},
+    {file = "madsci_common-0.8.0.tar.gz", hash = "sha256:26a4eccbf0194327e3c1fba9464e751346334e919b86a9d029ee4196f9800676"},
 ]
 
 [[package]]
 name = "madsci-node-module"
-version = "0.6.0"
-requires_python = ">=3.9.1"
+version = "0.8.0"
+requires_python = ">=3.10.0"
 summary = "The Modular Autonomous Discovery for Science (MADSci) Node Module Helper Classes."
-groups = ["default"]
 dependencies = [
     "madsci-client",
     "madsci-common",
     "regex",
 ]
 files = [
-    {file = "madsci_node_module-0.6.0-py3-none-any.whl", hash = "sha256:33901d72dfd347b3636dcc4804ef02ce3aa2059a16bbc9c68b6757592ae0833b"},
-    {file = "madsci_node_module-0.6.0.tar.gz", hash = "sha256:b081d0454bfb713420d99b2d945dbe4b4b269b241849a0b04d1e42c377e2b33e"},
+    {file = "madsci_node_module-0.8.0-py3-none-any.whl", hash = "sha256:cc014e5ce451d8a9572a41d2c85dcd50776eb2ac93d2d388b61be742c3e257bc"},
+    {file = "madsci_node_module-0.8.0.tar.gz", hash = "sha256:22a1cc577db4730e8b9627652595ef4d3a12f8f09fc4216374e81073eb2e08f0"},
 ]
 
 [[package]]
@@ -970,50 +908,8 @@ files = [
 [[package]]
 name = "psycopg2-binary"
 version = "2.9.11"
-summary = ""
-files = [
-    {file = "psycopg2-binary-2.9.11.tar.gz", hash = "sha256:b6aed9e096bf63f9e75edf2581aa9a7e7186d97ab5c177aa6c87797cd591236c"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d6fe6b47d0b42ce1c9f1fa3e35bb365011ca22e39db37074458f27921dca40f2"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-macosx_11_0_arm64.whl", hash = "sha256:a6c0e4262e089516603a09474ee13eabf09cb65c332277e39af68f6233911087"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:c47676e5b485393f069b4d7a811267d3168ce46f988fa602658b8bb901e9e64d"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:a28d8c01a7b27a1e3265b11250ba7557e5f72b5ee9e5f3a2fa8d2949c29bf5d2"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:5f3f2732cf504a1aa9e9609d02f79bea1067d99edf844ab92c247bbca143303b"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-manylinux_2_38_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:865f9945ed1b3950d968ec4690ce68c55019d79e4497366d36e090327ce7db14"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-musllinux_1_2_aarch64.whl", hash = "sha256:91537a8df2bde69b1c1db01d6d944c831ca793952e4f57892600e96cee95f2cd"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-musllinux_1_2_ppc64le.whl", hash = "sha256:4dca1f356a67ecb68c81a7bc7809f1569ad9e152ce7fd02c2f2036862ca9f66b"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-musllinux_1_2_riscv64.whl", hash = "sha256:0da4de5c1ac69d94ed4364b6cbe7190c1a70d325f112ba783d83f8440285f152"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-musllinux_1_2_x86_64.whl", hash = "sha256:37d8412565a7267f7d79e29ab66876e55cb5e8e7b3bbf94f8206f6795f8f7e7e"},
-    {file = "psycopg2_binary-2.9.11-cp310-cp310-win_amd64.whl", hash = "sha256:c665f01ec8ab273a61c62beeb8cce3014c214429ced8a308ca1fc410ecac3a39"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-macosx_10_9_x86_64.whl", hash = "sha256:0e8480afd62362d0a6a27dd09e4ca2def6fa50ed3a4e7c09165266106b2ffa10"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-macosx_11_0_arm64.whl", hash = "sha256:763c93ef1df3da6d1a90f86ea7f3f806dc06b21c198fa87c3c25504abec9404a"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:2e164359396576a3cc701ba8af4751ae68a07235d7a380c631184a611220d9a4"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:d57c9c387660b8893093459738b6abddbb30a7eab058b77b0d0d1c7d521ddfd7"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:2c226ef95eb2250974bf6fa7a842082b31f68385c4f3268370e3f3870e7859ee"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-manylinux_2_38_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:a311f1edc9967723d3511ea7d2708e2c3592e3405677bf53d5c7246753591fbb"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-musllinux_1_2_aarch64.whl", hash = "sha256:ebb415404821b6d1c47353ebe9c8645967a5235e6d88f914147e7fd411419e6f"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-musllinux_1_2_ppc64le.whl", hash = "sha256:f07c9c4a5093258a03b28fab9b4f151aa376989e7f35f855088234e656ee6a94"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-musllinux_1_2_riscv64.whl", hash = "sha256:00ce1830d971f43b667abe4a56e42c1e2d594b32da4802e44a73bacacb25535f"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-musllinux_1_2_x86_64.whl", hash = "sha256:cffe9d7697ae7456649617e8bb8d7a45afb71cd13f7ab22af3e5c61f04840908"},
-    {file = "psycopg2_binary-2.9.11-cp311-cp311-win_amd64.whl", hash = "sha256:304fd7b7f97eef30e91b8f7e720b3db75fee010b520e434ea35ed1ff22501d03"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-macosx_10_13_x86_64.whl", hash = "sha256:be9b840ac0525a283a96b556616f5b4820e0526addb8dcf6525a0fa162730be4"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-macosx_11_0_arm64.whl", hash = "sha256:f090b7ddd13ca842ebfe301cd587a76a4cf0913b1e429eb92c1be5dbeb1a19bc"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-manylinux2014_aarch64.manylinux_2_17_aarch64.whl", hash = "sha256:ab8905b5dcb05bf3fb22e0cf90e10f469563486ffb6a96569e51f897c750a76a"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-manylinux2014_ppc64le.manylinux_2_17_ppc64le.whl", hash = "sha256:bf940cd7e7fec19181fdbc29d76911741153d51cab52e5c21165f3262125685e"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-manylinux2014_x86_64.manylinux_2_17_x86_64.whl", hash = "sha256:fa0f693d3c68ae925966f0b14b8edda71696608039f4ed61b1fe9ffa468d16db"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-manylinux_2_38_riscv64.manylinux_2_39_riscv64.whl", hash = "sha256:a1cf393f1cdaf6a9b57c0a719a1068ba1069f022a59b8b1fe44b006745b59757"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-musllinux_1_2_aarch64.whl", hash = "sha256:ef7a6beb4beaa62f88592ccc65df20328029d721db309cb3250b0aae0fa146c3"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-musllinux_1_2_ppc64le.whl", hash = "sha256:31b32c457a6025e74d233957cc9736742ac5a6cb196c6b68499f6bb51390bd6a"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-musllinux_1_2_riscv64.whl", hash = "sha256:edcb3aeb11cb4bf13a2af3c53a15b3d612edeb6409047ea0b5d6a21a9d744b34"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-musllinux_1_2_x86_64.whl", hash = "sha256:62b6d93d7c0b61a1dd6197d208ab613eb7dcfdcca0a49c42ceb082257991de9d"},
-    {file = "psycopg2_binary-2.9.11-cp312-cp312-win_amd64.whl", hash = "sha256:b33fabeb1fde21180479b2d4667e994de7bbf0eec22832ba5d9b5e4cf65b6c6d"},
-]
-
-[[package]]
-name = "psycopg2-binary"
-version = "2.9.11"
 requires_python = ">=3.9"
 summary = "psycopg2 - Python-PostgreSQL Database Adapter"
-groups = ["default"]
 files = [
     {file = "psycopg2-binary-2.9.11.tar.gz", hash = "sha256:b6aed9e096bf63f9e75edf2581aa9a7e7186d97ab5c177aa6c87797cd591236c"},
     {file = "psycopg2_binary-2.9.11-cp310-cp310-macosx_10_9_x86_64.whl", hash = "sha256:d6fe6b47d0b42ce1c9f1fa3e35bb365011ca22e39db37074458f27921dca40f2"},
@@ -1922,7 +1818,7 @@ dependencies = [
     "python-dotenv",
     "pyyaml",
     "uvicorn==0.41.0",
-    "uvloop; platform_python_implementation != \"PyPy\" and (sys_platform != \"cygwin\" and sys_platform != \"win32\")",
+    "uvloop; (sys_platform != \"cygwin\" and sys_platform != \"win32\") and platform_python_implementation != \"PyPy\"",
     "watchfiles",
     "websockets",
 ]

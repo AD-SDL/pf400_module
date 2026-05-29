@@ -1,7 +1,0 @@
-node_name: pf400
-node_id: 01JPR0HZX0WJT1X9EHZ611SGP6
-node_description: MADSci node for controlling PF400, plate handler robot
-node_type: device
-module_name: pf400
-module_version: 2.1.0
-capabilities: null

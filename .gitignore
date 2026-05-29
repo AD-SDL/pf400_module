@@ -161,3 +161,10 @@ cython_debug/
 #.idea/
 
 .vscode
+.madsci/
+
+### macOS ###
+# General
+.DS_Store
+.AppleDouble
+.LSOverride

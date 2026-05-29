@@ -22,6 +22,7 @@ repos:
       # Run the linter.
       - id: ruff
         args: [--fix]
+        exclude: '\.ipynb$' # Exclude Jupyter Notebooks from linting.
       # Run the formatter.
       - id: ruff-format
   - repo: https://github.com/jag-k/pydantic-settings-export
@@ -31,3 +32,4 @@ repos:
         entry: pdm run pydantic-settings-export
         language: system
         files: ^src/pf400_rest_node\.py$
+        exclude: '\.ipynb$' # Exclude Jupyter Notebooks from all hooks.

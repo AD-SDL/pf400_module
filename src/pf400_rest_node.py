@@ -3,7 +3,6 @@
 
 from typing import Annotated, Optional
 
-from madsci.common.ownership import get_current_ownership_info
 from madsci.common.types.action_types import ActionFailed
 from madsci.common.types.location_types import LocationArgument
 from madsci.common.types.node_types import RestNodeConfig
@@ -23,6 +22,8 @@ class PF400NodeConfig(RestNodeConfig):
     """Port to connect to the PF400 robot, default is 10100"""
     pf400_status_port: int = 10000
     """Port to connect to the PF400 status server, default is 10000"""
+    rate_limit_requests: int = 500
+    """Rate limit for requests to the PF400 robot, default is 100 ms"""
 
 
 class PF400Node(RestNode):
@@ -55,7 +56,7 @@ class PF400Node(RestNode):
             description="Template for PF400 robot gripper slot. Used to track what the robot is currently holding.",
             required_overrides=["resource_name"],
             tags=["pf400", "gripper", "slot"],
-            created_by=get_current_ownership_info().node_id,
+            created_by=self.node_info.node_id,
             version="1.0.0",
         )
 
@@ -85,7 +86,7 @@ class PF400Node(RestNode):
             description="Template for temporary lid storage slot. Used when removing/replacing lids from plates.",
             required_overrides=["resource_name"],
             tags=["pf400", "lid", "slot", "temporary"],
-            created_by=get_current_ownership_info().node_id,
+            created_by=self.node_info.node_id,
             version="1.0.0",
         )
 
@@ -107,7 +108,7 @@ class PF400Node(RestNode):
             description="Template for plate lids. Used to track lids during lid operations.",
             required_overrides=["resource_name"],
             tags=["lid", "plate", "asset"],
-            created_by=get_current_ownership_info().node_id,
+            created_by=self.node_info.node_id,
             version="1.0.0",
         )
 
@@ -641,7 +642,7 @@ class PF400Node(RestNode):
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
     ) -> Optional[ActionFailed]:
-        """A doc string, but not the actual description of the action."""
+        """Replace a lid on the plate at the target location."""
         grab_height_offset = None
         resource_lid_height = None
         try:
@@ -649,7 +650,9 @@ class PF400Node(RestNode):
                 source_resource = self.resource_client.get_resource(source.resource_id)
                 if source_resource.quantity == 0:
                     return ActionFailed(
-                        "Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
+                        errors=[
+                            f"Resource manager: Lid does not exist at source! Resource_id:{source.resource_id}."
+                        ]
                     )
                 if source_resource.children:
                     lid_resource_child = source_resource.children[-1]
@@ -665,10 +668,11 @@ class PF400Node(RestNode):
                 target_resource = self.resource_client.get_resource(target.resource_id)
                 if target_resource.quantity == 0:
                     return ActionFailed(
-                        f"Resource manager: No plate on target! Resource_id:{target.resource_id}."
+                        errors=[
+                            f"Resource manager: No plate on target! Resource_id:{target.resource_id}."
+                        ]
                     )
 
-            # Create temporary lid slot from template
             lid_resource = self.resource_client.create_resource_from_template(
                 template_name="pf400_lid_slot",
                 resource_name="pf400_lid_slot",

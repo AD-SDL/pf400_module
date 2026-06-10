@@ -1,11 +1,14 @@
 #! /usr/bin/env python3
 """The server for the PF400 robot that takes incoming WEI flow requests from the experiment application"""
 
-from typing import Annotated, Optional
+from typing import Annotated, ClassVar, Optional
 
 from madsci.common.types.action_types import ActionFailed
 from madsci.common.types.location_types import LocationArgument
-from madsci.common.types.node_types import RestNodeConfig
+from madsci.common.types.node_types import (
+    NodeRepresentationTemplateDefinition,
+    RestNodeConfig,
+)
 from madsci.common.types.resource_types import Asset, Slot
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
@@ -32,6 +35,52 @@ class PF400Node(RestNode):
     pf400_interface: PF400 = None
     config: PF400NodeConfig = PF400NodeConfig()
     config_model = PF400NodeConfig
+
+    # location templates
+    location_representation_templates: ClassVar[
+        list[NodeRepresentationTemplateDefinition]
+    ] = [
+        NodeRepresentationTemplateDefinition(
+            template_name="pf400_deck_location_template",
+            default_values={"gripper_config": "standard"},
+            schema_def={
+                "type": "object",
+                "properties": {
+                    "location": {
+                        "type": "array",
+                        "items": {"type": "number"},
+                        "minItems": 6,
+                        "maxItems": 6,
+                        "description": "6-digit list of joint angles associated with the PF400 location.",
+                    },
+                    "approach": {
+                        "type": "array",
+                        "description": "Array of one or more 6-digit PF400 location arrays assocoated with the PF400's safe travel path to the location.",
+                    },
+                    "plate_rotation": {
+                        "type": "string",
+                        "enum": ["wide", "narrow"],
+                        "description": "Gripper orientation on the ANSI/SLAS compatible labware. wide = landscape, narrow = portrait.",
+                    },
+                    "approach_height_offset": {
+                        "type": "number",  # or float?
+                        "description": "Offset for height at which to approach location. Good for approaching taller labware safely.",
+                    },
+                    "height_limit": {
+                        "type": "number",  # or float?
+                        "description": "Height limit on approach height. Used to ensure PF400 does not hit barriers above the location.",
+                    },
+                },
+                "required": ["location", "plate_rotation"],
+            },
+            required_overrides=["location", "plate_rotation"],
+            tags=["pf400", "deck"],
+            version="1.1.0",
+            description="PF400 deck access representation with joint values",
+        ),
+    ]
+
+    # TODO: separate resource creation into new function.
 
     def startup_handler(self) -> None:
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
@@ -186,6 +235,7 @@ class PF400Node(RestNode):
         Returns:
             tuple: (location_arg_with_list_repr, approach_location_arg or None, plate_rotation or None, approach_height_offset or None, height_limit or None)
         """
+
         if not isinstance(location.representation, dict):
             return location, None, None, None, None, None
 
@@ -333,68 +383,74 @@ class PF400Node(RestNode):
     ) -> Optional[ActionFailed]:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         grab_height_offset = None
+
+        import traceback
+
         try:
-            if source.resource_id:
-                source_resource = self.resource_client.get_resource(source.resource_id)
-                if source_resource.quantity == 0:
-                    return ActionFailed(
-                        errors=[
-                            f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
-                        ]
+            try:
+                if source.resource_id:
+                    source_resource = self.resource_client.get_resource(
+                        source.resource_id
                     )
-                if source_resource.children:
-                    plate_resource = source_resource.children[-1]
-                    if plate_resource.attributes:
-                        grab_height_offset = plate_resource.attributes.get(
-                            "grab_height_offset", None
+                    if source_resource.quantity == 0:
+                        return ActionFailed(
+                            errors=[
+                                f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                            ]
                         )
-        except Exception as e:
-            return ActionFailed(
-                errors=[f"Resource manager error during pick validation: {e}"]
+                    if source_resource.children:
+                        plate_resource = source_resource.children[-1]
+                        if plate_resource.attributes:
+                            grab_height_offset = plate_resource.attributes.get(
+                                "grab_height_offset", None
+                            )
+            except Exception as e:
+                return ActionFailed(
+                    errors=[f"Resource manager error during pick validation: {e}"]
+                )
+
+            try:
+                (
+                    parsed_source,
+                    source_approach,
+                    source_rotation_from_dict,
+                    source_approach_height_offset,
+                    source_height_limit,
+                    press_depth,
+                ) = self._parse_location_representation(source)
+            except Exception as e:
+                return ActionFailed(
+                    errors=[f"Failed to parse location representation: {e}"]
+                )
+
+            plate_source_rotation = (
+                90
+                if source_rotation_from_dict
+                and source_rotation_from_dict.lower() == "wide"
+                else 0
+            )
+            self.pf400_interface.grip_wide = (
+                source_rotation_from_dict
+                and source_rotation_from_dict.lower() == "wide"
             )
 
-        try:
-            (
-                parsed_source,
-                source_approach,
-                source_rotation_from_dict,
-                source_approach_height_offset,
-                source_height_limit,
-                press_depth,
-            ) = self._parse_location_representation(source)
-        except Exception as e:
-            return ActionFailed(
-                errors=[f"Failed to parse location representation: {e}"]
+            pick_result = self.pf400_interface.pick_plate(
+                source=parsed_source,
+                source_approach=source_approach,
+                grab_offset=grab_height_offset,
+                approach_height_offset=source_approach_height_offset,
+                height_limit=source_height_limit,
+                press_depth=press_depth,
             )
+            if not pick_result:
+                return ActionFailed(
+                    errors=[f"Failed to pick plate from location {source}."]
+                )
+            return None
 
-        plate_source_rotation = (
-            90
-            if source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
-            else 0
-        )
-        self.pf400_interface.grip_wide = (
-            source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
-        )
-
-        parsed_source.representation = (
-            self.pf400_interface.check_incorrect_plate_orientation(
-                parsed_source.representation, plate_source_rotation
-            )
-        )
-
-        pick_result = self.pf400_interface.pick_plate(
-            source=parsed_source,
-            source_approach=source_approach,
-            grab_offset=grab_height_offset,
-            approach_height_offset=source_approach_height_offset,
-            height_limit=source_height_limit,
-            press_depth=press_depth,
-        )
-        if not pick_result:
-            return ActionFailed(
-                errors=[f"Failed to pick plate from location {source}."]
-            )
-        return None
+        except Exception:
+            self.logger.log_erorr(traceback.format_exc())
+            raise
 
     @action(
         name="place_plate",
@@ -454,12 +510,6 @@ class PF400Node(RestNode):
             target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
         )
 
-        parsed_target.representation = (
-            self.pf400_interface.check_incorrect_plate_orientation(
-                parsed_target.representation, plate_target_rotation
-            )
-        )
-
         place_result = self.pf400_interface.place_plate(
             target=parsed_target,
             target_approach=target_approach,
@@ -482,20 +532,28 @@ class PF400Node(RestNode):
     def move_to_location(
         self,
         target: Annotated[LocationArgument, "Location to move to"],
-        target_approach: Annotated[
-            Optional[LocationArgument], "Location to approach from"
-        ] = None,
-        grab_offset: Optional[Annotated[float, "Add grab height offset"]] = None,
-        approach_height_offset: Optional[
-            Annotated[float, "Add approach height offset"]
-        ] = None,
     ) -> None:
         """Move to a location using the same approach/descend sequence as pick/place but with gripper open and no grip/release. Stays at the target for inspection. Use move_neutral to retract."""
+
+        try:
+            (
+                parsed_target,
+                target_approach,
+                target_rotation_from_dict,
+                target_approach_height_offset,
+                target_height_limit,
+                press_depth,
+            ) = self._parse_location_representation(target)
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
+            )
+
         self.pf400_interface.move_to_location(
-            target=target,
+            target=parsed_target,
             target_approach=target_approach or None,
-            grab_offset=grab_offset,
-            approach_height_offset=approach_height_offset,
+            grab_offset=None,  # move to location does not grab labware.
+            approach_height_offset=target_approach_height_offset,
         )
 
     @action(

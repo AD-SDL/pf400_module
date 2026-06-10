@@ -70,6 +70,11 @@ class PF400Node(RestNode):
                         "type": "number",  # or float?
                         "description": "Height limit on approach height. Used to ensure PF400 does not hit barriers above the location.",
                     },
+                    "gripper_height_offset": {
+                        "type": "number",
+                        "minimum": 0,
+                        "description": "Vertical offset (mm, >= 0) added to the pick/place Z so the gripper stays above obstacles around the location (e.g. an OT2 slot frame). Applied at both pick and place so the plate-bottom still lands on the calibrated surface.",
+                    },
                 },
                 "required": ["location", "plate_rotation"],
             },
@@ -95,6 +100,7 @@ class PF400Node(RestNode):
                 "payload_lb": 1.1,
                 "max_grip_force_newton": 23.0,
                 "grip_width_range": [80.0, 140.0],
+                "gripper_offset_applied": 0.0,
                 "description": "PF400 robot gripper slot",
             },
         )
@@ -219,6 +225,7 @@ class PF400Node(RestNode):
         Optional[str],
         Optional[float],
         Optional[float],
+        Optional[float],
     ]:
         """
         Parse a LocationArgument that may have a dictionary representation.
@@ -230,10 +237,13 @@ class PF400Node(RestNode):
             "plate_rotation": "wide" or "narrow"  # optional plate rotation
             "approach_height_offset": float  # optional approach height offset
             "height_limit": float  # optional height limit for validation
+            "gripper_height_offset": float  # optional pick/place clearance offset (>= 0)
         }
 
         Returns:
-            tuple: (location_arg_with_list_repr, approach_location_arg or None, plate_rotation or None, approach_height_offset or None, height_limit or None)
+            tuple: (location_arg_with_list_repr, approach_location_arg or None,
+                    plate_rotation or None, approach_height_offset or None,
+                    height_limit or None, gripper_height_offset or None)
         """
 
         if not isinstance(location.representation, dict):
@@ -251,7 +261,13 @@ class PF400Node(RestNode):
         plate_rotation = repr_dict.get("plate_rotation", None)
         approach_height_offset = repr_dict.get("approach_height_offset", None)
         height_limit = repr_dict.get("height_limit", None)
-        press_depth = repr_dict.get("press_depth", None)
+        gripper_height_offset = repr_dict.get("gripper_height_offset", None)
+
+        if gripper_height_offset is not None and gripper_height_offset < 0:
+            raise ValueError(
+                f"gripper_height_offset must be >= 0, got {gripper_height_offset}. "
+                "Locations are calibrated to the surface; descending lower is not supported via this field."
+            )
 
         parsed_location = LocationArgument(
             representation=location_repr,
@@ -274,13 +290,61 @@ class PF400Node(RestNode):
             plate_rotation,
             approach_height_offset,
             height_limit,
-            press_depth,
+            gripper_height_offset,
         )
+
+    def _get_gripper_offset_applied(self) -> float:
+        """Read the location-induced offset that was applied when the currently-held plate was picked.
+
+        Returns 0.0 if the gripper is empty or no offset was recorded.
+        """
+        gripper = self.resource_client.get_resource(self.gripper_resource.resource_id)
+        if not gripper.attributes:
+            return 0.0
+        value = gripper.attributes.get("gripper_offset_applied", 0.0)
+        return float(value) if value is not None else 0.0
+
+    def _set_gripper_offset_applied(self, value: float) -> None:
+        """Persist the location-induced offset used at pick (or 0.0 to clear after place)."""
+        gripper = self.resource_client.get_resource(self.gripper_resource.resource_id)
+        if gripper.attributes is None:
+            gripper.attributes = {}
+        gripper.attributes["gripper_offset_applied"] = float(value)
+        self.resource_client.update_resource(gripper)
+
+    def _validate_lid_clearance(
+        self,
+        plate_resource: Optional[object],
+        effective_grab_offset: float,
+    ) -> Optional[str]:
+        """Reject offsets large enough to drive the gripper fingers into the lid.
+
+        Returns an error message if the plate has a lid and the offset exceeds the
+        lid height; returns None otherwise. When ``has_lid`` is True but no
+        ``lid_height`` is recorded, the check is skipped with a warning since the
+        precise bound can't be computed.
+        """
+        if plate_resource is None or not plate_resource.attributes:
+            return None
+        if not plate_resource.attributes.get("has_lid"):
+            return None
+        lid_height = plate_resource.attributes.get("lid_height")
+        if lid_height is None:
+            self.logger.log_warning(
+                "Plate has_lid=True but no lid_height recorded; skipping grab-offset/lid clearance check."
+            )
+            return None
+        if effective_grab_offset > float(lid_height):
+            return (
+                f"Effective grab offset ({effective_grab_offset:.2f} mm) exceeds lid height "
+                f"({float(lid_height):.2f} mm); gripper fingers would reach the lid instead of the plate body."
+            )
+        return None
 
     @action(
         name="transfer", description="Transfer a plate from one location to another"
     )
-    def transfer(  # noqa: C901,
+    def transfer(  # noqa: C901, PLR0911
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -289,6 +353,7 @@ class PF400Node(RestNode):
         """Transfer a plate from `source` to `target`, optionally using intermediate `approach` positions and target rotations."""
 
         grab_height_offset = None
+        plate_resource = None
         try:
             if source.resource_id:
                 source_resource = self.resource_client.get_resource(source.resource_id)
@@ -327,7 +392,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
-                source_press_depth,
+                source_gripper_height_offset,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -335,7 +400,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
-                target_press_depth,
+                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
             if rotation_deck is not None:
                 (
@@ -353,6 +418,16 @@ class PF400Node(RestNode):
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
+        location_offset = max(
+            source_gripper_height_offset or 0.0,
+            target_gripper_height_offset or 0.0,
+        )
+        effective_grab_offset = (grab_height_offset or 0.0) + location_offset
+
+        lid_error = self._validate_lid_clearance(plate_resource, effective_grab_offset)
+        if lid_error:
+            return ActionFailed(errors=[lid_error])
+
         transfer_result = self.pf400_interface.transfer(
             source=parsed_source,
             target=parsed_target,
@@ -361,19 +436,18 @@ class PF400Node(RestNode):
             source_plate_rotation=source_rotation_from_dict,
             target_plate_rotation=target_rotation_from_dict,
             rotation_deck=parsed_rotation,
-            grab_offset=grab_height_offset,
+            grab_offset=effective_grab_offset or None,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
-            source_press_depth=source_press_depth,
-            target_press_depth=target_press_depth,
         )
         if not transfer_result:
             return ActionFailed(
                 errors=[f"Failed to transfer plate from {source} to {target}."]
             )
 
+        self._set_gripper_offset_applied(0.0)
         return None
 
     @action(name="pick_plate", description="Pick a plate from a source location")
@@ -383,6 +457,7 @@ class PF400Node(RestNode):
     ) -> Optional[ActionFailed]:
         """Picks a plate from `source`, optionally moving first to `source_approach`."""
         grab_height_offset = None
+        plate_resource = None
 
         import traceback
 
@@ -416,53 +491,58 @@ class PF400Node(RestNode):
                     source_rotation_from_dict,
                     source_approach_height_offset,
                     source_height_limit,
-                    press_depth,
+                    source_gripper_height_offset,
                 ) = self._parse_location_representation(source)
             except Exception as e:
                 return ActionFailed(
                     errors=[f"Failed to parse location representation: {e}"]
                 )
 
-            plate_source_rotation = (
-                90
-                if source_rotation_from_dict
-                and source_rotation_from_dict.lower() == "wide"
-                else 0
-            )
             self.pf400_interface.grip_wide = (
                 source_rotation_from_dict
                 and source_rotation_from_dict.lower() == "wide"
             )
 
+            location_offset = source_gripper_height_offset or 0.0
+            effective_grab_offset = (grab_height_offset or 0.0) + location_offset
+
+            lid_error = self._validate_lid_clearance(
+                plate_resource, effective_grab_offset
+            )
+            if lid_error:
+                return ActionFailed(errors=[lid_error])
+
             pick_result = self.pf400_interface.pick_plate(
                 source=parsed_source,
                 source_approach=source_approach,
-                grab_offset=grab_height_offset,
+                grab_offset=effective_grab_offset or None,
                 approach_height_offset=source_approach_height_offset,
                 height_limit=source_height_limit,
-                press_depth=press_depth,
             )
             if not pick_result:
                 return ActionFailed(
                     errors=[f"Failed to pick plate from location {source}."]
                 )
+
+            self._set_gripper_offset_applied(location_offset)
             return None
 
         except Exception:
-            self.logger.log_erorr(traceback.format_exc())
+            self.logger.log_error(traceback.format_exc())
             raise
 
     @action(
         name="place_plate",
         description="Place a plate in a target location, optionally moving first to target_approach",
     )
-    def place_plate(
+    def place_plate(  # noqa: C901
         self,
         target: Annotated[LocationArgument, "Location to place a plate to"],
     ) -> Optional[ActionFailed]:
         """Place a plate in the `target` location, optionally moving first to `target_approach`."""
 
         grab_height_offset = None
+        gripper_offset_applied = 0.0
         try:
             if target.resource_id:
                 target_resource = self.resource_client.get_resource(target.resource_id)
@@ -476,6 +556,11 @@ class PF400Node(RestNode):
                 gripper_resource = self.resource_client.get_resource(
                     self.gripper_resource.resource_id
                 )
+                if gripper_resource.attributes:
+                    gripper_offset_applied = float(
+                        gripper_resource.attributes.get("gripper_offset_applied", 0.0)
+                        or 0.0
+                    )
                 if gripper_resource.quantity > 0 and gripper_resource.children:
                     plate_in_gripper = gripper_resource.children[-1]
                     if plate_in_gripper.attributes:
@@ -484,7 +569,7 @@ class PF400Node(RestNode):
                         )
         except Exception as e:
             return ActionFailed(
-                errors=[f"Resource manager error during pick validation: {e}"]
+                errors=[f"Resource manager error during place validation: {e}"]
             )
 
         try:
@@ -494,35 +579,44 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
-                press_depth,
+                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        plate_target_rotation = (
-            90
-            if target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
-            else 0
-        )
+        target_loc_offset = target_gripper_height_offset or 0.0
+        if target_loc_offset > gripper_offset_applied:
+            return ActionFailed(
+                errors=[
+                    f"Target requires {target_loc_offset:.2f} mm gripper clearance but plate "
+                    f"was picked with only {gripper_offset_applied:.2f} mm offset. Re-pick the "
+                    "plate with adequate offset, or reduce gripper_height_offset on the target."
+                ]
+            )
+
         self.pf400_interface.grip_wide = (
             target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
+        )
+
+        effective_grab_offset = (grab_height_offset or 0.0) + max(
+            gripper_offset_applied, target_loc_offset
         )
 
         place_result = self.pf400_interface.place_plate(
             target=parsed_target,
             target_approach=target_approach,
-            grab_offset=grab_height_offset,
+            grab_offset=effective_grab_offset or None,
             approach_height_offset=target_approach_height_offset,
             height_limit=target_height_limit,
-            press_depth=press_depth,
         )
         if not place_result:
             return ActionFailed(
                 errors=["Transfer failed: plate not released properly."]
             )
 
+        self._set_gripper_offset_applied(0.0)
         return None
 
     @action(
@@ -539,10 +633,10 @@ class PF400Node(RestNode):
             (
                 parsed_target,
                 target_approach,
-                target_rotation_from_dict,
+                _target_rotation_from_dict,
                 target_approach_height_offset,
-                target_height_limit,
-                press_depth,
+                _target_height_limit,
+                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -552,7 +646,7 @@ class PF400Node(RestNode):
         self.pf400_interface.move_to_location(
             target=parsed_target,
             target_approach=target_approach or None,
-            grab_offset=None,  # move to location does not grab labware.
+            grab_offset=target_gripper_height_offset,
             approach_height_offset=target_approach_height_offset,
         )
 
@@ -651,7 +745,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
-                source_press_depth,
+                source_gripper_height_offset,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -659,7 +753,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
-                target_press_depth,
+                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -667,6 +761,12 @@ class PF400Node(RestNode):
             )
 
         parsed_source.resource_id = lid_resource.resource_id
+
+        location_offset = max(
+            source_gripper_height_offset or 0.0,
+            target_gripper_height_offset or 0.0,
+        )
+        effective_grab_offset = (grab_height_offset or 0.0) + location_offset
 
         remove_lid_result = self.pf400_interface.remove_lid(
             source=parsed_source,
@@ -676,17 +776,17 @@ class PF400Node(RestNode):
             target_approach=target_approach,
             source_plate_rotation=source_rotation_from_dict,
             target_plate_rotation=target_rotation_from_dict,
-            grab_offset=grab_height_offset,
+            grab_offset=effective_grab_offset or None,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
-            source_press_depth=source_press_depth,
-            target_press_depth=target_press_depth,
         )
 
         if not remove_lid_result:
             return ActionFailed(errors=["Failed to remove lid."])
+
+        self._set_gripper_offset_applied(0.0)
 
         if plate_resource and plate_resource.attributes:
             plate_resource.attributes["has_lid"] = False
@@ -748,7 +848,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
-                source_press_depth,
+                source_gripper_height_offset,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -756,7 +856,7 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
-                target_press_depth,
+                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -764,6 +864,12 @@ class PF400Node(RestNode):
             )
 
         parsed_target.resource_id = lid_resource.resource_id
+
+        location_offset = max(
+            source_gripper_height_offset or 0.0,
+            target_gripper_height_offset or 0.0,
+        )
+        effective_grab_offset = (grab_height_offset or 0.0) + location_offset
 
         replace_lid_result = self.pf400_interface.replace_lid(
             source=parsed_source,
@@ -773,16 +879,16 @@ class PF400Node(RestNode):
             target_approach=target_approach,
             source_plate_rotation=source_rotation_from_dict,
             target_plate_rotation=target_rotation_from_dict,
-            grab_offset=grab_height_offset,
+            grab_offset=effective_grab_offset or None,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
-            source_press_depth=source_press_depth,
-            target_press_depth=target_press_depth,
         )
         if not replace_lid_result:
             return ActionFailed(errors=["Failed to replace lid."])
+
+        self._set_gripper_offset_applied(0.0)
 
         self.resource_client.remove_resource(lid_resource.resource_id)
 

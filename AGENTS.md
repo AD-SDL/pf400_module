@@ -63,7 +63,6 @@ Key methods:
 - `transfer(source, target, ...)` — full pick+place with optional approach waypoints and plate rotation
 - `pick_plate(source, ...)` / `place_plate(target, ...)` — individual pick/place
 - `remove_lid(source, target, lid_height=7.0, ...)` / `replace_lid(...)` — lid handling
-- `check_incorrect_plate_orientation(representation, rotation)` — corrects joint angles when orientation mismatches
 
 ### 3. `src/pf400_interface/pf400_kinematics.py` — Kinematics
 `KINEMATICS` base class with forward/inverse kinematics:

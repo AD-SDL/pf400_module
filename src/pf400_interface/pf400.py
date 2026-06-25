@@ -789,7 +789,7 @@ class PF400:
         target_position_above_compliance = copy.deepcopy(target)
         target_position_above_compliance[0] += 1.0
         self.move_joint(target_position_above_compliance, self.slow_motion_profile)
-        # self.enable_compliance() # TESTING
+        # self.enable_compliance() # noqa: ERA001
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
 
@@ -808,7 +808,7 @@ class PF400:
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
-        # self.disable_compliance() # TESTING
+        # self.disable_compliance()  # noqa: ERA001
         self.open_gripper(self.gripper_open_wide)
 
         target = self.rotate_yaw(target, rotation_degree)
@@ -816,7 +816,7 @@ class PF400:
         self.move_joint(
             target_joint_angles=above_position, profile=self.slow_motion_profile
         )
-        # self.enable_compliance() # TESTING
+        # self.enable_compliance()  # noqa: ERA001
         self.move_joint(
             target_joint_angles=target,
             profile=self.slow_motion_profile,
@@ -839,7 +839,7 @@ class PF400:
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
-        # self.disable_compliance()  # TESTING!!!
+        # self.disable_compliance()  # noqa: ERA001
         self.move_all_joints_neutral(target)
 
     def _handle_approach_location(self, approach: LocationArgument) -> None:
@@ -966,7 +966,7 @@ class PF400:
             profile=approach_motion_profile,
             gripper_open=True,
         )
-        self.enable_compliance()  # TESTING (enable compliance once the gripper is about to pick up the plate)
+        # self.enable_compliance()  # noqa: ERA001
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
 
         if self.resource_client and grab_succeeded and source.resource_id:
@@ -983,7 +983,7 @@ class PF400:
             if approach_height_offset
             else self.default_approach_height,
         )
-        self.disable_compliance()  # TESTING
+        # self.disable_compliance()  # noqa: ERA001
 
         if source_approach:
             self._handle_approach_return(
@@ -1039,9 +1039,9 @@ class PF400:
         target_position_above_compliance = copy.deepcopy(target_position)
         target_position_above_compliance[0] += 2.0
         self.move_joint(target_position_above_compliance)
-        # self.enable_compliance()  # TESTING
+        # self.enable_compliance()  # noqa: ERA001
         self.move_joint(target_position, approach_motion_profile)
-        # self.disable_compliance()  # TESTING
+        # self.disable_compliance()  # noqa: ERA001
         release_succeeded = self.release_plate(width=open_width)
 
         if (

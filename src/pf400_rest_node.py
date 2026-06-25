@@ -85,8 +85,6 @@ class PF400Node(RestNode):
         ),
     ]
 
-    # TODO: separate resource creation into new function.
-
     def startup_handler(self) -> None:
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
 
@@ -459,77 +457,65 @@ class PF400Node(RestNode):
         grab_height_offset = None
         plate_resource = None
 
-        import traceback
+        try:
+            if source.resource_id:
+                source_resource = self.resource_client.get_resource(source.resource_id)
+                if source_resource.quantity == 0:
+                    return ActionFailed(
+                        errors=[
+                            f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
+                        ]
+                    )
+                if source_resource.children:
+                    plate_resource = source_resource.children[-1]
+                    if plate_resource.attributes:
+                        grab_height_offset = plate_resource.attributes.get(
+                            "grab_height_offset", None
+                        )
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Resource manager error during pick validation: {e}"]
+            )
 
         try:
-            try:
-                if source.resource_id:
-                    source_resource = self.resource_client.get_resource(
-                        source.resource_id
-                    )
-                    if source_resource.quantity == 0:
-                        return ActionFailed(
-                            errors=[
-                                f"Resource manager: Plate does not exist at source! Resource_id:{source.resource_id}."
-                            ]
-                        )
-                    if source_resource.children:
-                        plate_resource = source_resource.children[-1]
-                        if plate_resource.attributes:
-                            grab_height_offset = plate_resource.attributes.get(
-                                "grab_height_offset", None
-                            )
-            except Exception as e:
-                return ActionFailed(
-                    errors=[f"Resource manager error during pick validation: {e}"]
-                )
-
-            try:
-                (
-                    parsed_source,
-                    source_approach,
-                    source_rotation_from_dict,
-                    source_approach_height_offset,
-                    source_height_limit,
-                    source_gripper_height_offset,
-                ) = self._parse_location_representation(source)
-            except Exception as e:
-                return ActionFailed(
-                    errors=[f"Failed to parse location representation: {e}"]
-                )
-
-            self.pf400_interface.grip_wide = (
-                source_rotation_from_dict
-                and source_rotation_from_dict.lower() == "wide"
+            (
+                parsed_source,
+                source_approach,
+                source_rotation_from_dict,
+                source_approach_height_offset,
+                source_height_limit,
+                source_gripper_height_offset,
+            ) = self._parse_location_representation(source)
+        except Exception as e:
+            return ActionFailed(
+                errors=[f"Failed to parse location representation: {e}"]
             )
 
-            location_offset = source_gripper_height_offset or 0.0
-            effective_grab_offset = (grab_height_offset or 0.0) + location_offset
+        self.pf400_interface.grip_wide = (
+            source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
+        )
 
-            lid_error = self._validate_lid_clearance(
-                plate_resource, effective_grab_offset
+        location_offset = source_gripper_height_offset or 0.0
+        effective_grab_offset = (grab_height_offset or 0.0) + location_offset
+
+        lid_error = self._validate_lid_clearance(plate_resource, effective_grab_offset)
+        if lid_error:
+            return ActionFailed(errors=[lid_error])
+
+        pick_result = self.pf400_interface.pick_plate(
+            source=parsed_source,
+            source_approach=source_approach,
+            grab_offset=effective_grab_offset or None,
+            approach_height_offset=source_approach_height_offset,
+            height_limit=source_height_limit,
+        )
+        if not pick_result:
+            return ActionFailed(
+                errors=[f"Failed to pick plate from location {source}."]
             )
-            if lid_error:
-                return ActionFailed(errors=[lid_error])
 
-            pick_result = self.pf400_interface.pick_plate(
-                source=parsed_source,
-                source_approach=source_approach,
-                grab_offset=effective_grab_offset or None,
-                approach_height_offset=source_approach_height_offset,
-                height_limit=source_height_limit,
-            )
-            if not pick_result:
-                return ActionFailed(
-                    errors=[f"Failed to pick plate from location {source}."]
-                )
-
-            self._set_gripper_offset_applied(location_offset)
-            return None
-
-        except Exception:
-            self.logger.log_error(traceback.format_exc())
-            raise
+        self._set_gripper_offset_applied(location_offset)
+        return None
 
     @action(
         name="place_plate",
@@ -649,6 +635,7 @@ class PF400Node(RestNode):
             grab_offset=target_gripper_height_offset,
             approach_height_offset=target_approach_height_offset,
         )
+        return None
 
     @action(
         name="move_neutral",

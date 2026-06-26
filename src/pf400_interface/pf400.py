@@ -594,31 +594,6 @@ class PF400:
     # Motion
     # -------------------------------------------------------------------------
 
-    def check_incorrect_plate_orientation(
-        self, goal_location: list[float], goal_rotation: float
-    ) -> list[float]:
-        """Fix plate rotation on the goal location if recorded with incorrect orientation.
-
-        Args:
-            goal_location: 6 joint values for the goal location
-            goal_rotation: Expected rotation angle in degrees (0 or 90)
-
-        Returns:
-            Corrected joint angles if orientation was wrong, otherwise unchanged.
-        """
-        if goal_rotation == 0:
-            return goal_location
-
-        cart = self.joint_to_cart(goal_location)
-        yaw = cart[3]
-
-        # If yaw is close to 0 but rotation is expected, the location was saved
-        # with the wrong orientation and needs to be corrected
-        if -10 < yaw < 10:
-            return self.rotate_yaw(goal_location, goal_rotation)
-
-        return goal_location
-
     def move_joint(
         self,
         target_joint_angles: list[float],
@@ -738,8 +713,6 @@ class PF400:
         target_approach_height_offset: Optional[float] = None,
         source_height_limit: Optional[float] = None,
         target_height_limit: Optional[float] = None,
-        source_press_depth: Optional[float] = None,
-        target_press_depth: Optional[float] = None,
     ) -> bool:
         """Remove the lid from the plate"""
         if not lid_height:
@@ -760,8 +733,6 @@ class PF400:
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
-            source_press_depth=source_press_depth,
-            target_press_depth=target_press_depth,
         )
 
     def replace_lid(
@@ -778,8 +749,6 @@ class PF400:
         target_approach_height_offset: Optional[float] = None,
         source_height_limit: Optional[float] = None,
         target_height_limit: Optional[float] = None,
-        source_press_depth: Optional[float] = None,
-        target_press_depth: Optional[float] = None,
     ) -> bool:
         """Replace the lid on the plate"""
         if lid_height is None:
@@ -800,8 +769,6 @@ class PF400:
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
             target_height_limit=target_height_limit,
-            source_press_depth=source_press_depth,
-            target_press_depth=target_press_depth,
         )
 
     def rotate_plate_on_deck(
@@ -822,7 +789,7 @@ class PF400:
         target_position_above_compliance = copy.deepcopy(target)
         target_position_above_compliance[0] += 1.0
         self.move_joint(target_position_above_compliance, self.slow_motion_profile)
-        self.enable_compliance()
+        # self.enable_compliance() # noqa: ERA001
         self.move_joint(target, self.slow_motion_profile)
         self.release_plate()
 
@@ -841,7 +808,7 @@ class PF400:
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
-        self.disable_compliance()
+        # self.disable_compliance()  # noqa: ERA001
         self.open_gripper(self.gripper_open_wide)
 
         target = self.rotate_yaw(target, rotation_degree)
@@ -849,7 +816,7 @@ class PF400:
         self.move_joint(
             target_joint_angles=above_position, profile=self.slow_motion_profile
         )
-        self.enable_compliance()
+        # self.enable_compliance()  # noqa: ERA001
         self.move_joint(
             target_joint_angles=target,
             profile=self.slow_motion_profile,
@@ -872,7 +839,7 @@ class PF400:
         self.move_in_one_axis(
             profile=self.slow_motion_profile, axis_z=self.default_approach_height
         )
-        self.disable_compliance()
+        # self.disable_compliance()  # noqa: ERA001
         self.move_all_joints_neutral(target)
 
     def _handle_approach_location(self, approach: LocationArgument) -> None:
@@ -954,16 +921,12 @@ class PF400:
         approach_height_offset: Optional[float] = None,
         height_limit: Optional[float] = None,
         grip_width: Optional[int] = None,
-        press_depth: Optional[float] = None,
     ) -> bool:
         """
         Pick a plate from the source location, optionally using an approach location.
 
         Returns True if the plate was successfully grabbed, False otherwise.
         """
-        if press_depth is not None:
-            source.representation = copy.deepcopy(source.representation)
-            source.representation[0] -= press_depth
 
         above_position = self._calculate_above_position(
             source.representation, approach_height_offset, grab_offset
@@ -1003,7 +966,7 @@ class PF400:
             profile=approach_motion_profile,
             gripper_open=True,
         )
-        self.enable_compliance()
+        # self.enable_compliance()  # noqa: ERA001
         grab_succeeded = self.grab_plate(width=grip_width, speed=100, force=10)
 
         if self.resource_client and grab_succeeded and source.resource_id:
@@ -1020,7 +983,7 @@ class PF400:
             if approach_height_offset
             else self.default_approach_height,
         )
-        self.disable_compliance()
+        # self.disable_compliance()  # noqa: ERA001
 
         if source_approach:
             self._handle_approach_return(
@@ -1039,15 +1002,10 @@ class PF400:
         approach_height_offset: Optional[float] = None,
         height_limit: Optional[float] = None,
         open_width: Optional[int] = None,
-        press_depth: Optional[float] = None,
     ) -> bool:
         """
         Place a plate in the target location
         """
-        if press_depth is not None:
-            target.representation = copy.deepcopy(target.representation)
-            target.representation[0] -= press_depth
-
         above_position = self._calculate_above_position(
             target.representation, approach_height_offset, grab_offset
         )
@@ -1081,8 +1039,9 @@ class PF400:
         target_position_above_compliance = copy.deepcopy(target_position)
         target_position_above_compliance[0] += 2.0
         self.move_joint(target_position_above_compliance)
-        self.enable_compliance()
+        # self.enable_compliance()  # noqa: ERA001
         self.move_joint(target_position, approach_motion_profile)
+        # self.disable_compliance()  # noqa: ERA001
         release_succeeded = self.release_plate(width=open_width)
 
         if (
@@ -1107,7 +1066,7 @@ class PF400:
             if approach_height_offset
             else self.default_approach_height,
         )
-        self.disable_compliance()
+
         if target_approach:
             self._handle_approach_return(
                 approach=target_approach, default_motion=self.fast_motion_profile
@@ -1187,8 +1146,6 @@ class PF400:
         target_approach_height_offset: Optional[float] = None,
         source_height_limit: Optional[float] = None,
         target_height_limit: Optional[float] = None,
-        source_press_depth: Optional[float] = None,
-        target_press_depth: Optional[float] = None,
     ) -> bool:
         """
         Description: Plate transfer function that performs series of movements to pick and place the plates
@@ -1200,13 +1157,11 @@ class PF400:
                         - source_plate_rotation: narrow or wide
                         - target_plate_rotation: narrow or wide
                         - rotation_deck: Location for plate rotation deck
-                        - grab_offset: Add grab height offset
+                        - grab_offset: Add grab height offset (applied identically at pick and place)
                         - source_approach_height_offset: Add source approach height offset
                         - target_approach_height_offset: Add target approach height offset
                         - source_height_limit: Maximum height limit for source pick
                         - target_height_limit: Maximum height limit for target place
-                        - source_press_depth: Depth to press down when picking from source
-                        - target_press_depth: Depth to press down when placing to target
                 Returns:
                         True if transfer was successful, False otherwise.
 
@@ -1249,18 +1204,12 @@ class PF400:
             )
             return False
 
-        """
-        Depricating this implementation
-        source.representation = self.check_incorrect_plate_orientation(source.representation, plate_source_rotation)
-        """
-
         pick_result = self.pick_plate(
             source=source,
             source_approach=source_approach,
             grab_offset=grab_offset,
             approach_height_offset=source_approach_height_offset,
             height_limit=source_height_limit,
-            press_depth=source_press_depth,
         )
 
         if not pick_result:
@@ -1272,12 +1221,6 @@ class PF400:
         self.grip_wide = (
             target_plate_rotation and target_plate_rotation.lower() == "wide"
         )
-        """
-        Depricating this implementation
-        target.representation = self.check_incorrect_plate_orientation(
-            target.representation, plate_target_rotation
-        )
-        """
 
         # Rotate plate if needed
         if rotation_needed != 0:
@@ -1291,7 +1234,6 @@ class PF400:
             grab_offset=grab_offset,
             approach_height_offset=target_approach_height_offset,
             height_limit=target_height_limit,
-            press_depth=target_press_depth,
         )
         if not place_result:
             self.logger.error("Transfer failed: plate not released properly.")

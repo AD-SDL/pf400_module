@@ -10,7 +10,8 @@ class PF400Plate(BaseModel):
     """PF400-specific plate properties."""
 
     grab_height_offset: float
-    lid_grip_height: float | None = None
+    lid_only_grip_height: float | None = None
+    lid_removal_grip_height: float | None = None
     has_lid: bool
     lid_resource: Resource | None = None
     lid_slot_resource: Resource | None = None
@@ -34,7 +35,8 @@ class PF400Plate(BaseModel):
 
         return cls(
             grab_height_offset=attrs["pf400_grip_height"],
-            lid_grip_height=attrs.get("pf400_lid_grip_height"),
+            lid_only_grip_height=attrs.get("pf400_lid_only_grip_height"),
+            lid_removal_grip_height=attrs.get("pf400_lid_removal_grip_height"),
             has_lid=lid_resource is not None,
             lid_resource=lid_resource,
             lid_slot_resource=lid_slot,

@@ -50,7 +50,6 @@ class PF400:
         0.0,
         0.0,
     ]
-    default_lid_height = 7.0
     movement_state = 0
 
     robot_connection = None
@@ -703,7 +702,8 @@ class PF400:
         self,
         source: LocationArgument,
         target: LocationArgument,
-        lid_height: Optional[float] = None,
+        lid_removal_grip_height: Optional[float] = None,
+        lid_only_grip_height: Optional[float] = None,
         source_approach: LocationArgument = None,
         target_approach: LocationArgument = None,
         source_plate_rotation: Optional[str] = None,
@@ -715,11 +715,12 @@ class PF400:
         target_height_limit: Optional[float] = None,
     ) -> bool:
         """Remove the lid from the plate"""
-        if not lid_height:
-            lid_height = self.default_lid_height
 
         source.representation = copy.deepcopy(source.representation)
-        source.representation[0] += lid_height
+        source.representation[0] += lid_removal_grip_height
+
+        target.representation = copy.deepcopy(target.representation)
+        target.representation[0] += lid_only_grip_height
 
         return self.transfer(
             source=source,
@@ -729,17 +730,18 @@ class PF400:
             source_plate_rotation=source_plate_rotation,
             target_plate_rotation=target_plate_rotation,
             grab_offset=grab_offset,
-            source_approach_height_offset=source_approach_height_offset,
-            target_approach_height_offset=target_approach_height_offset,
-            source_height_limit=source_height_limit,
-            target_height_limit=target_height_limit,
+            source_approach_height_offset=source_approach_height_offset,  # NONE
+            target_approach_height_offset=target_approach_height_offset,  # NONE
+            source_height_limit=source_height_limit,  # NONE
+            target_height_limit=target_height_limit,  # NONE
         )
 
     def replace_lid(
         self,
         source: LocationArgument,
         target: LocationArgument,
-        lid_height: Optional[float] = None,
+        lid_removal_grip_height: Optional[float] = None,
+        lid_only_grip_height: Optional[float] = None,
         source_approach: LocationArgument = None,
         target_approach: LocationArgument = None,
         source_plate_rotation: Optional[str] = None,
@@ -751,11 +753,12 @@ class PF400:
         target_height_limit: Optional[float] = None,
     ) -> bool:
         """Replace the lid on the plate"""
-        if lid_height is None:
-            lid_height = self.default_lid_height
+
+        source.representation = copy.deepcopy(source.representation)
+        source.representation[0] += lid_only_grip_height
 
         target.representation = copy.deepcopy(target.representation)
-        target.representation[0] += lid_height
+        target.representation[0] += lid_removal_grip_height
 
         return self.transfer(
             source=source,
@@ -1036,6 +1039,7 @@ class PF400:
             if grab_offset
             else target.representation
         )
+
         target_position_above_compliance = copy.deepcopy(target_position)
         target_position_above_compliance[0] += 2.0
         self.move_joint(target_position_above_compliance)
@@ -1055,6 +1059,7 @@ class PF400:
             popped_plate, _updated_resource = self.resource_client.pop(
                 resource=self.gripper_resource_id
             )
+
             if target.resource_id:
                 self.resource_client.push(
                     resource=target.resource_id, child=popped_plate

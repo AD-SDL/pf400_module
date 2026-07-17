@@ -327,15 +327,15 @@ class PF400Node(RestNode):
             return None
         if not plate_resource.has_lid:
             return None
-        if plate_resource.lid_grip_height is None:
+        if plate_resource.lid_removal_grip_height is None:
             self.logger.log_warning(
-                "Plate has_lid=True but no lid_grip_height recorded; skipping grab-offset/lid clearance check."
+                "Plate has_lid=True but no lid_removal_grip_height recorded; skipping grab-offset/lid clearance check."
             )
             return None
-        if effective_grab_offset > float(plate_resource.lid_grip_height):
+        if effective_grab_offset > float(plate_resource.lid_removal_grip_height):
             return (
                 f"Effective grab offset ({effective_grab_offset:.2f} mm) exceeds lid height "
-                f"({float(plate_resource.lid_grip_height):.2f} mm); gripper fingers would reach the lid instead of the plate body."
+                f"({float(plate_resource.lid_removal_grip_height):.2f} mm); gripper fingers would reach the lid instead of the plate body."
             )
         return None
 
@@ -758,7 +758,6 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
-                source_gripper_height_offset,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -766,7 +765,6 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
-                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
@@ -776,23 +774,15 @@ class PF400Node(RestNode):
         # Set source resource id to the lid slot resource id
         parsed_source.resource_id = plate_resource.lid_slot_resource.resource_id
 
-        location_offset = max(
-            source_gripper_height_offset or 0.0,
-            target_gripper_height_offset or 0.0,
-        )
-        effective_grab_offset = (
-            plate_resource.grab_height_offset or 0.0
-        ) + location_offset
-
         remove_lid_result = self.pf400_interface.remove_lid(
             source=parsed_source,
             target=parsed_target,
-            lid_height=plate_resource.lid_grip_height,
+            lid_removal_grip_height=plate_resource.lid_removal_grip_height,
+            lid_only_grip_height=plate_resource.lid_only_grip_height,
             source_approach=source_approach,
             target_approach=target_approach,
             source_plate_rotation=source_rotation_from_dict,
             target_plate_rotation=target_rotation_from_dict,
-            grab_offset=effective_grab_offset or None,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
@@ -816,6 +806,7 @@ class PF400Node(RestNode):
 
         plate_resource = None
         lid_resource = None
+        lid_slot_resource = None
         failure: Optional[ActionFailed] = None
 
         try:
@@ -851,6 +842,7 @@ class PF400Node(RestNode):
                         plate_resource = PF400Plate.from_resource(
                             target_resource.children[-1]
                         )
+                        lid_slot_resource = plate_resource.lid_slot_resource
                     except Exception as e:
                         error_message = (
                             "Plate resource at target does not match PF400 plate "
@@ -875,7 +867,6 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
-                source_gripper_height_offset,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -883,33 +874,23 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
-                target_gripper_height_offset,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        parsed_target.resource_id = lid_resource.resource_id
-
-        location_offset = max(
-            source_gripper_height_offset or 0.0,
-            target_gripper_height_offset or 0.0,
-        )
-
-        effective_grab_offset = (
-            plate_resource.grab_height_offset or 0.0
-        ) + location_offset
+        parsed_target.resource_id = lid_slot_resource.resource_id
 
         replace_lid_result = self.pf400_interface.replace_lid(
             source=parsed_source,
             target=parsed_target,
-            lid_height=plate_resource.lid_grip_height,
+            lid_removal_grip_height=plate_resource.lid_removal_grip_height,
+            lid_only_grip_height=plate_resource.lid_only_grip_height,
             source_approach=source_approach,
             target_approach=target_approach,
             source_plate_rotation=source_rotation_from_dict,
             target_plate_rotation=target_rotation_from_dict,
-            grab_offset=effective_grab_offset or None,
             source_approach_height_offset=source_approach_height_offset,
             target_approach_height_offset=target_approach_height_offset,
             source_height_limit=source_height_limit,
@@ -919,8 +900,6 @@ class PF400Node(RestNode):
             return ActionFailed(errors=["Failed to replace lid."])
 
         self._set_gripper_offset_applied(0.0)
-
-        self.resource_client.remove_resource(lid_resource.resource_id)
 
         return None
 

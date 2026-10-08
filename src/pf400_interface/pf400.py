@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """Interface code for the PF400 robot arm."""
 
+import contextlib
 import copy
 import telnetlib
 import time
@@ -72,6 +73,7 @@ class PF400:
         resource_client: ResourceClient = None,
         gripper_resource_id: Optional[str] = None,
         logger: Optional[EventClient] = None,
+        simulation: bool = False,
     ) -> None:
         """
         Description:
@@ -91,8 +93,7 @@ class PF400:
         self.gripper_resource_id = gripper_resource_id
         self.command_lock = Lock()
         self.status_lock = Lock()
-        self.connect()
-        self._configure_robot()
+        self.simulation = simulation
 
         self.neutral_joints = [
             400.0,
@@ -102,11 +103,29 @@ class PF400:
             self.gripper_close_narrow,
             0.0,
         ]
+        self._simulated_joints = list(self.neutral_joints)
 
+        # __init__ performs no I/O. The caller calls connect() when it wants a real
+        # robot. A simulation node constructs the same object and never connects, so
+        # every sequencing and resource-tracking code path below runs unchanged.
+
+    def connect(self) -> None:
+        """Open the connections and bring the robot to a usable configuration.
+
+        Call this after constructing a PF400 when you intend to drive real hardware.
+        It is not called from __init__, so that a simulation node can build the same
+        object without touching the network.
+        """
+        if self.simulation:
+            raise Pf400ConnectionError(
+                err_message="connect() called on a PF400 built in simulation mode."
+            )
+        self._open_connections()
+        self._configure_robot()
         self.set_gripper_open()
         self.set_gripper_close()
 
-    def connect(self) -> None:
+    def _open_connections(self) -> None:
         """Create a streaming socket to send string commands to the robot using telnetlib."""
         try:
             self.robot_connection = telnetlib.Telnet(self.host, self.port, 5)  # noqa: S312
@@ -151,6 +170,8 @@ class PF400:
             Pf400ConnectionError: If no connection to the robot can be established.
             Pf400CommandError: If an AttributeError occurs during command execution.
         """
+        if self.simulation:
+            return self._simulated_response(command)
         with self.command_lock:
             try:
                 if not self.robot_connection:
@@ -184,6 +205,8 @@ class PF400:
             Pf400ConnectionError: If no connection is established and the command cannot be sent.
             Pf400CommandError: If an AttributeError occurs during command processing.
         """
+        if self.simulation:
+            return self._simulated_response(command)
         with self.status_lock:
             try:
                 if not self.status_connection:
@@ -201,6 +224,50 @@ class PF400:
                 return response
             except AttributeError as e:
                 raise Pf400CommandError(err_message="Attribute Error") from e
+
+    def _simulated_response(self, command: str) -> str:  # noqa: PLR0911
+        """Answer a TCS command without a robot, for a node in simulation mode.
+
+        This is not a robot simulator. It returns the minimum each caller parses, so
+        that the sequencing and resource-tracking code above it runs normally. Joint
+        values are an echo of the last commanded move, not a physical prediction.
+
+        Reachability is NOT checked here. The node checks every pose against the joint
+        soft limits before any command is issued, which is why these replies do not
+        need to be geometrically meaningful.
+
+        Never read a position from a node in simulation mode and act on it.
+        """
+        parts = command.split(" ")
+        verb = parts[0] if parts else ""
+
+        if verb == "movej" and len(parts) >= 8:
+            # "movej <profile> j0 j1 j2 j3 j4 j5"
+            with contextlib.suppress(ValueError):
+                self._simulated_joints = [float(x) for x in parts[2:8]]
+            return "0"
+        if verb in ("GraspPlate", "ReleasePlate") and len(parts) >= 2:
+            # Both carry the gripper width first. release_plate compares the width it
+            # asked for against get_gripper_state(), which reads joint 4.
+            with contextlib.suppress(ValueError):
+                self._simulated_joints[4] = float(parts[1])
+            # GraspPlate reports "-1" in the second field when a plate was gripped.
+            # That flag gates the resource pop, so the plate must appear to be held.
+            return "0 -1" if verb == "GraspPlate" else "0"
+        if verb == "wherej":
+            return "0 " + " ".join(str(v) for v in self._simulated_joints)
+        if verb == "whereC":
+            # get_cartesian_coordinates drops the first and last fields, so eight are
+            # needed to yield six. The values are placeholders, see the docstring.
+            return "0 0 0 0 0 0 0 0"
+        if verb == "state":
+            # Must report stopped, or _await_movement_completion never returns.
+            return "0 0"
+        if verb in ("hp", "attach", "pd"):
+            return "0 1"
+        if verb == "sysState":
+            return "0 21"
+        return "0"
 
     def _parse_response(self, response: str) -> list[float]:
         """Parse a TCS response string into a list of floats, stripping the leading status code."""

@@ -19,7 +19,7 @@ pdm run python -m pf400_rest_node
 docker compose up
 ```
 
-Configuration is loaded automatically via MADSci's walk-up settings discovery. The Docker `compose.yaml` sets `PF400_IP` via environment variable.
+Configuration is loaded automatically via MADSci's walk-up settings discovery. Settings come from `.env` or a `node.settings.yaml` beside the compose file.
 
 ## Linting
 
@@ -121,6 +121,27 @@ Reachability is not simulated. Every pose is checked against the joint soft limi
 before any command is issued, in simulation and on real hardware alike, which is why the
 canned replies do not need to be geometrically meaningful.
 
+### Starting a node in simulation
+
+Three equivalent routes, highest priority first:
+
+```bash
+# CLI. The flag is typed bool, so it needs a value; bare --simulation fails.
+pdm run python -m pf400_rest_node --simulation=true
+
+# Environment variable, note the NODE_ prefix
+NODE_SIMULATION=true pdm run python -m pf400_rest_node
+```
+
+```yaml
+# node.settings.yaml
+node_name: pf400_piper_sim
+node_url: http://0.0.0.0:2010
+simulation: true
+```
+
+`pf400_ip` is not required when `simulation` is true.
+
 Simulation is a startup flag rather than a per-request one on purpose. A flag toggled
 per request on a live node races with concurrent real actions. A node that never opened
 a connection cannot move anything whatever its state.
@@ -139,7 +160,7 @@ pf400_port: 10100
 pf400_status_port: 10000
 ```
 
-All settings can also be set via environment variables (e.g. `PF400_IP`, `NODE_URL`).
+All settings can also be set via environment variables. **The prefix is `NODE_`**, inherited from `NodeConfig`, so the variable for `pf400_ip` is `NODE_PF400_IP` and for `simulation` it is `NODE_SIMULATION`. An unprefixed `PF400_IP` is ignored.
 
 The node's stable identity (ID) is persisted in the `.madsci/registry.json` file found by the same walk-up discovery. The node registers itself under its `node_name` on first startup and reuses the same ULID on subsequent restarts.
 

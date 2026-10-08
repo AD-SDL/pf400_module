@@ -851,7 +851,7 @@ class PF400Node(RestNode):
         self.pf400_interface.move_neutral(height_offset=height_offset)
 
     @action(name="remove_lid", description="Remove a lid from a plate")
-    def remove_lid(  # noqa: C901, PLR0911
+    def remove_lid(  # noqa: C901, PLR0911, PLR0912
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -909,9 +909,17 @@ class PF400Node(RestNode):
                 add_to_database=True,
             )
 
+            # plate_resource is None whenever the source location has no tracked
+            # resource, which is legal: the lid slot below is what the transfer
+            # actually moves, so the lid only needs a name, not a known plate.
+            lid_origin = (
+                plate_resource.resource_id
+                if plate_resource is not None
+                else (source.location_name or "unknown_location")
+            )
             lid = self.resource_client.create_resource_from_template(
                 template_name="plate_lid",
-                resource_name=f"Lid_from_{plate_resource.resource_id}",
+                resource_name=f"Lid_from_{lid_origin}",
                 add_to_database=True,
             )
 
@@ -952,6 +960,26 @@ class PF400Node(RestNode):
         )
         effective_grab_offset = (grab_height_offset or 0.0) + location_offset
 
+        for label, loc_arg, appr, height_off in (
+            (
+                f"source {source.location_name}",
+                parsed_source,
+                source_approach,
+                source_approach_height_offset,
+            ),
+            (
+                f"target {target.location_name}",
+                parsed_target,
+                target_approach,
+                target_approach_height_offset,
+            ),
+        ):
+            reach_error = self._check_reachable(
+                label, loc_arg, appr, height_off, effective_grab_offset
+            )
+            if reach_error:
+                return ActionFailed(errors=[reach_error])
+
         remove_lid_result = self.pf400_interface.remove_lid(
             source=parsed_source,
             target=parsed_target,
@@ -979,7 +1007,7 @@ class PF400Node(RestNode):
         return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
-    def replace_lid(  # noqa: C901
+    def replace_lid(  # noqa: C901, PLR0911, PLR0912
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -1054,6 +1082,26 @@ class PF400Node(RestNode):
             target_gripper_height_offset or 0.0,
         )
         effective_grab_offset = (grab_height_offset or 0.0) + location_offset
+
+        for label, loc_arg, appr, height_off in (
+            (
+                f"source {source.location_name}",
+                parsed_source,
+                source_approach,
+                source_approach_height_offset,
+            ),
+            (
+                f"target {target.location_name}",
+                parsed_target,
+                target_approach,
+                target_approach_height_offset,
+            ),
+        ):
+            reach_error = self._check_reachable(
+                label, loc_arg, appr, height_off, effective_grab_offset
+            )
+            if reach_error:
+                return ActionFailed(errors=[reach_error])
 
         replace_lid_result = self.pf400_interface.replace_lid(
             source=parsed_source,

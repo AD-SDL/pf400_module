@@ -34,7 +34,24 @@ ruff format src/
 ruff check --fix src/
 ```
 
-No pytest test suite — tests are Jupyter notebooks in `tests/` (`test_pf400_interface.ipynb`, `test_pf400_node.ipynb`) and require a live robot connection.
+No pytest test suite. Tests are Jupyter notebooks in `tests/`:
+
+| Notebook | Needs a robot? |
+|---|---|
+| `test_pf400_interface.ipynb` | yes |
+| `test_pf400_node.ipynb` | yes |
+| `test_simulation_node.ipynb` | **no**, only a reachable resource manager |
+
+`test_simulation_node.ipynb` starts the node itself and covers all seven actions, the
+joint soft limit refusals, and a multi-step sequence. Run it with:
+
+```bash
+cd tests
+RESOURCE_SERVER_URL=http://localhost:8003 \
+  jupyter nbconvert --to notebook --execute --inplace test_simulation_node.ipynb
+```
+
+It creates and removes its own test resources. Point it at a sandbox, not a live lab.
 
 ## Code Architecture
 
@@ -140,7 +157,19 @@ node_url: http://0.0.0.0:2010
 simulation: true
 ```
 
+Or in Docker, which runs on a distinct name and port so it sits alongside the real node:
+
+```bash
+docker compose -f compose.simulation.yaml up
+```
+
 `pf400_ip` is not required when `simulation` is true.
+
+**Environment variable names are not always what you expect.** The prefix is `NODE_`, so
+`simulation` is `NODE_SIMULATION`. But a field whose own name already starts with `node_`
+is not doubled: `node_url` is `NODE_URL`, and `NODE_NODE_URL` is silently ignored, which
+leaves the node on its default port 2000 where it will collide with whatever is there.
+`.env.example` is generated from the config model and is the authoritative list.
 
 Simulation is a startup flag rather than a per-request one on purpose. A flag toggled
 per request on a live node races with concurrent real actions. A node that never opened

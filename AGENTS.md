@@ -171,6 +171,8 @@ is not doubled: `node_url` is `NODE_URL`, and `NODE_NODE_URL` is silently ignore
 leaves the node on its default port 2000 where it will collide with whatever is there.
 `.env.example` is generated from the config model and is the authoritative list.
 
+Porting this to another module: see `docs/adding_simulation_mode.md`.
+
 Simulation is a startup flag rather than a per-request one on purpose. A flag toggled
 per request on a live node races with concurrent real actions. A node that never opened
 a connection cannot move anything whatever its state.

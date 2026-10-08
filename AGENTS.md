@@ -110,8 +110,12 @@ which arrives only after the command is already sent.
 | rail | -1000 | 1000 | mm |
 
 Hard stops (16075 and 16076) sit just outside these and are not used for checking.
-Override with `joint_soft_limit_min` and `joint_soft_limit_max` if the controller
-parameters change.
+
+These live in `pf400_interface/pf400_constants.py` as `JOINT_SOFT_LIMIT_MIN` and
+`JOINT_SOFT_LIMIT_MAX`, not in node configuration. They are physical properties of the
+arm, fixed when it is commissioned, and widening them does not give the arm more reach.
+It only moves the failure from a readable refusal to error -1012 after the command has
+already been sent.
 
 ## Simulation mode
 

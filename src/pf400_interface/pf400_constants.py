@@ -73,3 +73,20 @@ ERROR_CODES = {
     "-2823": "*Not at pallet origin*",
     "-3122": "*Soft envelope error* Robot 1: 1",
 }
+
+
+# Joint soft stop limits, ordered [z, shoulder, elbow, wrist, gripper, rail].
+#
+# Read from the controller's own parameter database: 16077 is the maximum soft stop
+# and 16078 the minimum. These are physical properties of the arm, set once when the
+# robot is commissioned, so they live here beside ERROR_CODES rather than in node
+# configuration. Widening them does not give the arm more reach, it just moves where
+# the failure happens from a readable refusal to error -1012 after the command has
+# already gone out.
+#
+# The hard stops (16075 and 16076) sit just outside these and are not used for
+# checking, so a violation is caught before the arm is anywhere near them.
+JOINT_NAMES = ("z", "shoulder", "elbow", "wrist", "gripper", "rail")
+JOINT_UNITS = ("mm", "deg", "deg", "deg", "mm", "mm")
+JOINT_SOFT_LIMIT_MIN = (1.5, -93.0, 12.0, -960.0, 69.0, -1000.0)
+JOINT_SOFT_LIMIT_MAX = (1161.5, 93.0, 348.0, 960.0, 134.0, 1000.0)

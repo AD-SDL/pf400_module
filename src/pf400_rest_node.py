@@ -15,6 +15,12 @@ from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 
 from pf400_interface.pf400 import PF400
+from pf400_interface.pf400_constants import (
+    JOINT_NAMES,
+    JOINT_SOFT_LIMIT_MAX,
+    JOINT_SOFT_LIMIT_MIN,
+    JOINT_UNITS,
+)
 
 
 class PF400NodeConfig(RestNodeConfig):
@@ -28,20 +34,6 @@ class PF400NodeConfig(RestNodeConfig):
     """Port to connect to the PF400 status server, default is 10000"""
     rate_limit_requests: int = 500
     """Rate limit for requests to the PF400 robot, default is 100 ms"""
-    joint_soft_limit_min: tuple[float, ...] = (1.5, -93.0, 12.0, -960.0, 69.0, -1000.0)
-    """Minimum soft stop per joint, ordered [z_mm, shoulder_deg, elbow_deg, wrist_deg,
-    gripper_mm, rail_mm]. Read from controller parameter 16078. The robot raises a soft
-    envelope error past these, so the node refuses the action first and says which joint."""
-    joint_soft_limit_max: tuple[float, ...] = (
-        1161.5,
-        93.0,
-        348.0,
-        960.0,
-        134.0,
-        1000.0,
-    )
-    """Maximum soft stop per joint, same order. Controller parameter 16077. Hard stops
-    (16075 and 16076) sit just outside these and are not used for checking."""
     simulation: bool = False
     """Run with no hardware connection. Actions perform every validation step and then
     return success without moving the arm. The node cannot write to the resource manager.
@@ -352,16 +344,6 @@ class PF400Node(RestNode):
         gripper.attributes["gripper_offset_applied"] = float(value)
         self.resource_client.update_resource(gripper)
 
-    JOINT_NAMES: ClassVar[list[tuple[str, str]]] = [
-        ("z", "mm"),
-        ("shoulder", "deg"),
-        ("elbow", "deg"),
-        ("wrist", "deg"),
-        ("gripper", "mm"),
-        ("rail", "mm"),
-    ]
-    """Joint order used by every representation and by the soft limit lists."""
-
     def _check_joints(self, label: str, representation: object) -> Optional[str]:
         """Check one pose, or a list of waypoints, against the soft stop limits.
 
@@ -375,17 +357,17 @@ class PF400Node(RestNode):
         if poses and not isinstance(poses[0], (list, tuple)):
             poses = [poses]
         for index, pose in enumerate(poses):
-            if len(pose) != len(self.JOINT_NAMES):
+            if len(pose) != len(JOINT_NAMES):
                 return (
                     f"{label} has {len(pose)} joint values, expected "
-                    f"{len(self.JOINT_NAMES)}."
+                    f"{len(JOINT_NAMES)}."
                 )
             for joint, value in enumerate(pose):
-                low = self.config.joint_soft_limit_min[joint]
-                high = self.config.joint_soft_limit_max[joint]
+                low = JOINT_SOFT_LIMIT_MIN[joint]
+                high = JOINT_SOFT_LIMIT_MAX[joint]
                 if low <= value <= high:
                     continue
-                name, unit = self.JOINT_NAMES[joint]
+                name, unit = JOINT_NAMES[joint], JOINT_UNITS[joint]
                 where = f"{label} waypoint {index}" if len(poses) > 1 else label
                 return (
                     f"{where} is outside the soft envelope: {name} is {value} {unit}, "

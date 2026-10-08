@@ -221,6 +221,16 @@ class PF400Node(RestNode):
     def state_handler(self) -> None:
         """Periodically called to update the current state of the node."""
         if self.pf400_interface is not None:
+            if self.pf400_interface.simulation:
+                # movement_state is only refreshed by a real command round trip, so in
+                # simulation it stays at its initial 0 and the branches below would
+                # report POWER OFF and log an error every polling interval.
+                self.node_state = {
+                    "pf400_status_code": "SIMULATION",
+                    "current_joint_angles": self.pf400_interface.get_joint_states(),
+                    "simulation": True,
+                }
+                return
             # Getting robot state
             robot_state = self.pf400_interface.movement_state
             current_location = self.pf400_interface.get_joint_states()

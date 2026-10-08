@@ -28,6 +28,20 @@ class PF400NodeConfig(RestNodeConfig):
     """Port to connect to the PF400 status server, default is 10000"""
     rate_limit_requests: int = 500
     """Rate limit for requests to the PF400 robot, default is 100 ms"""
+    joint_soft_limit_min: tuple[float, ...] = (1.5, -93.0, 12.0, -960.0, 69.0, -1000.0)
+    """Minimum soft stop per joint, ordered [z_mm, shoulder_deg, elbow_deg, wrist_deg,
+    gripper_mm, rail_mm]. Read from controller parameter 16078. The robot raises a soft
+    envelope error past these, so the node refuses the action first and says which joint."""
+    joint_soft_limit_max: tuple[float, ...] = (
+        1161.5,
+        93.0,
+        348.0,
+        960.0,
+        134.0,
+        1000.0,
+    )
+    """Maximum soft stop per joint, same order. Controller parameter 16077. Hard stops
+    (16075 and 16076) sit just outside these and are not used for checking."""
     simulation: bool = False
     """Run with no hardware connection. Actions perform every validation step and then
     return success without moving the arm. The node cannot write to the resource manager.
@@ -153,7 +167,7 @@ class PF400Node(RestNode):
                 "payload_kg": 0.5,
                 "payload_lb": 1.1,
                 "max_grip_force_newton": 23.0,
-                "grip_width_range": [80.0, 140.0],
+                "grip_width_range": [69.0, 134.0],
                 "gripper_offset_applied": 0.0,
                 "description": "PF400 robot gripper slot",
             },
@@ -368,6 +382,77 @@ class PF400Node(RestNode):
         gripper.attributes["gripper_offset_applied"] = float(value)
         self.resource_client.update_resource(gripper)
 
+    JOINT_NAMES: ClassVar[list[tuple[str, str]]] = [
+        ("z", "mm"),
+        ("shoulder", "deg"),
+        ("elbow", "deg"),
+        ("wrist", "deg"),
+        ("gripper", "mm"),
+        ("rail", "mm"),
+    ]
+    """Joint order used by every representation and by the soft limit lists."""
+
+    def _check_joints(self, label: str, representation: object) -> Optional[str]:
+        """Check one pose, or a list of waypoints, against the soft stop limits.
+
+        Returns an error message naming the first joint that is out of range, or None.
+        The robot itself only reports this after the command is sent, as error -1012,
+        by which point the caller has a failed action and no useful reason.
+        """
+        if representation is None:
+            return None
+        poses = representation
+        if poses and not isinstance(poses[0], (list, tuple)):
+            poses = [poses]
+        for index, pose in enumerate(poses):
+            if len(pose) != len(self.JOINT_NAMES):
+                return (
+                    f"{label} has {len(pose)} joint values, expected "
+                    f"{len(self.JOINT_NAMES)}."
+                )
+            for joint, value in enumerate(pose):
+                low = self.config.joint_soft_limit_min[joint]
+                high = self.config.joint_soft_limit_max[joint]
+                if low <= value <= high:
+                    continue
+                name, unit = self.JOINT_NAMES[joint]
+                where = f"{label} waypoint {index}" if len(poses) > 1 else label
+                return (
+                    f"{where} is outside the soft envelope: {name} is {value} {unit}, "
+                    f"limit is {low} to {high} {unit}. The arm cannot reach this pose."
+                )
+        return None
+
+    def _check_reachable(
+        self,
+        label: str,
+        location: LocationArgument,
+        approach: Optional[LocationArgument] = None,
+        approach_height_offset: Optional[float] = None,
+        grab_offset: Optional[float] = None,
+    ) -> Optional[str]:
+        """Check the pose, its approach waypoints, and the computed position above it.
+
+        The position above a location is the location with the approach height added to
+        z, so it can sit outside the envelope even when the location itself is fine.
+        """
+        error = self._check_joints(label, location.representation)
+        if error:
+            return error
+        if approach is not None:
+            error = self._check_joints(f"{label} approach", approach.representation)
+            if error:
+                return error
+
+        rise = (
+            PF400.default_approach_height
+            if approach_height_offset is None
+            else approach_height_offset
+        )
+        above = list(location.representation)
+        above[0] += rise + (grab_offset or 0.0)
+        return self._check_joints(f"position above {label}", above)
+
     def _validate_lid_clearance(
         self,
         plate_resource: Optional[object],
@@ -519,6 +604,26 @@ class PF400Node(RestNode):
                 ]
             )
 
+        for label, loc, appr, height_off in (
+            (
+                f"source {source.location_name}",
+                parsed_source,
+                source_approach,
+                source_approach_height_offset,
+            ),
+            (
+                f"target {target.location_name}",
+                parsed_target,
+                target_approach,
+                target_approach_height_offset,
+            ),
+        ):
+            reach_error = self._check_reachable(
+                label, loc, appr, height_off, effective_grab_offset
+            )
+            if reach_error:
+                return ActionFailed(errors=[reach_error])
+
         if self.pf400_interface is None:
             return None
 
@@ -600,6 +705,16 @@ class PF400Node(RestNode):
         if lid_error:
             return ActionFailed(errors=[lid_error])
 
+        reach_error = self._check_reachable(
+            f"source {source.location_name}",
+            parsed_source,
+            source_approach,
+            source_approach_height_offset,
+            effective_grab_offset,
+        )
+        if reach_error:
+            return ActionFailed(errors=[reach_error])
+
         if self.pf400_interface is None:
             return None
 
@@ -622,7 +737,7 @@ class PF400Node(RestNode):
         name="place_plate",
         description="Place a plate in a target location, optionally moving first to target_approach",
     )
-    def place_plate(  # noqa: C901, PLR0911
+    def place_plate(  # noqa: C901, PLR0911, PLR0912
         self,
         target: Annotated[LocationArgument, "Location to place a plate to"],
     ) -> Optional[ActionFailed]:
@@ -693,6 +808,16 @@ class PF400Node(RestNode):
             gripper_offset_applied, target_loc_offset
         )
 
+        reach_error = self._check_reachable(
+            f"target {target.location_name}",
+            parsed_target,
+            target_approach,
+            target_approach_height_offset,
+            effective_grab_offset,
+        )
+        if reach_error:
+            return ActionFailed(errors=[reach_error])
+
         if self.pf400_interface is None:
             return None
 
@@ -734,6 +859,16 @@ class PF400Node(RestNode):
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
+
+        reach_error = self._check_reachable(
+            f"target {target.location_name}",
+            parsed_target,
+            target_approach,
+            target_approach_height_offset,
+            target_gripper_height_offset,
+        )
+        if reach_error:
+            return ActionFailed(errors=[reach_error])
 
         if self.pf400_interface is None:
             return None

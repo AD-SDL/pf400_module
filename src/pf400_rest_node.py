@@ -10,6 +10,7 @@ from madsci.common.types.node_types import (
     RestNodeConfig,
 )
 from madsci.common.types.resource_types import Asset, Slot
+from madsci.common.utils import new_ulid_str
 from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 
@@ -905,7 +906,7 @@ class PF400Node(RestNode):
 
             lid_resource = self.resource_client.create_resource_from_template(
                 template_name="pf400_lid_slot",
-                resource_name="pf400_lid_slot",
+                resource_name=f"pf400_lid_slot_{new_ulid_str()}",
                 add_to_database=True,
             )
 
@@ -978,6 +979,15 @@ class PF400Node(RestNode):
                 label, loc_arg, appr, height_off, effective_grab_offset
             )
             if reach_error:
+                # The staging slot and lid were created before this check ran, so
+                # refusing here without removing them leaks one of each per refusal.
+                try:
+                    self.resource_client.remove_resource(lid_resource.resource_id)
+                except Exception as cleanup_error:
+                    self.logger.log_warning(
+                        f"Could not remove the temporary lid slot after refusing the "
+                        f"action: {cleanup_error}"
+                    )
                 return ActionFailed(errors=[reach_error])
 
         remove_lid_result = self.pf400_interface.remove_lid(
@@ -997,6 +1007,14 @@ class PF400Node(RestNode):
 
         if not remove_lid_result:
             return ActionFailed(errors=["Failed to remove lid."])
+
+        # The transfer moved the lid out of the staging slot and onto the target, so
+        # the slot has done its job. replace_lid already cleans its slot up;
+        # remove_lid did not, and leaked one slot plus one lid asset per call.
+        try:
+            self.resource_client.remove_resource(lid_resource.resource_id)
+        except Exception as e:
+            self.logger.log_warning(f"Could not remove the temporary lid slot: {e}")
 
         self._set_gripper_offset_applied(0.0)
 
@@ -1045,7 +1063,7 @@ class PF400Node(RestNode):
 
             lid_resource = self.resource_client.create_resource_from_template(
                 template_name="pf400_lid_slot",
-                resource_name="pf400_lid_slot",
+                resource_name=f"pf400_lid_slot_{new_ulid_str()}",
                 add_to_database=True,
             )
         except Exception as e:

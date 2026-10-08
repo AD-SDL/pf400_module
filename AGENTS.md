@@ -98,12 +98,31 @@ parameters change.
 
 ## Simulation mode
 
-Set `simulation: true` to start the node with no hardware connection. Every action runs
-its full pre-flight and then returns success without moving the arm. Use it to validate
+Set `simulation: true` to start the node with no hardware connection. Use it to validate
 workflow steps while the real node is busy with an experiment.
 
+`PF400.__init__` performs no I/O. A real node constructs the object, then calls
+`connect()` and `initialize_robot()`. A simulation node constructs the same object and
+never connects. `send_command` and `send_status_command` return canned replies instead
+of reaching the network, so every sequencing and resource-tracking path runs unchanged.
+There is no second class and no second set of actions.
+
+**A simulation node still updates resources.** The plate moves in the resource graph
+exactly as it would for a real transfer, which is what lets a multi-step workflow be
+checked: step 2 sees the state that step 1 produced. So point a simulation node at a
+**sandbox resource manager**, never at the one the real lab is using.
+
+Two things a simulation node cannot tell you. Its reported joint position is an echo of
+the last commanded move, not a prediction, so never read a position from it and act on
+it. And its view of the lab is a copy, so it cannot know the real lab changed underneath
+it.
+
+Reachability is not simulated. Every pose is checked against the joint soft limits
+before any command is issued, in simulation and on real hardware alike, which is why the
+canned replies do not need to be geometrically meaningful.
+
 Simulation is a startup flag rather than a per-request one on purpose. A flag toggled
-per request on a live node races with concurrent real actions. A node that never built
+per request on a live node races with concurrent real actions. A node that never opened
 a connection cannot move anything whatever its state.
 
 ## Configuration

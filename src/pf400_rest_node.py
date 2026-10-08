@@ -14,7 +14,6 @@ from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 
 from pf400_interface.pf400 import PF400
-from pf400_interface.readonly_resource_client import ReadOnlyResourceClient
 
 
 class PF400NodeConfig(RestNodeConfig):
@@ -46,10 +45,6 @@ class PF400NodeConfig(RestNodeConfig):
     """Run with no hardware connection. Actions perform every validation step and then
     return success without moving the arm. The node cannot write to the resource manager.
     Use this to validate workflows against live lab state while the real node is busy."""
-    simulation_mirrors_node: Optional[str] = None
-    """Name of the real node whose resources this simulation node observes, for example
-    'pf400_piper'. A simulation node cannot create resources of its own, so it reads the
-    real node's gripper to answer questions about what the arm is currently holding."""
 
 
 class PF400Node(RestNode):
@@ -108,55 +103,8 @@ class PF400Node(RestNode):
         ),
     ]
 
-    def _startup_simulation(self) -> None:
-        """Start with no hardware connection and no ability to write lab state.
-
-        Three things differ from a real startup. The resource client is replaced with a
-        read-only one so nothing this node does can desync recorded state from the
-        physical lab. No resource templates are created, because creating them is a
-        write. And no PF400 interface is constructed, so there is no telnet connection
-        and no code path that could move the arm.
-        """
-        self.resource_client = ReadOnlyResourceClient()
-        if self.resource_client.resource_server_url is None:
-            # ResourceClient falls back to an empty local store when it cannot reach the
-            # manager. A validation node in that state sees an empty lab, approves
-            # everything, and is worse than no validation at all. Refuse to start.
-            raise RuntimeError(
-                "Simulation node could not reach the resource manager, so it would "
-                "validate against an empty local store and approve every plan. "
-                "Check the resource server URL and start again."
-            )
-        self.pf400_interface = None
-        self.gripper_resource = None
-
-        mirrored = self.config.simulation_mirrors_node
-        if mirrored:
-            try:
-                self.gripper_resource = self.resource_client.query_resource(
-                    resource_name=f"{mirrored}.gripper", unique=True
-                )
-            except Exception as e:
-                self.logger.log_warning(
-                    f"Simulation node could not read the gripper resource of '{mirrored}': {e}. "
-                    "Actions that depend on what the arm is holding will not be validated."
-                )
-        else:
-            self.logger.log_warning(
-                "simulation_mirrors_node is not set. This node cannot see what the real arm "
-                "is holding, so place_plate validation will be incomplete."
-            )
-
-        self.logger.log_info(
-            "PF400 Node started in SIMULATION mode. No hardware connection, resource "
-            "manager is read-only, actions validate but do not move the arm."
-        )
-
     def startup_handler(self) -> None:
         """Called to (re)initialize the node. Should be used to open connections to devices or initialize any other resources."""
-        if self.config.simulation:
-            self._startup_simulation()
-            return
 
         gripper_slot = Slot(
             resource_name="pf400_gripper",
@@ -235,21 +183,32 @@ class PF400Node(RestNode):
             version="1.0.0",
         )
 
-        if self.config.pf400_ip is None:
+        if self.config.pf400_ip is None and not self.config.simulation:
             raise ValueError("PF400 IP address is not set in the configuration.")
         self.pf400_interface = PF400(
-            host=self.config.pf400_ip,
+            host=self.config.pf400_ip or "",
             port=self.config.pf400_port,
             status_port=self.config.pf400_status_port,
             resource_client=self.resource_client,
             gripper_resource_id=self.gripper_resource.resource_id,
+            simulation=self.config.simulation,
         )
+        if self.config.simulation:
+            self.logger.log_info(
+                "PF400 Node started in SIMULATION mode. No connection is opened and no "
+                "command reaches the arm. Actions run every check and update resources "
+                "as usual, so point this node at a sandbox resource manager, never at "
+                "the one the real lab is using."
+            )
+            return
+        self.pf400_interface.connect()
         self.pf400_interface.initialize_robot()
         self.logger.log_info("PF400 Node initialized.")
 
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""
-        if self.pf400_interface is None:
+        if self.pf400_interface is None or self.pf400_interface.simulation:
+            self.pf400_interface = None
             return
         try:
             self.pf400_interface.disconnect()
@@ -624,9 +583,6 @@ class PF400Node(RestNode):
             if reach_error:
                 return ActionFailed(errors=[reach_error])
 
-        if self.pf400_interface is None:
-            return None
-
         transfer_result = self.pf400_interface.transfer(
             source=parsed_source,
             target=parsed_target,
@@ -650,7 +606,7 @@ class PF400Node(RestNode):
         return None
 
     @action(name="pick_plate", description="Pick a plate from a source location")
-    def pick_plate(  # noqa: C901, PLR0911
+    def pick_plate(  # noqa: PLR0911
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
     ) -> Optional[ActionFailed]:
@@ -692,11 +648,9 @@ class PF400Node(RestNode):
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        if self.pf400_interface is not None:
-            self.pf400_interface.grip_wide = (
-                source_rotation_from_dict
-                and source_rotation_from_dict.lower() == "wide"
-            )
+        self.pf400_interface.grip_wide = (
+            source_rotation_from_dict and source_rotation_from_dict.lower() == "wide"
+        )
 
         location_offset = source_gripper_height_offset or 0.0
         effective_grab_offset = (grab_height_offset or 0.0) + location_offset
@@ -714,9 +668,6 @@ class PF400Node(RestNode):
         )
         if reach_error:
             return ActionFailed(errors=[reach_error])
-
-        if self.pf400_interface is None:
-            return None
 
         pick_result = self.pf400_interface.pick_plate(
             source=parsed_source,
@@ -737,7 +688,7 @@ class PF400Node(RestNode):
         name="place_plate",
         description="Place a plate in a target location, optionally moving first to target_approach",
     )
-    def place_plate(  # noqa: C901, PLR0911, PLR0912
+    def place_plate(  # noqa: C901, PLR0911
         self,
         target: Annotated[LocationArgument, "Location to place a plate to"],
     ) -> Optional[ActionFailed]:
@@ -798,11 +749,9 @@ class PF400Node(RestNode):
                 ]
             )
 
-        if self.pf400_interface is not None:
-            self.pf400_interface.grip_wide = (
-                target_rotation_from_dict
-                and target_rotation_from_dict.lower() == "wide"
-            )
+        self.pf400_interface.grip_wide = (
+            target_rotation_from_dict and target_rotation_from_dict.lower() == "wide"
+        )
 
         effective_grab_offset = (grab_height_offset or 0.0) + max(
             gripper_offset_applied, target_loc_offset
@@ -817,9 +766,6 @@ class PF400Node(RestNode):
         )
         if reach_error:
             return ActionFailed(errors=[reach_error])
-
-        if self.pf400_interface is None:
-            return None
 
         place_result = self.pf400_interface.place_plate(
             target=parsed_target,
@@ -870,9 +816,6 @@ class PF400Node(RestNode):
         if reach_error:
             return ActionFailed(errors=[reach_error])
 
-        if self.pf400_interface is None:
-            return None
-
         self.pf400_interface.move_to_location(
             target=parsed_target,
             target_approach=target_approach or None,
@@ -895,13 +838,10 @@ class PF400Node(RestNode):
         ] = None,
     ) -> None:
         """Retract upward and move to neutral position. Use after move_to_location to retract the arm."""
-        if self.pf400_interface is None:
-            return
-
         self.pf400_interface.move_neutral(height_offset=height_offset)
 
     @action(name="remove_lid", description="Remove a lid from a plate")
-    def remove_lid(  # noqa: C901, PLR0911, PLR0912
+    def remove_lid(  # noqa: C901, PLR0911
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -1002,9 +942,6 @@ class PF400Node(RestNode):
         )
         effective_grab_offset = (grab_height_offset or 0.0) + location_offset
 
-        if self.pf400_interface is None:
-            return None
-
         remove_lid_result = self.pf400_interface.remove_lid(
             source=parsed_source,
             target=parsed_target,
@@ -1032,7 +969,7 @@ class PF400Node(RestNode):
         return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
-    def replace_lid(  # noqa: C901, PLR0911
+    def replace_lid(  # noqa: C901
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -1107,9 +1044,6 @@ class PF400Node(RestNode):
             target_gripper_height_offset or 0.0,
         )
         effective_grab_offset = (grab_height_offset or 0.0) + location_offset
-
-        if self.pf400_interface is None:
-            return None
 
         replace_lid_result = self.pf400_interface.replace_lid(
             source=parsed_source,

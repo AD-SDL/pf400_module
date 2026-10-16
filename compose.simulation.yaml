@@ -1,0 +1,49 @@
+# Runs the PF400 node in SIMULATION mode: no telnet connection, no arm movement.
+#
+# Every action performs its full pre-flight, the joint soft limit checks, and the
+# resource bookkeeping, then returns without issuing a motion command. Use it to
+# validate a workflow while the real node is busy running an experiment.
+#
+# WARNING: a simulation node WRITES to the resource manager. That is deliberate.
+# A multi-step workflow can only be checked if step 1's effect is visible to step 2,
+# so plates move in the resource graph exactly as they would for a real transfer.
+# Point RESOURCE_SERVER_URL at a SANDBOX resource manager seeded from a snapshot,
+# never at the one a real lab is running against.
+#
+#   docker compose -f compose.simulation.yaml up
+#
+# Override the defaults in .env or on the command line, for example:
+#   RESOURCE_SERVER_URL=http://localhost:9003 docker compose -f compose.simulation.yaml up
+
+name: pf400_simulation
+services:
+  pf400_sim:
+    container_name: pf400_sim
+    image: ghcr.io/ad-sdl/pf400_module
+    network_mode: host
+    environment:
+      - USER_ID=${USER_ID:-1000}
+      - GROUP_ID=${GROUP_ID:-1000}
+      # Simulation mode is a startup flag, never a per-request one. A node that
+      # has not opened a connection cannot move the arm whatever its state.
+      - NODE_SIMULATION=true
+      # A distinct name and port, so the simulation node can run alongside the
+      # real one rather than replacing it.
+      - NODE_NAME=${SIM_NODE_NAME:-pf400_sim}
+      - NODE_URL=${SIM_NODE_URL:-http://0.0.0.0:2010}
+      # Read the WARNING above before changing this.
+      - RESOURCE_SERVER_URL=${RESOURCE_SERVER_URL:-http://localhost:8003}
+      - EVENT_SERVER_URL=${EVENT_SERVER_URL:-http://localhost:8001}
+    env_file:
+      - path: .env
+        required: false
+    build:
+      context: .
+      dockerfile: Dockerfile
+      tags:
+        - ghcr.io/ad-sdl/pf400_module:latest
+        - ghcr.io/ad-sdl/pf400_module:dev
+    command: python -m pf400_rest_node
+    volumes:
+      - ./settings.yaml:/home/madsci/settings.yaml
+      - ./.madsci:/home/madsci/.madsci

@@ -14,6 +14,12 @@ from madsci.node_module.helpers import action
 from madsci.node_module.rest_node_module import RestNode
 
 from pf400_interface.pf400 import PF400
+from pf400_interface.pf400_constants import (  # NEW
+    JOINT_NAMES,
+    JOINT_SOFT_LIMIT_MAX,
+    JOINT_SOFT_LIMIT_MIN,
+    JOINT_UNITS,
+)
 from pf400_interface.resource_types import PF400Plate
 
 
@@ -28,6 +34,10 @@ class PF400NodeConfig(RestNodeConfig):
     """Port to connect to the PF400 status server, default is 10000"""
     rate_limit_requests: int = 500
     """Rate limit for requests to the PF400 robot, default is 100 ms"""
+    simulation: bool = False
+    """Run with no hardware connection. Actions perform every validation step and then
+    return success without moving the arm. The node cannot write to the resource manager.
+    Use this to validate workflows against live lab state while the real node is busy."""
 
 
 class PF400Node(RestNode):
@@ -98,7 +108,7 @@ class PF400Node(RestNode):
                 "payload_kg": 0.5,
                 "payload_lb": 1.1,
                 "max_grip_force_newton": 23.0,
-                "grip_width_range": [80.0, 140.0],
+                "grip_width_range": [80.0, 140.0],  # NOTE: This works in RAPID-446
                 "gripper_offset_applied": 0.0,
                 "description": "PF400 robot gripper slot",
             },
@@ -166,20 +176,33 @@ class PF400Node(RestNode):
             version="1.0.0",
         )
 
-        if self.config.pf400_ip is None:
+        if self.config.pf400_ip is None and not self.config.simulation:
             raise ValueError("PF400 IP address is not set in the configuration.")
         self.pf400_interface = PF400(
-            host=self.config.pf400_ip,
+            host=self.config.pf400_ip or "",
             port=self.config.pf400_port,
             status_port=self.config.pf400_status_port,
             resource_client=self.resource_client,
             gripper_resource_id=self.gripper_resource.resource_id,
+            simulation=self.config.simulation,
         )
+        if self.config.simulation:
+            self.logger.log_info(
+                "PF400 Node started in SIMULATION mode. No connection is opened and no "
+                "command reaches the arm. Actions run every check and update resources "
+                "as usual, so point this node at a sandbox resource manager, never at "
+                "the one the real lab is using."
+            )
+            return
+        self.pf400_interface.connect()
         self.pf400_interface.initialize_robot()
         self.logger.log_info("PF400 Node initialized.")
 
     def shutdown_handler(self) -> None:
         """Called to shutdown the node. Should be used to close connections to devices or release any other resources."""
+        if self.pf400_interface is None or self.pf400_interface.simulation:
+            self.pf400_interface = None
+            return
         try:
             self.pf400_interface.disconnect()
             del self.pf400_interface
@@ -191,6 +214,16 @@ class PF400Node(RestNode):
     def state_handler(self) -> None:
         """Periodically called to update the current state of the node."""
         if self.pf400_interface is not None:
+            if self.pf400_interface.simulation:
+                # movement_state is only refreshed by a real command round trip, so in
+                # simulation it stays at its initial 0 and the branches below would
+                # report POWER OFF and log an error every polling interval.
+                self.node_state = {
+                    "pf400_status_code": "SIMULATION",
+                    "current_joint_angles": self.pf400_interface.get_joint_states(),
+                    "simulation": True,
+                }
+                return
             # Getting robot state
             robot_state = self.pf400_interface.movement_state
             current_location = self.pf400_interface.get_joint_states()
@@ -311,6 +344,67 @@ class PF400Node(RestNode):
         gripper.attributes["gripper_offset_applied"] = float(value)
         self.resource_client.update_resource(gripper)
 
+    def _check_joints(self, label: str, representation: object) -> Optional[str]:
+        """Check one pose, or a list of waypoints, against the soft stop limits.
+
+        Returns an error message naming the first joint that is out of range, or None.
+        The robot itself only reports this after the command is sent, as error -1012,
+        by which point the caller has a failed action and no useful reason.
+        """
+        if representation is None:
+            return None
+        poses = representation
+        if poses and not isinstance(poses[0], (list, tuple)):
+            poses = [poses]
+        for index, pose in enumerate(poses):
+            if len(pose) != len(JOINT_NAMES):
+                return (
+                    f"{label} has {len(pose)} joint values, expected "
+                    f"{len(JOINT_NAMES)}."
+                )
+            for joint, value in enumerate(pose):
+                low = JOINT_SOFT_LIMIT_MIN[joint]
+                high = JOINT_SOFT_LIMIT_MAX[joint]
+                if low <= value <= high:
+                    continue
+                name, unit = JOINT_NAMES[joint], JOINT_UNITS[joint]
+                where = f"{label} waypoint {index}" if len(poses) > 1 else label
+                return (
+                    f"{where} is outside the soft envelope: {name} is {value} {unit}, "
+                    f"limit is {low} to {high} {unit}. The arm cannot reach this pose."
+                )
+        return None
+
+    def _check_reachable(
+        self,
+        label: str,
+        location: LocationArgument,
+        approach: Optional[LocationArgument] = None,
+        approach_height_offset: Optional[float] = None,
+        grab_offset: Optional[float] = None,
+    ) -> Optional[str]:
+        """Check the pose, its approach waypoints, and the computed position above it.
+
+        The position above a location is the location with the approach height added to
+        z, so it can sit outside the envelope even when the location itself is fine.
+        """
+        error = self._check_joints(label, location.representation)
+        if error:
+            return error
+        if approach is not None:
+            error = self._check_joints(f"{label} approach", approach.representation)
+            if error:
+                return error
+
+        rise = (
+            PF400.default_approach_height
+            if approach_height_offset is None
+            else approach_height_offset
+        )
+        above = list(location.representation)
+        above[0] += rise + (grab_offset or 0.0)
+        return self._check_joints(f"position above {label}", above)
+
     def _validate_lid_clearance(
         self,
         plate_resource: Resource,
@@ -342,7 +436,7 @@ class PF400Node(RestNode):
     @action(
         name="transfer", description="Transfer a plate from one location to another"
     )
-    def transfer(  # noqa: C901, PLR0911
+    def transfer(  # noqa: C901, PLR0911, PLR0912
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -437,6 +531,63 @@ class PF400Node(RestNode):
         if lid_error:
             return ActionFailed(errors=[lid_error])
 
+        # Lifted out of the driver so the rejection reaches the caller with a reason.
+        # pf400.py raises on a bad rotation value and returns a bare False when a
+        # rotation change has no deck, which the node used to flatten into a generic
+        # "failed to transfer" with the cause left in a log line.
+        for label, rotation in (
+            ("source", source_rotation_from_dict),
+            ("target", target_rotation_from_dict),
+        ):
+            if rotation is not None and rotation.lower() not in ("wide", "narrow"):
+                return ActionFailed(
+                    errors=[
+                        f"Invalid {label} plate_rotation {rotation!r}. Expected 'wide', "
+                        "'narrow', or no value, which is treated as narrow."
+                    ]
+                )
+
+        source_is_wide = (
+            bool(source_rotation_from_dict)
+            and source_rotation_from_dict.lower() == "wide"
+        )
+        target_is_wide = (
+            bool(target_rotation_from_dict)
+            and target_rotation_from_dict.lower() == "wide"
+        )
+        if source_is_wide != target_is_wide and rotation_deck is None:
+            return ActionFailed(
+                errors=[
+                    f"Transfer changes plate rotation from "
+                    f"{'wide' if source_is_wide else 'narrow'} at {source.location_name} "
+                    f"to {'wide' if target_is_wide else 'narrow'} at "
+                    f"{target.location_name}. The arm changes rotation by setting the "
+                    "plate down and re-gripping it, so supply a rotation_deck location."
+                ]
+            )
+
+        # Check that source is reachable
+        source_reach_error = self._check_reachable(
+            label=f"source {source.location_name}",
+            location=parsed_source,
+            approach=source_approach,
+            approach_height_offset=source_approach_height_offset,
+            grab_offset=None,
+        )
+        if source_reach_error:
+            return ActionFailed(errors=[source_reach_error])
+
+        # Check that target is reachable
+        target_reach_error = self._check_reachable(
+            label=f"target {target.location_name}",
+            location=parsed_target,
+            approach=target_approach,
+            approach_height_offset=target_approach_height_offset,
+            grab_offset=None,
+        )
+        if target_reach_error:
+            return ActionFailed(errors=[source_reach_error])
+
         transfer_result = self.pf400_interface.transfer(
             source=parsed_source,
             target=parsed_target,
@@ -460,7 +611,7 @@ class PF400Node(RestNode):
         return None
 
     @action(name="pick_plate", description="Pick a plate from a source location")
-    def pick_plate(
+    def pick_plate(  # noqa: C901
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
     ) -> Optional[ActionFailed]:
@@ -528,6 +679,16 @@ class PF400Node(RestNode):
         lid_error = self._validate_lid_clearance(plate_resource, effective_grab_offset)
         if lid_error:
             return ActionFailed(errors=[lid_error])
+
+        reach_error = self._check_reachable(
+            f"source {source.location_name}",
+            parsed_source,
+            source_approach,
+            source_approach_height_offset,
+            effective_grab_offset,
+        )
+        if reach_error:
+            return ActionFailed(errors=[reach_error])
 
         pick_result = self.pf400_interface.pick_plate(
             source=parsed_source,
@@ -631,6 +792,16 @@ class PF400Node(RestNode):
             gripper_offset_applied, target_loc_offset
         )
 
+        reach_error = self._check_reachable(
+            f"target {target.location_name}",
+            parsed_target,
+            target_approach,
+            target_approach_height_offset,
+            effective_grab_offset,
+        )
+        if reach_error:
+            return ActionFailed(errors=[reach_error])
+
         place_result = self.pf400_interface.place_plate(
             target=parsed_target,
             target_approach=target_approach,
@@ -669,6 +840,16 @@ class PF400Node(RestNode):
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
+
+        reach_error = self._check_reachable(
+            f"target {target.location_name}",
+            parsed_target,
+            target_approach,
+            target_approach_height_offset,
+            target_gripper_height_offset,
+        )
+        if reach_error:
+            return ActionFailed(errors=[reach_error])
 
         self.pf400_interface.move_to_location(
             target=parsed_target,
@@ -751,6 +932,7 @@ class PF400Node(RestNode):
                 errors=[f"Resource manager error during remove lid validation: {e}"]
             )
 
+        # Parse the source and target location representations.
         try:
             (
                 parsed_source,
@@ -758,6 +940,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
+                _,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -765,14 +948,37 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
+                _,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
-        # Set source resource id to the lid slot resource id
+        # Set source resource ID to the lid slot resource ID.
         parsed_source.resource_id = plate_resource.lid_slot_resource.resource_id
+
+        # Check that source is reachable
+        source_reach_error = self._check_reachable(
+            label=f"source {source.location_name}",
+            location=parsed_source,
+            approach=source_approach,
+            approach_height_offset=source_approach_height_offset,
+            grab_offset=None,
+        )
+        if source_reach_error:
+            return ActionFailed(errors=[source_reach_error])
+
+        # Check that target is reachable
+        target_reach_error = self._check_reachable(
+            label=f"target {target.location_name}",
+            location=parsed_target,
+            approach=target_approach,
+            approach_height_offset=target_approach_height_offset,
+            grab_offset=None,
+        )
+        if target_reach_error:
+            return ActionFailed(errors=[source_reach_error])
 
         remove_lid_result = self.pf400_interface.remove_lid(
             source=parsed_source,
@@ -797,7 +1003,7 @@ class PF400Node(RestNode):
         return None
 
     @action(name="replace_lid", description="Replace a lid on a plate")
-    def replace_lid(  # noqa: C901
+    def replace_lid(  # noqa: C901, PLR0912
         self,
         source: Annotated[LocationArgument, "Location to pick a plate from"],
         target: Annotated[LocationArgument, "Location to place a plate to"],
@@ -867,6 +1073,7 @@ class PF400Node(RestNode):
                 source_rotation_from_dict,
                 source_approach_height_offset,
                 source_height_limit,
+                _,
             ) = self._parse_location_representation(source)
             (
                 parsed_target,
@@ -874,13 +1081,37 @@ class PF400Node(RestNode):
                 target_rotation_from_dict,
                 target_approach_height_offset,
                 target_height_limit,
+                _,
             ) = self._parse_location_representation(target)
         except Exception as e:
             return ActionFailed(
                 errors=[f"Failed to parse location representation: {e}"]
             )
 
+        # Set target resource ID to the lid slot resource ID.
         parsed_target.resource_id = lid_slot_resource.resource_id
+
+        # Check that source is reachable
+        source_reach_error = self._check_reachable(
+            label=f"source {source.location_name}",
+            location=parsed_source,
+            approach=source_approach,
+            approach_height_offset=source_approach_height_offset,
+            grab_offset=None,
+        )
+        if source_reach_error:
+            return ActionFailed(errors=[source_reach_error])
+
+        # Check that target is reachable
+        target_reach_error = self._check_reachable(
+            label=f"target {target.location_name}",
+            location=parsed_target,
+            approach=target_approach,
+            approach_height_offset=target_approach_height_offset,
+            grab_offset=None,
+        )
+        if target_reach_error:
+            return ActionFailed(errors=[source_reach_error])
 
         replace_lid_result = self.pf400_interface.replace_lid(
             source=parsed_source,

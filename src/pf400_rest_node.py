@@ -368,14 +368,11 @@ class PF400Node(RestNode):
                             source_resource.children[-1]
                         )
                     except Exception as e:
-                        self.logger.log_error(
-                            f"Plate resource at source does not match PF400 plate attributes requirements. \n{source_resource.children[-1]} \n{e}"
+                        self.logger.log_warning(
+                            f"Plate resource at source does not match PF400 plate attributes requirements. \n{source_resource.children[-1]} \n{e}, using default grab height offset of 0.0"
+
                         )
-                        return ActionFailed(
-                            errors=[
-                                f"Plate resource at source does not match PF400 plate attributes requirements. \n{source_resource.children[-1]} \n{e}"
-                            ]
-                        )
+                        plate_resource = PF400Plate(grab_height_offset=0.0)
 
             if target.resource_id:
                 target_resource = self.resource_client.get_resource(target.resource_id)

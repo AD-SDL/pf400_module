@@ -372,7 +372,7 @@ class PF400Node(RestNode):
                             f"Plate resource at source does not match PF400 plate attributes requirements. \n{source_resource.children[-1]} \n{e}, using default grab height offset of 0.0"
 
                         )
-                        plate_resource = PF400Plate(grab_height_offset=0.0)
+                        plate_resource = PF400Plate(grab_height_offset=0.0, has_lid=False)
 
             if target.resource_id:
                 target_resource = self.resource_client.get_resource(target.resource_id)

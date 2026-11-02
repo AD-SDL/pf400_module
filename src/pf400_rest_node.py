@@ -488,8 +488,9 @@ class PF400Node(RestNode):
                             f"attributes requirements.\n"
                             f"{source_resource.children[-1]}\n{e}"
                         )
-                        self.logger.log_error(error_message)
-                        failure = ActionFailed(errors=[error_message])
+                        self.logger.log_warning(error_message)
+                        plate_resource = PF400Plate(grab_height_offset=0.0, has_lid=False)
+
 
         except Exception as e:
             failure = ActionFailed(
